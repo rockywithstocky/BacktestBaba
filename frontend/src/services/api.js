@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api';
-const WS_URL = 'ws://localhost:8000/ws';
+const API_URL = 'https://backtestbaba-api.onrender.com/api';
+const WS_URL = 'wss://backtestbaba-api.onrender.com/ws';
 
 export const runBacktest = async (file) => {
     const formData = new FormData();
