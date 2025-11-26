@@ -1,0 +1,18 @@
+# Progress Bar UI
+
+Create a progress bar component that matches the design below.
+
+![Progress Bar UI](progress_bar.png)
+
+**Requirements:**
+- **Layout:**
+  - Top row: "Processing: [Status]..." (left) and Percentage (right).
+  - Middle: Visual progress bar track and fill.
+  - Bottom row: "[Current] / [Total] signals processed" (right aligned).
+- **Styling:**
+  - Dark mode theme.
+  - "Starting..." text should be blue (e.g., `#3b82f6`).
+  - Progress bar background: Dark gray (e.g., `#374151`).
+  - Progress bar fill: Blue.
+  - Text color: Light gray/White.
+  - Container: Rounded corners, dashed border (optional based on context).
