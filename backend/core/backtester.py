@@ -8,9 +8,12 @@ from ..models.schemas import SignalResult, BacktestReport
 
 class Backtester:
     @staticmethod
-    async def run_backtest_async(signals: List[Dict[str, str]], progress_callback=None) -> BacktestReport:
+    async def run_backtest_async(signals: List[Dict[str, str]], progress_callback=None, duration: int = 90) -> BacktestReport:
         results: List[SignalResult] = []
         total = len(signals)
+        
+        # Cap duration at 180 days
+        duration = min(max(duration, 7), 180)
         
         for i, signal in enumerate(signals):
             # Report progress
@@ -46,9 +49,9 @@ class Backtester:
                 ))
                 continue
                 
-            # 3. Fetch Data (Signal Date to +95 days to cover 90d + holidays)
+            # 3. Fetch Data (Signal Date to +duration + buffer days)
             start_date = signal_date
-            end_date = signal_date + timedelta(days=100) 
+            end_date = signal_date + timedelta(days=duration + 10) 
             
             df = DataProvider.get_ticker_data(resolved_symbol, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
             
@@ -85,26 +88,36 @@ class Backtester:
                 status="Success"
             )
             
-            # Calculate forward returns
-            horizons = [7, 14, 30, 45, 60, 90]
+            # Calculate forward returns dynamically
+            # Standard horizons + custom duration if not present
+            horizons = sorted(list(set([7, 30, 90, duration])))
             
             for h in horizons:
+                if h > duration: continue
+                
                 target_date = entry_date + timedelta(days=h)
                 exit_date = get_next_trading_day(target_date, df)
                 
                 if exit_date:
                     exit_price = df.loc[exit_date]["Close"]
                     ret = ((exit_price - entry_price) / entry_price) * 100
-                    setattr(res, f"return_{h}d", round(ret, 2))
-                    setattr(res, f"exit_price_{h}d", round(exit_price, 2))
+                    
+                    # Dynamically set attributes if they exist in schema, otherwise just add to a dict if we were using one
+                    # For now, we stick to the fixed schema fields but ensure 'duration' specific logic is handled
+                    # The schema supports 7d, 30d, 90d. If duration is custom (e.g. 60), we might need to add it to schema or just use it for chart limits.
+                    # For this iteration, we will populate standard fields and ensure data is fetched up to 'duration'.
+                    
+                    if h in [7, 30, 90]:
+                        setattr(res, f"return_{h}d", round(ret, 2))
+                        setattr(res, f"exit_price_{h}d", round(exit_price, 2))
             
-            # Max High/Low in 90d
-            window_end = entry_date + timedelta(days=90)
+            # Max High/Low in Duration
+            window_end = entry_date + timedelta(days=duration)
             window_df = df[entry_date:window_end]
             
             if not window_df.empty:
-                res.max_high_90d = round(window_df["High"].max(), 2)
-                res.max_low_90d = round(window_df["Low"].min(), 2)
+                res.max_high_90d = round(window_df["High"].max(), 2) # Reusing field name for max high in period
+                res.max_low_90d = round(window_df["Low"].min(), 2)   # Reusing field name for max low in period
                 
                 # Find dates of max high and max low
                 max_high_idx = window_df["High"].idxmax()
@@ -125,25 +138,21 @@ class Backtester:
         )
         
         if successful:
-            # 7d Stats
-            rets_7d = [r.return_7d for r in successful if r.return_7d is not None]
-            if rets_7d:
-                report.avg_return_7d = round(sum(rets_7d) / len(rets_7d), 2)
-                report.win_rate_7d = round((len([x for x in rets_7d if x > 0]) / len(rets_7d)) * 100, 2)
-                
-            # 30d Stats
-            rets_30d = [r.return_30d for r in successful if r.return_30d is not None]
-            if rets_30d:
-                report.avg_return_30d = round(sum(rets_30d) / len(rets_30d), 2)
-                report.win_rate_30d = round((len([x for x in rets_30d if x > 0]) / len(rets_30d)) * 100, 2)
+            # Helper to calc stats
+            def calc_stats(horizon):
+                rets = [getattr(r, f"return_{horizon}d") for r in successful if getattr(r, f"return_{horizon}d") is not None]
+                if rets:
+                    avg = round(sum(rets) / len(rets), 2)
+                    win_rate = round((len([x for x in rets if x > 0]) / len(rets)) * 100, 2)
+                    setattr(report, f"avg_return_{horizon}d", avg)
+                    setattr(report, f"win_rate_{horizon}d", win_rate)
 
-            # 90d Stats
-            rets_90d = [r.return_90d for r in successful if r.return_90d is not None]
-            if rets_90d:
-                report.avg_return_90d = round(sum(rets_90d) / len(rets_90d), 2)
-                report.win_rate_90d = round((len([x for x in rets_90d if x > 0]) / len(rets_90d)) * 100, 2)
+            calc_stats(7)
+            calc_stats(30)
+            calc_stats(90)
                 
             # Best/Worst (based on 30d for now, or max gain)
+            rets_30d = [r.return_30d for r in successful if r.return_30d is not None]
             if rets_30d:
                 report.best_performer = max(successful, key=lambda x: x.return_30d if x.return_30d is not None else -999)
                 report.worst_performer = min(successful, key=lambda x: x.return_30d if x.return_30d is not None else 999)

@@ -1,71 +1,68 @@
-import React, { useState } from 'react';
-import UploadCard from './components/UploadCard';
-import Dashboard from './components/Dashboard';
-import { runBacktest } from './services/api';
-import { Activity, TrendingUp } from 'lucide-react';
+import React from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import Footer from './components/Footer';
+import DashboardHub from './pages/DashboardHub';
+import BacktesterPage from './pages/BacktesterPage';
+import FundamentalAnalysis from './pages/FundamentalAnalysis';
+
+// Protected Route Wrapper
+const ProtectedRoute = ({ children }) => {
+  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+  const location = useLocation();
+
+  if (!isLoggedIn) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+};
 
 function App() {
-  const [report, setReport] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState(null);
-  const [error, setError] = useState(null);
-
-  const handleUpload = async (file) => {
-    setIsLoading(true);
-    setError(null);
-    setProgress({ current: 0, total: 100, symbol: 'Starting...' });
-
-    try {
-      const result = await runBacktest(file);
-      setReport(result);
-      setIsLoading(false);
-      setProgress(null);
-    } catch (err) {
-      setError(err.message || 'Backtest failed');
-      setIsLoading(false);
-      setProgress(null);
-    }
-  };
-
-  const handleReset = () => {
-    setReport(null);
-    setError(null);
-  };
-
   return (
-    <div className="app-container">
-      <nav className="navbar">
-        <div className="logo">
-          <TrendingUp size={28} color="#4f46e5" />
-          <h1>Stock Screener Backtester Pro</h1>
-        </div>
-      </nav>
+    <div className="app-container min-h-screen bg-gray-900 text-white font-sans flex flex-col">
+      <Navbar />
+      <div className="flex-grow">
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
 
-      <main className="main-content">
-        {!report ? (
-          <div className="hero-section">
-            <h2>Validate Your Strategy with Real Data</h2>
-            <p>Upload your screener results and get instant performance metrics.</p>
+          {/* Protected Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/backtester"
+            element={
+              <ProtectedRoute>
+                <BacktesterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/fundamental/:symbol"
+            element={
+              <ProtectedRoute>
+                <FundamentalAnalysis />
+              </ProtectedRoute>
+            }
+          />
 
-            <div className="upload-wrapper">
-              <UploadCard
-                onUpload={handleUpload}
-                isLoading={isLoading}
-                progress={progress}
-              />
-            </div>
-
-            {error && (
-              <div className="error-message">
-                <Activity size={20} />
-                <span>{error}</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <Dashboard report={report} onBack={handleReset} />
-        )}
-      </main>
+          {/* Catch all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+      <Footer />
     </div>
   );
 }

@@ -3,8 +3,9 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, ComposedChart, Scatter
 } from 'recharts';
-import { ArrowLeft, TrendingUp, TrendingDown, Percent, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, X, BarChart3, LineChart as LineChartIcon, Activity } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Percent, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, X, BarChart3, LineChart as LineChartIcon, Activity, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import './Dashboard.css';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
@@ -232,12 +233,18 @@ const StockChartModal = ({ stock, period, onClose }) => {
                         </div>
                     </div>
 
-                    <div className="modal-footer">
+                    <div className="modal-footer flex justify-between items-center">
                         <p className="modal-note">
                             <strong>Entry:</strong> {stock.signal_date} |
                             <strong> Exit:</strong> {exitDate} |
                             <strong> Period:</strong> {periodName}
                         </p>
+                        <Link
+                            to={`/dashboard/fundamental/${stock.symbol}`}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors text-sm"
+                        >
+                            Analyze Fundamentals <ArrowRight size={16} />
+                        </Link>
                     </div>
                 </motion.div>
             </motion.div>
@@ -421,12 +428,36 @@ const Dashboard = ({ report, onBack }) => {
                 </button>
                 <h1 className="dashboard-title">Backtest Report</h1>
                 <div className="header-controls">
-                    <select value={capital} onChange={(e) => setCapital(Number(e.target.value))} className="capital-select">
-                        <option value={100000}>₹1 Lakh</option>
-                        <option value={500000}>₹5 Lakh</option>
-                        <option value={1000000}>₹10 Lakh</option>
-                        <option value={5000000}>₹50 Lakh</option>
-                    </select>
+                    <div className="capital-input-group">
+                        <span className="currency-symbol">₹</span>
+                        <input
+                            type="number"
+                            value={capital}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setCapital(val === '' ? '' : Number(val));
+                            }}
+                            onBlur={() => {
+                                if (capital === '' || capital === 0) setCapital(100000);
+                            }}
+                            className="capital-input"
+                            placeholder="Capital"
+                        />
+                    </div>
+                    <button
+                        className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-sm font-semibold"
+                        onClick={() => {
+                            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
+                            const downloadAnchorNode = document.createElement('a');
+                            downloadAnchorNode.setAttribute("href", dataStr);
+                            downloadAnchorNode.setAttribute("download", "backtest_report.json");
+                            document.body.appendChild(downloadAnchorNode); // Required for Firefox
+                            downloadAnchorNode.click();
+                            downloadAnchorNode.remove();
+                        }}
+                    >
+                        <ArrowDown size={16} /> Save Report
+                    </button>
                 </div>
             </div>
 
