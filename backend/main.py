@@ -10,10 +10,10 @@ from backend.models.schemas import BacktestReport
 
 app = FastAPI(title="Stock Screener Backtester Pro")
 
-# CORS — configure via CORS_ORIGINS env var (comma-separated), defaults to localhost for dev
+# CORS — configure via CORS_ORIGINS env var (comma-separated), defaults to localhost + production for dev
 cors_origins = os.environ.get(
     "CORS_ORIGINS",
-    "http://localhost:5173,http://localhost:5174"
+    "http://localhost:5173,http://localhost:5174,https://chartchampion.vercel.app"
 ).split(",")
 
 app.add_middleware(
