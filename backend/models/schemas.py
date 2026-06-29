@@ -50,8 +50,17 @@ class BacktestReport(BaseModel):
     avg_return_7d: Optional[float] = None
     win_rate_7d: Optional[float] = None
     
+    avg_return_14d: Optional[float] = None
+    win_rate_14d: Optional[float] = None
+    
     avg_return_30d: Optional[float] = None
     win_rate_30d: Optional[float] = None
+    
+    avg_return_45d: Optional[float] = None
+    win_rate_45d: Optional[float] = None
+    
+    avg_return_60d: Optional[float] = None
+    win_rate_60d: Optional[float] = None
     
     avg_return_90d: Optional[float] = None
     win_rate_90d: Optional[float] = None

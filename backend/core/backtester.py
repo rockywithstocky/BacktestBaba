@@ -1,3 +1,4 @@
+import asyncio
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import List, Dict
@@ -11,54 +12,159 @@ class Backtester:
     async def run_backtest_async(signals: List[Dict[str, str]], progress_callback=None, duration: int = 90) -> BacktestReport:
         results: List[SignalResult] = []
         total = len(signals)
-        
-        # Cap duration at 180 days
         duration = min(max(duration, 7), 180)
         
+        # --- Phase A: Resolution & Bounds Calculation ---
+        parsed_signals = [] 
+        unique_resolved_symbols = [] # Deterministic ordering
+        seen_symbols = set()
+        
+        global_start = None
+        global_end = None
+        
+        # Progress spans Phase A (resolution) and Phase C (computation)
+        total_steps = total * 2
+        
+        # If progress callback exists, notify we are resolving
+        if progress_callback:
+            await progress_callback(0, total_steps, "Initializing...")
+            
         for i, signal in enumerate(signals):
-            # Report progress
-            if progress_callback:
-                await progress_callback(i + 1, total, signal.get("symbol") or "Unknown")
-
             raw_symbol = signal.get("symbol") or signal.get("Symbol")
             date_str = signal.get("date") or signal.get("Date")
             
+            if progress_callback:
+                # Phase A takes up the first half of the progress bar
+                await progress_callback(i + 1, total_steps, f"Resolving: {raw_symbol}")
+                
             if not raw_symbol or not date_str:
+                parsed_signals.append({"status": "Invalid Input", "raw": str(raw_symbol), "date": str(date_str)})
                 continue
                 
-            # 1. Resolve Symbol
-            resolved_symbol = SymbolResolver.resolve(raw_symbol)
+            resolved_symbol = await asyncio.to_thread(SymbolResolver.resolve, raw_symbol)
             if not resolved_symbol:
-                results.append(SignalResult(
-                    symbol=raw_symbol,
-                    signal_date=date_str,
-                    entry_price=0.0,
-                    status="Symbol Not Found"
-                ))
+                parsed_signals.append({"status": "Symbol Not Found", "raw": raw_symbol, "date": date_str})
                 continue
                 
-            # 2. Parse Date
             try:
                 signal_date = parse_date(date_str)
             except ValueError:
-                results.append(SignalResult(
-                    symbol=resolved_symbol,
-                    signal_date=date_str,
-                    entry_price=0.0,
-                    status="Invalid Date"
-                ))
+                parsed_signals.append({"status": "Invalid Date", "raw": resolved_symbol, "date": date_str})
                 continue
                 
-            # 3. Fetch Data (Signal Date to +duration + buffer days)
             start_date = signal_date
             end_date = signal_date + timedelta(days=duration + 10) 
             
-            df = DataProvider.get_ticker_data(resolved_symbol, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
+            if global_start is None or start_date < global_start:
+                global_start = start_date
+            if global_end is None or end_date > global_end:
+                global_end = end_date
+                
+            parsed_signals.append({
+                "status": "Valid",
+                "raw": raw_symbol,
+                "resolved": resolved_symbol,
+                "date_str": date_str,
+                "signal_date": signal_date,
+                "start_date": start_date,
+                "end_date": end_date
+            })
             
-            if df.empty:
+            if resolved_symbol not in seen_symbols:
+                seen_symbols.add(resolved_symbol)
+                unique_resolved_symbols.append(resolved_symbol)
+
+        # --- Phase B: Bulk Fetching & Enrichment ---
+        bulk_df = None
+        if progress_callback:
+            await progress_callback(total, total_steps, "Fetching historical data...")
+            
+        if unique_resolved_symbols and global_start and global_end:
+            print(f"[BATCH] Fetching {len(unique_resolved_symbols)} unique symbols from {global_start.strftime('%Y-%m-%d')} to {global_end.strftime('%Y-%m-%d')}...")
+            # We fetch everything in one go. If list is massive (>100), yfinance chunks internally anyway.
+            bulk_df = await asyncio.to_thread(
+                DataProvider.get_bulk_ticker_data,
+                unique_resolved_symbols,
+                global_start.strftime("%Y-%m-%d"),
+                global_end.strftime("%Y-%m-%d")
+            )
+            
+        metadata_map = {}
+        if unique_resolved_symbols:
+            if progress_callback:
+                await progress_callback(total, total_steps, "Enriching metadata...")
+                
+            print(f"[ENRICHMENT] Fetching metadata for {len(unique_resolved_symbols)} symbols...")
+            sem = asyncio.Semaphore(10)
+            
+            async def fetch_meta(sym):
+                async with sem:
+                    return sym, await asyncio.to_thread(DataProvider.get_ticker_info, sym)
+                    
+            meta_results = await asyncio.gather(*(fetch_meta(s) for s in unique_resolved_symbols))
+            metadata_map = dict(meta_results)
+            
+        # --- Phase C: Calculation Loop ---
+        fallback_count = 0
+        
+        for i, p_sig in enumerate(parsed_signals):
+            if progress_callback:
+                # Phase C takes the second half of the progress bar
+                await progress_callback(total + i + 1, total_steps, f"Computing: {p_sig.get('raw') or 'Unknown'}")
+
+            if p_sig["status"] != "Valid":
+                # Normalize date to YYYY-MM-DD for failed signals too
+                raw_date = p_sig.get("date", "Unknown")
+                try:
+                    normalized_date = parse_date(raw_date).strftime("%Y-%m-%d") if raw_date != "Unknown" else raw_date
+                except (ValueError, AttributeError):
+                    normalized_date = raw_date
+                results.append(SignalResult(
+                    symbol=p_sig.get("raw", "Unknown"),
+                    signal_date=normalized_date,
+                    entry_price=0.0,
+                    status=p_sig["status"]
+                ))
+                continue
+                
+            resolved_symbol = p_sig["resolved"]
+            signal_date = p_sig["signal_date"]
+            date_str = p_sig["date_str"]
+            
+            df = None
+            
+            # Slicing Logic
+            # yf.download(group_by='ticker') always returns MultiIndex, even for 1 symbol
+            if bulk_df is not None and not bulk_df.empty:
+                try:
+                    if isinstance(bulk_df.columns, pd.MultiIndex):
+                        if resolved_symbol in bulk_df.columns.get_level_values(0):
+                            df = bulk_df[resolved_symbol].dropna(how='all')
+                        else:
+                            print(f"[SLICE MISS] {resolved_symbol} not found in bulk_df columns")
+                    else:
+                        # Flat index fallback (shouldn't happen with group_by='ticker')
+                        print(f"[SLICE INFO] Flat index detected for {resolved_symbol}, using bulk_df directly")
+                        df = bulk_df.copy()
+                except Exception as e:
+                    print(f"[SLICE ERROR] {resolved_symbol}: {e} | columns_type={type(bulk_df.columns).__name__}")
+                    df = None
+            
+            # Fallback path (the old sequential logic)
+            if df is None or df.empty:
+                fallback_count += 1
+                print(f"[FALLBACK] Triggered sequential fetch for {resolved_symbol}...")
+                df = await asyncio.to_thread(
+                    DataProvider.get_ticker_data,
+                    resolved_symbol,
+                    p_sig["start_date"].strftime("%Y-%m-%d"),
+                    p_sig["end_date"].strftime("%Y-%m-%d")
+                )
+            
+            if df is None or df.empty:
                 results.append(SignalResult(
                     symbol=resolved_symbol,
-                    signal_date=date_str,
+                    signal_date=signal_date.strftime("%Y-%m-%d"),
                     entry_price=0.0,
                     status="No Data"
                 ))
@@ -85,12 +191,14 @@ class Backtester:
                 symbol=resolved_symbol,
                 signal_date=entry_date.strftime("%Y-%m-%d"),
                 entry_price=entry_price,
+                sector=metadata_map.get(resolved_symbol, {}).get("sector"),
+                market_cap=str(metadata_map.get(resolved_symbol, {}).get("marketCap")) if metadata_map.get(resolved_symbol, {}).get("marketCap") is not None else None,
                 status="Success"
             )
             
             # Calculate forward returns dynamically
             # Standard horizons + custom duration if not present
-            horizons = sorted(list(set([7, 30, 90, duration])))
+            horizons = sorted(list(set([7, 14, 30, 45, 60, 90, duration])))
             
             for h in horizons:
                 if h > duration: continue
@@ -106,8 +214,9 @@ class Backtester:
                     # For now, we stick to the fixed schema fields but ensure 'duration' specific logic is handled
                     # The schema supports 7d, 30d, 90d. If duration is custom (e.g. 60), we might need to add it to schema or just use it for chart limits.
                     # For this iteration, we will populate standard fields and ensure data is fetched up to 'duration'.
+                    # The schema supports 7d, 14d, 30d, 45d, 60d, 90d.
                     
-                    if h in [7, 30, 90]:
+                    if h in [7, 14, 30, 45, 60, 90]:
                         setattr(res, f"return_{h}d", round(ret, 2))
                         setattr(res, f"exit_price_{h}d", round(exit_price, 2))
             
@@ -148,7 +257,10 @@ class Backtester:
                     setattr(report, f"win_rate_{horizon}d", win_rate)
 
             calc_stats(7)
+            calc_stats(14)
             calc_stats(30)
+            calc_stats(45)
+            calc_stats(60)
             calc_stats(90)
                 
             # Best/Worst (based on 30d for now, or max gain)

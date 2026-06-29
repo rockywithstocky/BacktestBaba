@@ -10,247 +10,7 @@ import './Dashboard.css';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
 
-// Enhanced Stock Chart Modal Component with Chart Type Switching
-const StockChartModal = ({ stock, period, onClose }) => {
-    const [chartType, setChartType] = useState('area'); // 'area', 'line', 'bar'
-
-    if (!stock) return null;
-
-    const periodKey = `return_${period}`;
-    const exitPriceKey = `exit_price_${period}`;
-    const periodDays = period === '7d' ? 7 : period === '30d' ? 30 : 90;
-    const periodName = period === '7d' ? '7 Days' : period === '30d' ? '30 Days' : '90 Days';
-
-    // Calculate exit date
-    const getExitDate = (entryDateStr, days) => {
-        const date = new Date(entryDateStr);
-        date.setDate(date.getDate() + days);
-        return date.toLocaleDateString('en-IN');
-    };
-
-    const exitDate = getExitDate(stock.signal_date, periodDays);
-    const returnValue = stock[periodKey];
-    const isPositive = returnValue > 0;
-
-    // Create comprehensive chart data
-    const chartData = [
-        {
-            date: stock.signal_date,
-            price: stock.entry_price,
-            type: 'Entry',
-            marker: '🟢'
-        },
-        {
-            date: exitDate,
-            price: stock[exitPriceKey],
-            type: 'Exit',
-            marker: isPositive ? '🟢' : '🔴'
-        },
-        {
-            date: stock.max_high_date || 'N/A',
-            price: stock.max_high_90d,
-            type: 'Max High',
-            marker: '⬆️'
-        },
-        {
-            date: stock.max_low_date || 'N/A',
-            price: stock.max_low_90d,
-            type: 'Max Low',
-            marker: '⬇️'
-        }
-    ].filter(d => d.price !== null && d.price !== undefined);
-
-    // Sort by date for proper line rendering
-    const sortedChartData = [...chartData].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            const data = payload[0].payload;
-            return (
-                <div className="custom-tooltip">
-                    <p className="tooltip-label">{data.marker} {data.type}</p>
-                    <p className="tooltip-date"><strong>Date:</strong> {data.date}</p>
-                    <p className="tooltip-price"><strong>Price:</strong> ₹{data.price?.toFixed(2)}</p>
-                </div>
-            );
-        }
-        return null;
-    };
-
-    return (
-        <AnimatePresence>
-            <motion.div
-                className="modal-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={onClose}
-            >
-                <motion.div
-                    className="modal-content"
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="modal-header">
-                        <div>
-                            <h3 className="modal-title">{stock.symbol}</h3>
-                            <p className="modal-subtitle">{periodName} Performance</p>
-                        </div>
-                        <button className="modal-close" onClick={onClose}>
-                            <X size={24} />
-                        </button>
-                    </div>
-
-                    {/* Chart Type Switcher */}
-                    <div className="chart-type-switcher">
-                        <button
-                            className={`chart-type-btn ${chartType === 'area' ? 'active' : ''}`}
-                            onClick={() => setChartType('area')}
-                        >
-                            <Activity size={18} /> Area
-                        </button>
-                        <button
-                            className={`chart-type-btn ${chartType === 'line' ? 'active' : ''}`}
-                            onClick={() => setChartType('line')}
-                        >
-                            <LineChartIcon size={18} /> Line
-                        </button>
-                        <button
-                            className={`chart-type-btn ${chartType === 'bar' ? 'active' : ''}`}
-                            onClick={() => setChartType('bar')}
-                        >
-                            <BarChart3 size={18} /> Bar
-                        </button>
-                    </div>
-
-                    <div className="modal-stats">
-                        <div className="modal-stat">
-                            <span className="modal-stat-label">Return</span>
-                            <span className={`modal-stat-value ${isPositive ? 'positive' : 'negative'}`}>
-                                {returnValue > 0 ? '+' : ''}{returnValue?.toFixed(2)}%
-                            </span>
-                        </div>
-                        <div className="modal-stat">
-                            <span className="modal-stat-label">Entry</span>
-                            <span className="modal-stat-value">₹{stock.entry_price?.toFixed(2)}</span>
-                            <span className="modal-stat-date">{stock.signal_date}</span>
-                        </div>
-                        <div className="modal-stat">
-                            <span className="modal-stat-label">Exit</span>
-                            <span className="modal-stat-value">₹{stock[exitPriceKey]?.toFixed(2)}</span>
-                            <span className="modal-stat-date">{exitDate}</span>
-                        </div>
-                        <div className="modal-stat">
-                            <span className="modal-stat-label">Max High</span>
-                            <span className="modal-stat-value positive">₹{stock.max_high_90d?.toFixed(2)}</span>
-                            <span className="modal-stat-date">{stock.max_high_date || 'N/A'}</span>
-                        </div>
-                        <div className="modal-stat">
-                            <span className="modal-stat-label">Max Low</span>
-                            <span className="modal-stat-value negative">₹{stock.max_low_90d?.toFixed(2)}</span>
-                            <span className="modal-stat-date">{stock.max_low_date || 'N/A'}</span>
-                        </div>
-                    </div>
-
-                    <div className="modal-chart">
-                        <ResponsiveContainer width="100%" height={350}>
-                            {chartType === 'area' && (
-                                <ComposedChart data={sortedChartData}>
-                                    <defs>
-                                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                    <XAxis dataKey="date" stroke="#9ca3af" angle={-15} textAnchor="end" height={80} />
-                                    <YAxis stroke="#9ca3af" domain={['dataMin - 5', 'dataMax + 5']} />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="price"
-                                        stroke={isPositive ? "#10b981" : "#ef4444"}
-                                        strokeWidth={3}
-                                        fill="url(#colorPrice)"
-                                    />
-                                    <Scatter
-                                        dataKey="price"
-                                        fill={isPositive ? "#10b981" : "#ef4444"}
-                                        shape="circle"
-                                        r={6}
-                                    />
-                                </ComposedChart>
-                            )}
-                            {chartType === 'line' && (
-                                <ComposedChart data={sortedChartData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                    <XAxis dataKey="date" stroke="#9ca3af" angle={-15} textAnchor="end" height={80} />
-                                    <YAxis stroke="#9ca3af" domain={['dataMin - 5', 'dataMax + 5']} />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="price"
-                                        stroke={isPositive ? "#10b981" : "#ef4444"}
-                                        strokeWidth={3}
-                                        dot={{ fill: isPositive ? "#10b981" : "#ef4444", r: 6 }}
-                                    />
-                                </ComposedChart>
-                            )}
-                            {chartType === 'bar' && (
-                                <BarChart data={sortedChartData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                    <XAxis dataKey="date" stroke="#9ca3af" angle={-15} textAnchor="end" height={80} />
-                                    <YAxis stroke="#9ca3af" domain={['dataMin - 5', 'dataMax + 5']} />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Bar
-                                        dataKey="price"
-                                        fill={isPositive ? "#10b981" : "#ef4444"}
-                                        radius={[8, 8, 0, 0]}
-                                    />
-                                </BarChart>
-                            )}
-                        </ResponsiveContainer>
-                    </div>
-
-                    <div className="modal-legend">
-                        <div className="legend-item">
-                            <span className="legend-marker entry">🟢</span>
-                            <span>Entry Point</span>
-                        </div>
-                        <div className="legend-item">
-                            <span className="legend-marker exit">{isPositive ? '🟢' : '🔴'}</span>
-                            <span>Exit Point</span>
-                        </div>
-                        <div className="legend-item">
-                            <span className="legend-marker high">⬆️</span>
-                            <span>Maximum High</span>
-                        </div>
-                        <div className="legend-item">
-                            <span className="legend-marker low">⬇️</span>
-                            <span>Maximum Low</span>
-                        </div>
-                    </div>
-
-                    <div className="modal-footer flex justify-between items-center">
-                        <p className="modal-note">
-                            <strong>Entry:</strong> {stock.signal_date} |
-                            <strong> Exit:</strong> {exitDate} |
-                            <strong> Period:</strong> {periodName}
-                        </p>
-                        <Link
-                            to={`/dashboard/fundamental/${stock.symbol}`}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors text-sm"
-                        >
-                            Analyze Fundamentals <ArrowRight size={16} />
-                        </Link>
-                    </div>
-                </motion.div>
-            </motion.div>
-        </AnimatePresence>
-    );
-};
+import StockChartModal from './StockChartModal';
 
 const Dashboard = ({ report, onBack }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -266,83 +26,97 @@ const Dashboard = ({ report, onBack }) => {
         [report.trades]
     );
 
-    const getTopPerformers = (period, count = 5, type = 'gainers') => {
-        const key = `return_${period}`;
-        return successfulTrades
-            .filter(t => t[key] !== null && (type === 'gainers' ? t[key] > 0 : t[key] < 0))
-            .sort((a, b) => type === 'gainers' ? b[key] - a[key] : a[key] - b[key])
-            .slice(0, count);
-    };
+    const stats = useMemo(() => {
+        const calc = (period) => {
+            const key = `return_${period}`;
+            const values = successfulTrades.map(t => t[key]).filter(v => v !== null);
+            if (values.length === 0) return null;
 
-    const calculateStats = (period) => {
-        const key = `return_${period}`;
-        const values = successfulTrades.map(t => t[key]).filter(v => v !== null);
-        if (values.length === 0) return null;
+            const positiveValues = values.filter(v => v > 0);
+            const negativeValues = values.filter(v => v < 0);
+            const sorted = [...values].sort((a, b) => a - b);
+            const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
+            const median = sorted.length % 2 === 0
+                ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+                : sorted[Math.floor(sorted.length / 2)];
 
-        const positiveValues = values.filter(v => v > 0);
-        const negativeValues = values.filter(v => v < 0);
-        const sorted = [...values].sort((a, b) => a - b);
-        const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
-        const median = sorted.length % 2 === 0
-            ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-            : sorted[Math.floor(sorted.length / 2)];
+            const posSorted = [...positiveValues].sort((a, b) => a - b);
+            const negSorted = [...negativeValues].sort((a, b) => a - b);
+            const posAvg = positiveValues.length > 0 ? positiveValues.reduce((s, v) => s + v, 0) / positiveValues.length : 0;
+            const negAvg = negativeValues.length > 0 ? negativeValues.reduce((s, v) => s + v, 0) / negativeValues.length : 0;
+            
+            const grossProfit = positiveValues.reduce((s, v) => s + v, 0);
+            const grossLoss = Math.abs(negativeValues.reduce((s, v) => s + v, 0));
+            const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? Infinity : 0);
 
-        const posSorted = [...positiveValues].sort((a, b) => a - b);
-        const negSorted = [...negativeValues].sort((a, b) => a - b);
+            return {
+                avg, median,
+                highest: Math.max(...values),
+                lowest: Math.min(...values),
+                positiveCount: positiveValues.length,
+                negativeCount: negativeValues.length,
+                positiveMedian: posSorted.length > 0 ? posSorted[Math.floor(posSorted.length / 2)] : 0,
+                positiveAvg: posAvg,
+                negativeMedian: negSorted.length > 0 ? negSorted[Math.floor(negSorted.length / 2)] : 0,
+                negativeAvg: negAvg,
+                profitFactor,
+                capitalReturn: capital * (avg / 100)
+            };
+        };
+        return {
+            '7d': calc('7d'),
+            '14d': calc('14d'),
+            '30d': calc('30d'),
+            '45d': calc('45d'),
+            '60d': calc('60d'),
+            '90d': calc('90d')
+        };
+    }, [successfulTrades, capital]);
+
+    const enrichmentStats = useMemo(() => {
+        const sectorMap = {};
+        const capMap = {};
+        const periodKey = 'return_30d'; // 30d baseline for edge analysis
+
+        successfulTrades.forEach(t => {
+            const ret = t[periodKey];
+            if (ret === null || ret === undefined) return;
+
+            const sector = t.sector || 'Unknown';
+            const cap = t.market_cap || 'Unknown';
+
+            if (!sectorMap[sector]) sectorMap[sector] = { sum: 0, count: 0 };
+            sectorMap[sector].sum += ret;
+            sectorMap[sector].count += 1;
+
+            if (!capMap[cap]) capMap[cap] = { sum: 0, count: 0 };
+            capMap[cap].sum += ret;
+            capMap[cap].count += 1;
+        });
+
+        const formatAgg = (map) => Object.keys(map)
+            .map(k => ({ name: k, avgReturn: map[k].sum / map[k].count, count: map[k].count }))
+            .filter(item => item.count >= 3) // Require min 3 trades for relevance
+            .sort((a, b) => b.avgReturn - a.avgReturn)
+            .slice(0, 10);
 
         return {
-            avg, median,
-            highest: Math.max(...values),
-            lowest: Math.min(...values),
-            positiveCount: positiveValues.length,
-            negativeCount: negativeValues.length,
-            positiveMedian: posSorted.length > 0 ? posSorted[Math.floor(posSorted.length / 2)] : 0,
-            positiveAvg: positiveValues.length > 0 ? positiveValues.reduce((s, v) => s + v, 0) / positiveValues.length : 0,
-            negativeMedian: negSorted.length > 0 ? negSorted[Math.floor(negSorted.length / 2)] : 0,
-            negativeAvg: negativeValues.length > 0 ? negativeValues.reduce((s, v) => s + v, 0) / negativeValues.length : 0,
-            capitalReturn: capital * (avg / 100)
+            sectors: formatAgg(sectorMap),
+            marketCaps: formatAgg(capMap)
         };
-    };
+    }, [successfulTrades]);
 
-    const stats = {
-        '7d': calculateStats('7d'),
-        '30d': calculateStats('30d'),
-        '90d': calculateStats('90d')
-    };
-
-    const bestPeriodData = useMemo(() => {
-        const counts = { '7d': 0, '30d': 0, '90d': 0 };
-        successfulTrades.forEach(t => {
-            const returns = [
-                { period: '7d', value: t.return_7d },
-                { period: '30d', value: t.return_30d },
-                { period: '90d', value: t.return_90d }
-            ].filter(r => r.value !== null);
-            if (returns.length > 0) {
-                const best = returns.reduce((max, r) => r.value > max.value ? r : max);
-                counts[best.period]++;
-            }
-        });
+    const holdingPeriodData = useMemo(() => {
+        if (!stats) return [];
         return [
-            { name: '1 Week', value: counts['7d'], fill: COLORS[0] },
-            { name: '1 Month', value: counts['30d'], fill: COLORS[1] },
-            { name: '3 Month', value: counts['90d'], fill: COLORS[2] }
+            { period: '7d', label: '1 Week', avgReturn: stats['7d']?.avg || 0 },
+            { period: '14d', label: '2 Weeks', avgReturn: stats['14d']?.avg || 0 },
+            { period: '30d', label: '1 Month', avgReturn: stats['30d']?.avg || 0 },
+            { period: '45d', label: '1.5 Months', avgReturn: stats['45d']?.avg || 0 },
+            { period: '60d', label: '2 Months', avgReturn: stats['60d']?.avg || 0 },
+            { period: '90d', label: '3 Months', avgReturn: stats['90d']?.avg || 0 },
         ];
-    }, [successfulTrades]);
-
-    const topStockByPeriod = useMemo(() => {
-        return ['7d', '30d', '90d'].map(period => {
-            const key = `return_${period}`;
-            const topStock = [...successfulTrades]
-                .filter(t => t[key] !== null)
-                .sort((a, b) => b[key] - a[key])[0];
-            return topStock ? {
-                period: period === '7d' ? '1 Week' : period === '30d' ? '1 Month' : '3 Month',
-                stock: topStock.symbol,
-                value: topStock[key]
-            } : null;
-        }).filter(item => item !== null);
-    }, [successfulTrades]);
+    }, [stats]);
 
     const handleSort = (key) => {
         setSortConfig(prev => ({
@@ -467,122 +241,117 @@ const Dashboard = ({ report, onBack }) => {
                     <div className="stat-content">
                         <div className="stat-label">Total Signals</div>
                         <div className="stat-value">{report.total_signals}</div>
-                        <div className="stat-subtext">{report.successful_signals} successful</div>
+                        <div className="stat-subtext"><span className="positive">{report.successful_signals}</span> data available</div>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon success"><Percent size={24} /></div>
+                    <div className={`stat-icon ${report.win_rate_7d >= 50 ? 'success' : 'negative'}`}><Percent size={24} /></div>
                     <div className="stat-content">
                         <div className="stat-label">Win Rate (1 Week)</div>
-                        <div className="stat-value success">{report.win_rate_7d?.toFixed(1)}%</div>
-                        <div className="stat-subtext">Avg: {formatPercent(report.avg_return_7d)}</div>
+                        <div className={`stat-value ${report.win_rate_7d >= 50 ? 'success' : 'negative'}`}>{report.win_rate_7d?.toFixed(1)}%</div>
+                        <div className="stat-subtext">Avg: <span className={getColorClass(report.avg_return_7d)}>{formatPercent(report.avg_return_7d)}</span></div>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon success"><Percent size={24} /></div>
+                    <div className={`stat-icon ${report.win_rate_30d >= 50 ? 'success' : 'negative'}`}><Percent size={24} /></div>
                     <div className="stat-content">
                         <div className="stat-label">Win Rate (1 Month)</div>
-                        <div className="stat-value success">{report.win_rate_30d?.toFixed(1)}%</div>
-                        <div className="stat-subtext">Avg: {formatPercent(report.avg_return_30d)}</div>
+                        <div className={`stat-value ${report.win_rate_30d >= 50 ? 'success' : 'negative'}`}>{report.win_rate_30d?.toFixed(1)}%</div>
+                        <div className="stat-subtext">Avg: <span className={getColorClass(report.avg_return_30d)}>{formatPercent(report.avg_return_30d)}</span></div>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon success"><Percent size={24} /></div>
+                    <div className={`stat-icon ${report.win_rate_90d >= 50 ? 'success' : 'negative'}`}><Percent size={24} /></div>
                     <div className="stat-content">
                         <div className="stat-label">Win Rate (3 Month)</div>
-                        <div className="stat-value success">{report.win_rate_90d?.toFixed(1)}%</div>
-                        <div className="stat-subtext">Avg: {formatPercent(report.avg_return_90d)}</div>
+                        <div className={`stat-value ${report.win_rate_90d >= 50 ? 'success' : 'negative'}`}>{report.win_rate_90d?.toFixed(1)}%</div>
+                        <div className="stat-subtext">Avg: <span className={getColorClass(report.avg_return_90d)}>{formatPercent(report.avg_return_90d)}</span></div>
                     </div>
                 </div>
+                {stats['30d'] && stats['30d'].profitFactor !== undefined && (
+                    <div className="stat-card">
+                        <div className={`stat-icon ${stats['30d'].profitFactor >= 1.5 ? 'success' : stats['30d'].profitFactor >= 1.0 ? 'neutral' : 'negative'}`}><Activity size={24} /></div>
+                        <div className="stat-content">
+                            <div className="stat-label">Profit Factor (1 Month)</div>
+                            <div className={`stat-value ${stats['30d'].profitFactor >= 1.5 ? 'success' : stats['30d'].profitFactor >= 1.0 ? 'neutral' : 'negative'}`}>
+                                {stats['30d'].profitFactor === Infinity ? 'MAX' : stats['30d'].profitFactor.toFixed(2)}
+                            </div>
+                            <div className="stat-subtext" title="Gross Profit / Gross Loss at the signal level. Assumes equal capital per signal.">Signal-Level Ratio ℹ️</div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="charts-grid">
-                {['7d', '30d', '90d'].map((period, idx) => {
-                    const periodName = period === '7d' ? '1 Week' : period === '30d' ? '1 Month' : '3 Month';
-                    return (
-                        <div key={period} className="chart-card">
-                            <h3 className="chart-title">{periodName} Performance</h3>
-                            <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={getTopPerformers(period, 5, 'gainers')}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                    <XAxis dataKey="symbol" stroke="#9ca3af" angle={-45} textAnchor="end" height={80} />
-                                    <YAxis stroke="#9ca3af" />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                                        formatter={(value) => [`${value.toFixed(2)}%`, 'Return']}
-                                    />
-                                    <Bar dataKey={`return_${period}`} fill={COLORS[idx]} radius={[8, 8, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-
-                            <div className="performers-grid">
-                                <div className="performers-section">
-                                    <h4 className="performers-title">Top Gainers</h4>
-                                    {getTopPerformers(period, 5, 'gainers').map((trade, i) => (
-                                        <div key={i} className="performer-item">
-                                            <span className="performer-symbol">{trade.symbol}</span>
-                                            <span className="performer-return positive">{formatPercent(trade[`return_${period}`])}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="performers-section">
-                                    <h4 className="performers-title">Top Losers</h4>
-                                    {getTopPerformers(period, 5, 'losers').map((trade, i) => (
-                                        <div key={i} className="performer-item">
-                                            <span className="performer-symbol">{trade.symbol}</span>
-                                            <span className="performer-return negative">{formatPercent(trade[`return_${period}`])}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            <div className="distribution-grid">
                 <div className="chart-card">
-                    <h3 className="section-title">Best Return Period Distribution</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie
-                                data={bestPeriodData}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={100}
-                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    <h3 className="section-title">Optimal Holding Period (Avg Return)</h3>
+                    <p className="text-xs text-gray-400 mb-4">Signal-level average return decay across time.</p>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={holdingPeriodData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                            <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                            <YAxis stroke="#9ca3af" tickFormatter={(val) => `${val}%`} tick={{ fontSize: 12 }} />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
+                                formatter={(value) => [`${value.toFixed(2)}%`, 'Avg Return']}
                             />
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
-                            <Legend />
-                        </PieChart>
+                            <Bar dataKey="avgReturn" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                                {holdingPeriodData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.avgReturn > 0 ? '#10b981' : '#ef4444'} />
+                                ))}
+                            </Bar>
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
 
                 <div className="chart-card">
-                    <h3 className="section-title">Summary Statistics</h3>
-                    <div className="summary-stats">
-                        <div className="stat-row">
-                            <span className="stat-label-sm">Total Stocks:</span>
-                            <span className="stat-value-sm">{successfulTrades.length}</span>
-                        </div>
-                        <div className="stat-row">
-                            <span className="stat-label-sm">Selected Capital:</span>
-                            <span className="stat-value-sm">{formatCurrency(capital)}</span>
-                        </div>
-                    </div>
+                    <h3 className="section-title">Strategy Edge by Sector (1 Month)</h3>
+                    <p className="text-xs text-gray-400 mb-4">Sectors with min. 3 signals.</p>
+                    {enrichmentStats.sectors.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={enrichmentStats.sectors} layout="vertical" margin={{ left: 50 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
+                                <XAxis type="number" stroke="#9ca3af" tickFormatter={(val) => `${val}%`} tick={{ fontSize: 12 }} />
+                                <YAxis type="category" dataKey="name" stroke="#9ca3af" width={110} tick={{ fontSize: 11 }} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
+                                    formatter={(value, name, props) => [`${value.toFixed(2)}% (N=${props.payload.count})`, 'Avg Return']}
+                                />
+                                <Bar dataKey="avgReturn" radius={[0, 4, 4, 0]}>
+                                    {enrichmentStats.sectors.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.avgReturn > 0 ? '#10b981' : '#ef4444'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="flex h-48 items-center justify-center text-gray-500">Not enough sector data available.</div>
+                    )}
+                </div>
 
-                    <h4 className="subsection-title">Top Performers by Period</h4>
-                    <div className="top-performers-list">
-                        {topStockByPeriod.map(({ period, stock, value }) => (
-                            <div key={period} className="top-performer-row">
-                                <span className="period-label">{period}:</span>
-                                <span className="stock-name">{stock}</span>
-                                <span className={`return-value ${getColorClass(value)}`}>{formatPercent(value)}</span>
-                            </div>
-                        ))}
-                    </div>
+                <div className="chart-card">
+                    <h3 className="section-title">Strategy Edge by Market Cap (1 Month)</h3>
+                    <p className="text-xs text-gray-400 mb-4">Market Caps with min. 3 signals.</p>
+                    {enrichmentStats.marketCaps.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={enrichmentStats.marketCaps} layout="vertical" margin={{ left: 50 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
+                                <XAxis type="number" stroke="#9ca3af" tickFormatter={(val) => `${val}%`} tick={{ fontSize: 12 }} />
+                                <YAxis type="category" dataKey="name" stroke="#9ca3af" width={110} tick={{ fontSize: 11 }} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
+                                    formatter={(value, name, props) => [`${value.toFixed(2)}% (N=${props.payload.count})`, 'Avg Return']}
+                                />
+                                <Bar dataKey="avgReturn" radius={[0, 4, 4, 0]}>
+                                    {enrichmentStats.marketCaps.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.avgReturn > 0 ? '#10b981' : '#ef4444'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="flex h-48 items-center justify-center text-gray-500">Not enough market cap data available.</div>
+                    )}
                 </div>
             </div>
 
@@ -603,7 +372,7 @@ const Dashboard = ({ report, onBack }) => {
                                 <th>Neg. Count</th>
                                 <th>Neg. Median</th>
                                 <th>Neg. Avg</th>
-                                <th>Capital Return</th>
+                                <th>Avg Profit/Trade</th>
                             </tr>
                         </thead>
                         <tbody>

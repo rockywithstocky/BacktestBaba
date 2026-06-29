@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -25,15 +26,17 @@ def mock_resolve(symbol):
 @pytest.fixture
 def mock_dependencies(monkeypatch):
     monkeypatch.setattr(DataProvider, "get_ticker_data", mock_get_ticker_data)
+    monkeypatch.setattr(DataProvider, "get_bulk_ticker_data", lambda symbols, start, end: pd.DataFrame())
     monkeypatch.setattr(SymbolResolver, "resolve", mock_resolve)
 
-def test_backtester_run(mock_dependencies):
+@pytest.mark.asyncio
+async def test_backtester_run(mock_dependencies):
     signals = [
         {"symbol": "RELIANCE", "date": "2023-01-01"},
         {"symbol": "TCS", "date": "2023-01-01"}
     ]
     
-    report = Backtester.run_backtest(signals)
+    report = await Backtester.run_backtest_async(signals)
     
     assert report.total_signals == 2
     assert report.successful_signals == 2
@@ -45,10 +48,36 @@ def test_backtester_run(mock_dependencies):
     
     trade = report.trades[0]
     assert trade.status == "Success"
-    assert trade.return_7d is not None
-    assert trade.return_7d > 0 # Since price goes up in mock
+    
+    # Assert all 6 horizons are populated and strictly positive (since mock price goes up daily)
+    horizons = [7, 14, 30, 45, 60, 90]
+    for h in horizons:
+        val = getattr(trade, f"return_{h}d")
+        assert val is not None, f"return_{h}d is missing"
+        assert val > 0, f"return_{h}d should be > 0"
+        
+        exit_price = getattr(trade, f"exit_price_{h}d")
+        assert exit_price is not None, f"exit_price_{h}d is missing"
+        
+        # Verify aggregates exist in report
+        avg_ret = getattr(report, f"avg_return_{h}d")
+        assert avg_ret is not None, f"avg_return_{h}d aggregate missing"
+        
+        win_rate = getattr(report, f"win_rate_{h}d")
+        assert win_rate == 100.0, f"win_rate_{h}d aggregate incorrect"
 
-def test_backtester_invalid_symbol():
-    # Test with real resolver (mocking only data provider if needed, but here we want to test resolver failure logic)
-    # Actually, we mocked resolver to always succeed above. Let's override for this test.
-    pass 
+@pytest.mark.asyncio
+async def test_backtester_invalid_symbol(monkeypatch):
+    """Test that unresolvable symbols are handled gracefully."""
+    monkeypatch.setattr(DataProvider, "get_ticker_data", mock_get_ticker_data)
+    monkeypatch.setattr(SymbolResolver, "resolve", lambda s: None)  # Always fail
+    
+    signals = [
+        {"symbol": "FAKESYMBOL", "date": "2023-01-01"}
+    ]
+    
+    report = await Backtester.run_backtest_async(signals)
+    
+    assert report.total_signals == 1
+    assert report.failed_signals == 1
+    assert report.trades[0].status == "Symbol Not Found"
