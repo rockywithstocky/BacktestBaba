@@ -59,7 +59,7 @@ const UploadCard = ({ onUpload, isLoading, progress }) => {
                     id="file-upload"
                     className="file-input"
                     onChange={handleChange}
-                    accept=".csv,.xlsx,.xls"
+                    accept=".csv,.xlsx,.xls,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     disabled={isLoading}
                 />
                 <label htmlFor="file-upload" className="file-label">
