@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Backend Application (FastAPI)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backtestbaba-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - CORS_ORIGINS=http://localhost:5174,http://frontend:5174
+      - PORT=8000
+    networks:
+      - backtestbaba-network
+    depends_on:
+      - cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Frontend Application (React/Vite)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: backtestbaba-frontend
+    ports:
+      - "5174:5174"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+      - VITE_WS_URL=ws://localhost:8000/ws
+    networks:
+      - backtestbaba-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5174/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Cache Infrastructure (Redis-compatible for potential future use, or just disk-based)
+  cache:
+    image: redis:7-alpine
+    container_name: backtestbaba-cache
+    ports:
+      - "6379:6379"
+    networks:
+      - backtestbaba-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - cache-data:/data
+
+# Networks
+networks:
+  backtestbaba-network:
+    driver: bridge
+
+# Volumes
+volumes:
+  cache-data:
+    driver: local
