@@ -229,6 +229,20 @@
     box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
 }
 
+.stat-icon.negative {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%);
+    color: #ef4444;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.stat-value.success {
+    color: #10b981;
+}
+
+.stat-value.negative {
+    color: #ef4444;
+}
+
 /* Charts Grid */
 .charts-grid {
     display: grid;
@@ -502,7 +516,9 @@
 }
 
 .stats-table th {
-    background: rgba(17, 24, 39, 0.8);
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: #9ca3af;
     font-weight: 700;
     font-size: 0.8125rem;
@@ -605,6 +621,11 @@
     transition: all 0.3s;
 }
 
+.trade-log-controls select option {
+    background: #1e293b;
+    color: #f9fafb;
+}
+
 .trade-log-controls select:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
@@ -626,7 +647,9 @@
 }
 
 .trade-table th {
-    background: rgba(17, 24, 39, 0.8);
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: #9ca3af;
     font-weight: 700;
     cursor: pointer;
@@ -952,9 +975,12 @@
 
 .modal-footer {
     padding: 1.25rem 1.75rem;
-    background: rgba(17, 24, 39, 0.5);
+    background: rgba(17, 24, 39, 0.95);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 0 0 24px 24px;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
 }
 
 .modal-note {

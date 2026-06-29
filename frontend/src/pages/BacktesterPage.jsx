@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import UploadCard from '../components/UploadCard';
 import Dashboard from '../components/Dashboard';
+import { runBacktestWS } from '../services/api';
 import { Activity, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -15,29 +16,22 @@ const BacktesterPage = () => {
         setError(null);
         setProgress({ current: 0, total: 100, symbol: 'Starting...' });
 
-        // Use WebSocket for real-time progress
-        import('../services/api').then(({ runBacktestWS }) => {
-            runBacktestWS(
-                file,
-                (progressData) => {
-                    setProgress(progressData);
-                },
-                (reportData) => {
-                    setReport(reportData);
-                    setIsLoading(false);
-                    setProgress(null);
-                },
-                (errorMessage) => {
-                    setError(errorMessage || 'Backtest failed');
-                    setIsLoading(false);
-                    setProgress(null);
-                }
-            );
-        }).catch(err => {
-            console.error("Failed to load api service", err);
-            setError("Failed to initialize backtest service");
-            setIsLoading(false);
-        });
+        runBacktestWS(
+            file,
+            (progressData) => {
+                setProgress(progressData);
+            },
+            (reportData) => {
+                setReport(reportData);
+                setIsLoading(false);
+                setProgress(null);
+            },
+            (errorMessage) => {
+                setError(errorMessage || 'Backtest failed');
+                setIsLoading(false);
+                setProgress(null);
+            }
+        );
     };
 
     const handleReset = () => {

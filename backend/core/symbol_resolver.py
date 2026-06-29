@@ -1,14 +1,33 @@
 from .data_provider import DataProvider
 
+# Sentinel to distinguish "not cached yet" from "cached as None (not found)"
+_NOT_CACHED = object()
+
 class SymbolResolver:
+    # In-memory cache: {"RELIANCE": "RELIANCE.NS", "BADTICKER": None}
+    _cache = {}
+
     @staticmethod
     def resolve(symbol: str) -> str:
         """
         Resolves a symbol to its NSE (.NS) or BSE (.BO) equivalent.
-        Returns None if not found.
+        Returns None if not found. Results are cached in memory.
         """
-        symbol = symbol.upper().strip()
+        key = symbol.upper().strip()
         
+        # Check cache first
+        cached = SymbolResolver._cache.get(key, _NOT_CACHED)
+        if cached is not _NOT_CACHED:
+            return cached
+        
+        # Resolve and cache the result
+        result = SymbolResolver._resolve_uncached(key)
+        SymbolResolver._cache[key] = result
+        return result
+    
+    @staticmethod
+    def _resolve_uncached(symbol: str) -> str:
+        """Actual resolution logic — called only on cache miss."""
         # If already has suffix, verify it
         if symbol.endswith(".NS") or symbol.endswith(".BO"):
             if SymbolResolver._check_exists(symbol):
@@ -29,9 +48,7 @@ class SymbolResolver:
 
     @staticmethod
     def _check_exists(symbol: str) -> bool:
-        # We check existence by trying to fetch 1 day of data
-        # This is a bit expensive if not cached, but necessary
-        # We can optimize by checking metadata if possible, but history is reliable
+        """Check if a symbol exists on Yahoo Finance by fetching latest price."""
         try:
             price = DataProvider.get_latest_price(symbol)
             return price is not None

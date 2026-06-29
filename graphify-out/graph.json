@@ -1,0 +1,1775 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "main.py",
+      "file_type": "code",
+      "source_file": "backend/main.py",
+      "source_location": "L1",
+      "id": "backend_main_py",
+      "community": 4,
+      "norm_label": "main.py"
+    },
+    {
+      "label": "parse_upload_data()",
+      "file_type": "code",
+      "source_file": "backend/main.py",
+      "source_location": "L30",
+      "id": "backend_main_parse_upload_data",
+      "community": 4,
+      "norm_label": "parse_upload_data()"
+    },
+    {
+      "label": "read_root()",
+      "file_type": "code",
+      "source_file": "backend/main.py",
+      "source_location": "L73",
+      "id": "backend_main_read_root",
+      "community": 4,
+      "norm_label": "read_root()"
+    },
+    {
+      "label": "websocket_endpoint()",
+      "file_type": "code",
+      "source_file": "backend/main.py",
+      "source_location": "L77",
+      "id": "backend_main_websocket_endpoint",
+      "community": 4,
+      "norm_label": "websocket_endpoint()"
+    },
+    {
+      "label": "run_backtest_endpoint()",
+      "file_type": "code",
+      "source_file": "backend/main.py",
+      "source_location": "L120",
+      "id": "backend_main_run_backtest_endpoint",
+      "community": 4,
+      "norm_label": "run_backtest_endpoint()"
+    },
+    {
+      "label": "Parse uploaded file bytes into a DataFrame with validation.",
+      "file_type": "rationale",
+      "source_file": "backend/main.py",
+      "source_location": "L31",
+      "id": "backend_main_rationale_31",
+      "community": 4,
+      "norm_label": "parse uploaded file bytes into a dataframe with validation."
+    },
+    {
+      "label": "REST endpoint for backtest \u2014 no progress updates, returns full report.",
+      "file_type": "rationale",
+      "source_file": "backend/main.py",
+      "source_location": "L121",
+      "id": "backend_main_rationale_121",
+      "community": 4,
+      "norm_label": "rest endpoint for backtest \u2014 no progress updates, returns full report."
+    },
+    {
+      "label": "verify_horizons.py",
+      "file_type": "code",
+      "source_file": "backend/verify_horizons.py",
+      "source_location": "L1",
+      "id": "backend_verify_horizons_py",
+      "community": 7,
+      "norm_label": "verify_horizons.py"
+    },
+    {
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "backend/verify_horizons.py",
+      "source_location": "L9",
+      "id": "backend_verify_horizons_main",
+      "community": 7,
+      "norm_label": "main()"
+    },
+    {
+      "label": "__init__.py",
+      "file_type": "code",
+      "source_file": "backend/__init__.py",
+      "source_location": "L1",
+      "id": "backend_init_py",
+      "community": 10,
+      "norm_label": "__init__.py"
+    },
+    {
+      "label": "backtester.py",
+      "file_type": "code",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L1",
+      "id": "backend_core_backtester_py",
+      "community": 1,
+      "norm_label": "backtester.py"
+    },
+    {
+      "label": "Backtester",
+      "file_type": "code",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L10",
+      "id": "core_backtester_backtester",
+      "community": 1,
+      "norm_label": "backtester"
+    },
+    {
+      "label": "run_backtest_async()",
+      "file_type": "code",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L12",
+      "id": "core_backtester_run_backtest_async",
+      "community": 1,
+      "norm_label": "run_backtest_async()"
+    },
+    {
+      "label": "data_provider.py",
+      "file_type": "code",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L1",
+      "id": "backend_core_data_provider_py",
+      "community": 3,
+      "norm_label": "data_provider.py"
+    },
+    {
+      "label": "DataProvider",
+      "file_type": "code",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L11",
+      "id": "core_data_provider_dataprovider",
+      "community": 3,
+      "norm_label": "dataprovider"
+    },
+    {
+      "label": "get_ticker_data()",
+      "file_type": "code",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L13",
+      "id": "core_data_provider_get_ticker_data",
+      "community": 3,
+      "norm_label": "get_ticker_data()"
+    },
+    {
+      "label": "get_bulk_ticker_data()",
+      "file_type": "code",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L37",
+      "id": "core_data_provider_get_bulk_ticker_data",
+      "community": 3,
+      "norm_label": "get_bulk_ticker_data()"
+    },
+    {
+      "label": "get_ticker_info()",
+      "file_type": "code",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L56",
+      "id": "core_data_provider_get_ticker_info",
+      "community": 3,
+      "norm_label": "get_ticker_info()"
+    },
+    {
+      "label": "get_latest_price()",
+      "file_type": "code",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L85",
+      "id": "core_data_provider_get_latest_price",
+      "community": 3,
+      "norm_label": "get_latest_price()"
+    },
+    {
+      "label": "Fetches historical data for a symbol with caching.",
+      "file_type": "rationale",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L14",
+      "id": "core_data_provider_rationale_14",
+      "community": 11,
+      "norm_label": "fetches historical data for a symbol with caching."
+    },
+    {
+      "label": "Fetches historical data for multiple symbols concurrently via yf.download.",
+      "file_type": "rationale",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L38",
+      "id": "core_data_provider_rationale_38",
+      "community": 12,
+      "norm_label": "fetches historical data for multiple symbols concurrently via yf.download."
+    },
+    {
+      "label": "Fetches sector and market cap metadata for a symbol.         Uses a 7-day cache",
+      "file_type": "rationale",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L57",
+      "id": "core_data_provider_rationale_57",
+      "community": 13,
+      "norm_label": "fetches sector and market cap metadata for a symbol.         uses a 7-day cache"
+    },
+    {
+      "label": "Gets the latest price for a symbol.",
+      "file_type": "rationale",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L86",
+      "id": "core_data_provider_rationale_86",
+      "community": 14,
+      "norm_label": "gets the latest price for a symbol."
+    },
+    {
+      "label": "symbol_resolver.py",
+      "file_type": "code",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L1",
+      "id": "backend_core_symbol_resolver_py",
+      "community": 3,
+      "norm_label": "symbol_resolver.py"
+    },
+    {
+      "label": "SymbolResolver",
+      "file_type": "code",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L6",
+      "id": "core_symbol_resolver_symbolresolver",
+      "community": 3,
+      "norm_label": "symbolresolver"
+    },
+    {
+      "label": "resolve()",
+      "file_type": "code",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L11",
+      "id": "core_symbol_resolver_resolve",
+      "community": 3,
+      "norm_label": "resolve()"
+    },
+    {
+      "label": "_resolve_uncached()",
+      "file_type": "code",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L29",
+      "id": "core_symbol_resolver_resolve_uncached",
+      "community": 3,
+      "norm_label": "_resolve_uncached()"
+    },
+    {
+      "label": "_check_exists()",
+      "file_type": "code",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L50",
+      "id": "core_symbol_resolver_check_exists",
+      "community": 3,
+      "norm_label": "_check_exists()"
+    },
+    {
+      "label": "Resolves a symbol to its NSE (.NS) or BSE (.BO) equivalent.         Returns None",
+      "file_type": "rationale",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L12",
+      "id": "core_symbol_resolver_rationale_12",
+      "community": 15,
+      "norm_label": "resolves a symbol to its nse (.ns) or bse (.bo) equivalent.         returns none"
+    },
+    {
+      "label": "Actual resolution logic \u2014 called only on cache miss.",
+      "file_type": "rationale",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L30",
+      "id": "core_symbol_resolver_rationale_30",
+      "community": 16,
+      "norm_label": "actual resolution logic \u2014 called only on cache miss."
+    },
+    {
+      "label": "Check if a symbol exists on Yahoo Finance by fetching latest price.",
+      "file_type": "rationale",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L51",
+      "id": "core_symbol_resolver_rationale_51",
+      "community": 17,
+      "norm_label": "check if a symbol exists on yahoo finance by fetching latest price."
+    },
+    {
+      "label": "__init__.py",
+      "file_type": "code",
+      "source_file": "backend/core/__init__.py",
+      "source_location": "L1",
+      "id": "backend_core_init_py",
+      "community": 18,
+      "norm_label": "__init__.py"
+    },
+    {
+      "label": "schemas.py",
+      "file_type": "code",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L1",
+      "id": "backend_models_schemas_py",
+      "community": 1,
+      "norm_label": "schemas.py"
+    },
+    {
+      "label": "BacktestRequest",
+      "file_type": "code",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L4",
+      "id": "models_schemas_backtestrequest",
+      "community": 1,
+      "norm_label": "backtestrequest"
+    },
+    {
+      "label": "BaseModel",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "id": "basemodel",
+      "community": 1,
+      "norm_label": "basemodel"
+    },
+    {
+      "label": "SignalResult",
+      "file_type": "code",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L9",
+      "id": "models_schemas_signalresult",
+      "community": 1,
+      "norm_label": "signalresult"
+    },
+    {
+      "label": "BacktestReport",
+      "file_type": "code",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L44",
+      "id": "models_schemas_backtestreport",
+      "community": 1,
+      "norm_label": "backtestreport"
+    },
+    {
+      "label": "test_backtester.py",
+      "file_type": "code",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L1",
+      "id": "backend_tests_test_backtester_py",
+      "community": 5,
+      "norm_label": "test_backtester.py"
+    },
+    {
+      "label": "mock_get_ticker_data()",
+      "file_type": "code",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L14",
+      "id": "tests_test_backtester_mock_get_ticker_data",
+      "community": 5,
+      "norm_label": "mock_get_ticker_data()"
+    },
+    {
+      "label": "mock_resolve()",
+      "file_type": "code",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L23",
+      "id": "tests_test_backtester_mock_resolve",
+      "community": 5,
+      "norm_label": "mock_resolve()"
+    },
+    {
+      "label": "mock_dependencies()",
+      "file_type": "code",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L27",
+      "id": "tests_test_backtester_mock_dependencies",
+      "community": 5,
+      "norm_label": "mock_dependencies()"
+    },
+    {
+      "label": "test_backtester_run()",
+      "file_type": "code",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L33",
+      "id": "tests_test_backtester_test_backtester_run",
+      "community": 5,
+      "norm_label": "test_backtester_run()"
+    },
+    {
+      "label": "test_backtester_invalid_symbol()",
+      "file_type": "code",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L70",
+      "id": "tests_test_backtester_test_backtester_invalid_symbol",
+      "community": 5,
+      "norm_label": "test_backtester_invalid_symbol()"
+    },
+    {
+      "label": "Test that unresolvable symbols are handled gracefully.",
+      "file_type": "rationale",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L71",
+      "id": "tests_test_backtester_rationale_71",
+      "community": 5,
+      "norm_label": "test that unresolvable symbols are handled gracefully."
+    },
+    {
+      "label": "test_integration.py",
+      "file_type": "code",
+      "source_file": "backend/tests/test_integration.py",
+      "source_location": "L1",
+      "id": "backend_tests_test_integration_py",
+      "community": 8,
+      "norm_label": "test_integration.py"
+    },
+    {
+      "label": "test_real_data()",
+      "file_type": "code",
+      "source_file": "backend/tests/test_integration.py",
+      "source_location": "L8",
+      "id": "tests_test_integration_test_real_data",
+      "community": 8,
+      "norm_label": "test_real_data()"
+    },
+    {
+      "label": "verify_regression.py",
+      "file_type": "code",
+      "source_file": "backend/tests/verify_regression.py",
+      "source_location": "L1",
+      "id": "backend_tests_verify_regression_py",
+      "community": 9,
+      "norm_label": "verify_regression.py"
+    },
+    {
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "backend/tests/verify_regression.py",
+      "source_location": "L12",
+      "id": "tests_verify_regression_main",
+      "community": 9,
+      "norm_label": "main()"
+    },
+    {
+      "label": "date_utils.py",
+      "file_type": "code",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L1",
+      "id": "backend_utils_date_utils_py",
+      "community": 1,
+      "norm_label": "date_utils.py"
+    },
+    {
+      "label": "get_next_trading_day()",
+      "file_type": "code",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L8",
+      "id": "utils_date_utils_get_next_trading_day",
+      "community": 1,
+      "norm_label": "get_next_trading_day()"
+    },
+    {
+      "label": "parse_date()",
+      "file_type": "code",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L18",
+      "id": "utils_date_utils_parse_date",
+      "community": 1,
+      "norm_label": "parse_date()"
+    },
+    {
+      "label": "Finds the next available trading day in the data starting from 'date'.",
+      "file_type": "rationale",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L9",
+      "id": "utils_date_utils_rationale_9",
+      "community": 1,
+      "norm_label": "finds the next available trading day in the data starting from 'date'."
+    },
+    {
+      "label": "Parses date string in various formats to datetime object.",
+      "file_type": "rationale",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L19",
+      "id": "utils_date_utils_rationale_19",
+      "community": 1,
+      "norm_label": "parses date string in various formats to datetime object."
+    },
+    {
+      "label": "eslint.config.js",
+      "file_type": "code",
+      "source_file": "frontend/eslint.config.js",
+      "source_location": "L1",
+      "id": "frontend_eslint_config_js",
+      "community": 19,
+      "norm_label": "eslint.config.js"
+    },
+    {
+      "label": "postcss.config.js",
+      "file_type": "code",
+      "source_file": "frontend/postcss.config.js",
+      "source_location": "L1",
+      "id": "frontend_postcss_config_js",
+      "community": 20,
+      "norm_label": "postcss.config.js"
+    },
+    {
+      "label": "tailwind.config.js",
+      "file_type": "code",
+      "source_file": "frontend/tailwind.config.js",
+      "source_location": "L1",
+      "id": "frontend_tailwind_config_js",
+      "community": 21,
+      "norm_label": "tailwind.config.js"
+    },
+    {
+      "label": "vite.config.js",
+      "file_type": "code",
+      "source_file": "frontend/vite.config.js",
+      "source_location": "L1",
+      "id": "frontend_vite_config_js",
+      "community": 22,
+      "norm_label": "vite.config.js"
+    },
+    {
+      "label": "App.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_app_jsx",
+      "community": 0,
+      "norm_label": "app.jsx"
+    },
+    {
+      "label": "ProtectedRoute()",
+      "file_type": "code",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L13",
+      "id": "src_app_protectedroute",
+      "community": 0,
+      "norm_label": "protectedroute()"
+    },
+    {
+      "label": "App()",
+      "file_type": "code",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L24",
+      "id": "src_app_app",
+      "community": 0,
+      "norm_label": "app()"
+    },
+    {
+      "label": "main.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/main.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_main_jsx",
+      "community": 0,
+      "norm_label": "main.jsx"
+    },
+    {
+      "label": "Dashboard.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Dashboard.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_components_dashboard_jsx",
+      "community": 2,
+      "norm_label": "dashboard.jsx"
+    },
+    {
+      "label": "COLORS",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Dashboard.jsx",
+      "source_location": "L11",
+      "id": "components_dashboard_colors",
+      "community": 2,
+      "norm_label": "colors"
+    },
+    {
+      "label": "Dashboard()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Dashboard.jsx",
+      "source_location": "L15",
+      "id": "components_dashboard_dashboard",
+      "community": 2,
+      "norm_label": "dashboard()"
+    },
+    {
+      "label": "Footer.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Footer.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_components_footer_jsx",
+      "community": 0,
+      "norm_label": "footer.jsx"
+    },
+    {
+      "label": "Footer()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Footer.jsx",
+      "source_location": "L5",
+      "id": "components_footer_footer",
+      "community": 0,
+      "norm_label": "footer()"
+    },
+    {
+      "label": "SocialLink()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Footer.jsx",
+      "source_location": "L72",
+      "id": "components_footer_sociallink",
+      "community": 0,
+      "norm_label": "sociallink()"
+    },
+    {
+      "label": "FooterLink()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Footer.jsx",
+      "source_location": "L82",
+      "id": "components_footer_footerlink",
+      "community": 0,
+      "norm_label": "footerlink()"
+    },
+    {
+      "label": "Navbar.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Navbar.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_components_navbar_jsx",
+      "community": 0,
+      "norm_label": "navbar.jsx"
+    },
+    {
+      "label": "Navbar()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/Navbar.jsx",
+      "source_location": "L6",
+      "id": "components_navbar_navbar",
+      "community": 0,
+      "norm_label": "navbar()"
+    },
+    {
+      "label": "StockChartModal.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/components/StockChartModal.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_components_stockchartmodal_jsx",
+      "community": 2,
+      "norm_label": "stockchartmodal.jsx"
+    },
+    {
+      "label": "StockChartModal()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/StockChartModal.jsx",
+      "source_location": "L10",
+      "id": "components_stockchartmodal_stockchartmodal",
+      "community": 2,
+      "norm_label": "stockchartmodal()"
+    },
+    {
+      "label": "UploadCard.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/components/UploadCard.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_components_uploadcard_jsx",
+      "community": 2,
+      "norm_label": "uploadcard.jsx"
+    },
+    {
+      "label": "UploadCard()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/UploadCard.jsx",
+      "source_location": "L6",
+      "id": "components_uploadcard_uploadcard",
+      "community": 2,
+      "norm_label": "uploadcard()"
+    },
+    {
+      "label": "BacktesterPage.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/BacktesterPage.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_pages_backtesterpage_jsx",
+      "community": 2,
+      "norm_label": "backtesterpage.jsx"
+    },
+    {
+      "label": "BacktesterPage()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/BacktesterPage.jsx",
+      "source_location": "L8",
+      "id": "pages_backtesterpage_backtesterpage",
+      "community": 2,
+      "norm_label": "backtesterpage()"
+    },
+    {
+      "label": "DashboardHub.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/DashboardHub.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_pages_dashboardhub_jsx",
+      "community": 0,
+      "norm_label": "dashboardhub.jsx"
+    },
+    {
+      "label": "DashboardHub()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/DashboardHub.jsx",
+      "source_location": "L6",
+      "id": "pages_dashboardhub_dashboardhub",
+      "community": 0,
+      "norm_label": "dashboardhub()"
+    },
+    {
+      "label": "ToolCard()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/DashboardHub.jsx",
+      "source_location": "L80",
+      "id": "pages_dashboardhub_toolcard",
+      "community": 0,
+      "norm_label": "toolcard()"
+    },
+    {
+      "label": "FundamentalAnalysis.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/FundamentalAnalysis.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_pages_fundamentalanalysis_jsx",
+      "community": 0,
+      "norm_label": "fundamentalanalysis.jsx"
+    },
+    {
+      "label": "FundamentalAnalysis()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/FundamentalAnalysis.jsx",
+      "source_location": "L6",
+      "id": "pages_fundamentalanalysis_fundamentalanalysis",
+      "community": 0,
+      "norm_label": "fundamentalanalysis()"
+    },
+    {
+      "label": "StatCard()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/FundamentalAnalysis.jsx",
+      "source_location": "L136",
+      "id": "pages_fundamentalanalysis_statcard",
+      "community": 0,
+      "norm_label": "statcard()"
+    },
+    {
+      "label": "LandingPage.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LandingPage.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_pages_landingpage_jsx",
+      "community": 6,
+      "norm_label": "landingpage.jsx"
+    },
+    {
+      "label": "LandingPage()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LandingPage.jsx",
+      "source_location": "L6",
+      "id": "pages_landingpage_landingpage",
+      "community": 6,
+      "norm_label": "landingpage()"
+    },
+    {
+      "label": "StatItem()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LandingPage.jsx",
+      "source_location": "L182",
+      "id": "pages_landingpage_statitem",
+      "community": 6,
+      "norm_label": "statitem()"
+    },
+    {
+      "label": "FeatureCard()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LandingPage.jsx",
+      "source_location": "L196",
+      "id": "pages_landingpage_featurecard",
+      "community": 6,
+      "norm_label": "featurecard()"
+    },
+    {
+      "label": "LoginPage.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LoginPage.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_pages_loginpage_jsx",
+      "community": 0,
+      "norm_label": "loginpage.jsx"
+    },
+    {
+      "label": "LoginPage()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LoginPage.jsx",
+      "source_location": "L6",
+      "id": "pages_loginpage_loginpage",
+      "community": 0,
+      "norm_label": "loginpage()"
+    },
+    {
+      "label": "SignupPage.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/SignupPage.jsx",
+      "source_location": "L1",
+      "id": "frontend_src_pages_signuppage_jsx",
+      "community": 0,
+      "norm_label": "signuppage.jsx"
+    },
+    {
+      "label": "SignupPage()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/SignupPage.jsx",
+      "source_location": "L6",
+      "id": "pages_signuppage_signuppage",
+      "community": 0,
+      "norm_label": "signuppage()"
+    },
+    {
+      "label": "api.js",
+      "file_type": "code",
+      "source_file": "frontend/src/services/api.js",
+      "source_location": "L1",
+      "id": "frontend_src_services_api_js",
+      "community": 2,
+      "norm_label": "api.js"
+    },
+    {
+      "label": "runBacktest()",
+      "file_type": "code",
+      "source_file": "frontend/src/services/api.js",
+      "source_location": "L6",
+      "id": "services_api_runbacktest",
+      "community": 2,
+      "norm_label": "runbacktest()"
+    },
+    {
+      "label": "runBacktestWS()",
+      "file_type": "code",
+      "source_file": "frontend/src/services/api.js",
+      "source_location": "L23",
+      "id": "services_api_runbacktestws",
+      "community": 2,
+      "norm_label": "runbacktestws()"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "backend_main_py",
+      "target": "backend_main_parse_upload_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L73",
+      "weight": 1.0,
+      "source": "backend_main_py",
+      "target": "backend_main_read_root",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L77",
+      "weight": 1.0,
+      "source": "backend_main_py",
+      "target": "backend_main_websocket_endpoint",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L120",
+      "weight": 1.0,
+      "source": "backend_main_py",
+      "target": "backend_main_run_backtest_endpoint",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L84",
+      "weight": 1.0,
+      "source": "backend_main_websocket_endpoint",
+      "target": "backend_main_parse_upload_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L124",
+      "weight": 1.0,
+      "source": "backend_main_run_backtest_endpoint",
+      "target": "backend_main_parse_upload_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L31",
+      "weight": 1.0,
+      "source": "backend_main_rationale_31",
+      "target": "backend_main_parse_upload_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L121",
+      "weight": 1.0,
+      "source": "backend_main_rationale_121",
+      "target": "backend_main_run_backtest_endpoint",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/verify_horizons.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "backend_verify_horizons_py",
+      "target": "backend_verify_horizons_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "backend_core_backtester_py",
+      "target": "backend_core_data_provider_py",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "backend_core_backtester_py",
+      "target": "backend_core_symbol_resolver_py",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "backend_core_backtester_py",
+      "target": "backend_utils_date_utils_py",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "backend_core_backtester_py",
+      "target": "backend_models_schemas_py",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "backend_core_backtester_py",
+      "target": "core_backtester_backtester",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "backend_core_backtester_py",
+      "target": "core_backtester_run_backtest_async",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L5",
+      "weight": 0.8,
+      "source": "core_backtester_backtester",
+      "target": "core_data_provider_dataprovider",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L6",
+      "weight": 0.8,
+      "source": "core_backtester_backtester",
+      "target": "core_symbol_resolver_symbolresolver",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L8",
+      "weight": 0.8,
+      "source": "core_backtester_backtester",
+      "target": "models_schemas_signalresult",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L8",
+      "weight": 0.8,
+      "source": "core_backtester_backtester",
+      "target": "models_schemas_backtestreport",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L50",
+      "weight": 1.0,
+      "source": "core_backtester_run_backtest_async",
+      "target": "utils_date_utils_parse_date"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L122",
+      "weight": 1.0,
+      "source": "core_backtester_run_backtest_async",
+      "target": "models_schemas_signalresult"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L178",
+      "weight": 1.0,
+      "source": "core_backtester_run_backtest_async",
+      "target": "utils_date_utils_get_next_trading_day"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/core/backtester.py",
+      "source_location": "L242",
+      "weight": 1.0,
+      "source": "core_backtester_run_backtest_async",
+      "target": "models_schemas_backtestreport"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "backend_core_data_provider_py",
+      "target": "core_data_provider_dataprovider",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "backend_core_data_provider_py",
+      "target": "core_data_provider_get_ticker_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "backend_core_data_provider_py",
+      "target": "core_data_provider_get_bulk_ticker_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L56",
+      "weight": 1.0,
+      "source": "backend_core_data_provider_py",
+      "target": "core_data_provider_get_ticker_info",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/data_provider.py",
+      "source_location": "L85",
+      "weight": 1.0,
+      "source": "backend_core_data_provider_py",
+      "target": "core_data_provider_get_latest_price",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "backend_core_symbol_resolver_py",
+      "target": "backend_core_data_provider_py",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L1",
+      "weight": 0.8,
+      "source": "core_symbol_resolver_symbolresolver",
+      "target": "core_data_provider_dataprovider",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "backend_core_symbol_resolver_py",
+      "target": "core_symbol_resolver_symbolresolver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "backend_core_symbol_resolver_py",
+      "target": "core_symbol_resolver_resolve",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "backend_core_symbol_resolver_py",
+      "target": "core_symbol_resolver_resolve_uncached",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L50",
+      "weight": 1.0,
+      "source": "backend_core_symbol_resolver_py",
+      "target": "core_symbol_resolver_check_exists",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "core_symbol_resolver_resolve",
+      "target": "core_symbol_resolver_resolve_uncached",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/core/symbol_resolver.py",
+      "source_location": "L33",
+      "weight": 1.0,
+      "source": "core_symbol_resolver_resolve_uncached",
+      "target": "core_symbol_resolver_check_exists",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "backend_models_schemas_py",
+      "target": "models_schemas_backtestrequest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "backend_models_schemas_py",
+      "target": "models_schemas_signalresult",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "backend_models_schemas_py",
+      "target": "models_schemas_backtestreport",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "models_schemas_backtestrequest",
+      "target": "basemodel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "models_schemas_signalresult",
+      "target": "basemodel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/models/schemas.py",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "models_schemas_backtestreport",
+      "target": "basemodel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "source": "backend_tests_test_backtester_py",
+      "target": "tests_test_backtester_mock_get_ticker_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "backend_tests_test_backtester_py",
+      "target": "tests_test_backtester_mock_resolve",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "source": "backend_tests_test_backtester_py",
+      "target": "tests_test_backtester_mock_dependencies",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L33",
+      "weight": 1.0,
+      "source": "backend_tests_test_backtester_py",
+      "target": "tests_test_backtester_test_backtester_run",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L70",
+      "weight": 1.0,
+      "source": "backend_tests_test_backtester_py",
+      "target": "tests_test_backtester_test_backtester_invalid_symbol",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/tests/test_backtester.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "tests_test_backtester_rationale_71",
+      "target": "tests_test_backtester_test_backtester_invalid_symbol",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/tests/test_integration.py",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "backend_tests_test_integration_py",
+      "target": "tests_test_integration_test_real_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/tests/verify_regression.py",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "backend_tests_verify_regression_py",
+      "target": "tests_verify_regression_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "backend_utils_date_utils_py",
+      "target": "utils_date_utils_get_next_trading_day",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "backend_utils_date_utils_py",
+      "target": "utils_date_utils_parse_date",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "utils_date_utils_rationale_9",
+      "target": "utils_date_utils_get_next_trading_day",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/utils/date_utils.py",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "utils_date_utils_rationale_19",
+      "target": "utils_date_utils_parse_date",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "frontend_src_components_navbar_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "frontend_src_pages_landingpage_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "frontend_src_pages_loginpage_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "frontend_src_pages_signuppage_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "frontend_src_components_footer_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "frontend_src_pages_dashboardhub_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "frontend_src_pages_backtesterpage_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "frontend_src_pages_fundamentalanalysis_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "src_app_protectedroute",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.jsx",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "frontend_src_app_jsx",
+      "target": "src_app_app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/main.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "frontend_src_main_jsx",
+      "target": "frontend_src_app_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/Dashboard.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "frontend_src_components_dashboard_jsx",
+      "target": "components_dashboard_colors",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/Dashboard.jsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "frontend_src_components_dashboard_jsx",
+      "target": "frontend_src_components_stockchartmodal_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/Dashboard.jsx",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "frontend_src_components_dashboard_jsx",
+      "target": "components_dashboard_dashboard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/BacktesterPage.jsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "frontend_src_pages_backtesterpage_jsx",
+      "target": "frontend_src_components_dashboard_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/Footer.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "frontend_src_components_footer_jsx",
+      "target": "components_footer_footer",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/Footer.jsx",
+      "source_location": "L72",
+      "weight": 1.0,
+      "source": "frontend_src_components_footer_jsx",
+      "target": "components_footer_sociallink",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/Footer.jsx",
+      "source_location": "L82",
+      "weight": 1.0,
+      "source": "frontend_src_components_footer_jsx",
+      "target": "components_footer_footerlink",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/Navbar.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_components_navbar_jsx",
+      "target": "components_navbar_navbar",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/StockChartModal.jsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "frontend_src_components_stockchartmodal_jsx",
+      "target": "components_stockchartmodal_stockchartmodal",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/UploadCard.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_components_uploadcard_jsx",
+      "target": "components_uploadcard_uploadcard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/BacktesterPage.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "frontend_src_pages_backtesterpage_jsx",
+      "target": "frontend_src_components_uploadcard_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/BacktesterPage.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "frontend_src_pages_backtesterpage_jsx",
+      "target": "frontend_src_services_api_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/BacktesterPage.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "frontend_src_pages_backtesterpage_jsx",
+      "target": "services_api_runbacktestws",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/BacktesterPage.jsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "frontend_src_pages_backtesterpage_jsx",
+      "target": "pages_backtesterpage_backtesterpage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/DashboardHub.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_pages_dashboardhub_jsx",
+      "target": "pages_dashboardhub_dashboardhub",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/DashboardHub.jsx",
+      "source_location": "L80",
+      "weight": 1.0,
+      "source": "frontend_src_pages_dashboardhub_jsx",
+      "target": "pages_dashboardhub_toolcard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/FundamentalAnalysis.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_pages_fundamentalanalysis_jsx",
+      "target": "pages_fundamentalanalysis_fundamentalanalysis",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/FundamentalAnalysis.jsx",
+      "source_location": "L136",
+      "weight": 1.0,
+      "source": "frontend_src_pages_fundamentalanalysis_jsx",
+      "target": "pages_fundamentalanalysis_statcard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LandingPage.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_pages_landingpage_jsx",
+      "target": "pages_landingpage_landingpage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LandingPage.jsx",
+      "source_location": "L182",
+      "weight": 1.0,
+      "source": "frontend_src_pages_landingpage_jsx",
+      "target": "pages_landingpage_statitem",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LandingPage.jsx",
+      "source_location": "L196",
+      "weight": 1.0,
+      "source": "frontend_src_pages_landingpage_jsx",
+      "target": "pages_landingpage_featurecard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LoginPage.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_pages_loginpage_jsx",
+      "target": "pages_loginpage_loginpage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/SignupPage.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_pages_signuppage_jsx",
+      "target": "pages_signuppage_signuppage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/services/api.js",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "frontend_src_services_api_js",
+      "target": "services_api_runbacktest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/services/api.js",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "frontend_src_services_api_js",
+      "target": "services_api_runbacktestws",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "70655f7822a024606451c0fe5eafd029d499b8ff"
+}

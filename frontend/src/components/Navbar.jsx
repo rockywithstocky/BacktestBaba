@@ -21,7 +21,7 @@ const Navbar = () => {
     const isDashboard = location.pathname.startsWith('/dashboard');
 
     return (
-        <nav className={`fixed w-full z-50 transition-all duration-300 ${isDashboard ? 'bg-gray-900/80' : 'bg-black/30'} backdrop-blur-xl border-b border-white/10`}>
+        <nav className={`sticky top-0 w-full z-50 transition-all duration-300 ${isDashboard ? 'bg-gray-900/80' : 'bg-black/30'} backdrop-blur-xl border-b border-white/10`}>
             <div className="container mx-auto px-6 py-4">
                 <div className="flex justify-between items-center">
                     {/* Logo */}

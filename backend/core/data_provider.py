@@ -34,6 +34,54 @@ class DataProvider:
         return df
 
     @staticmethod
+    def get_bulk_ticker_data(symbols: list, start_date: str, end_date: str) -> pd.DataFrame:
+        """
+        Fetches historical data for multiple symbols concurrently via yf.download.
+        Returns a single bulk DataFrame. Does not use diskcache for the bulk 
+        blob due to highly variable date boundaries per file upload.
+        """
+        print(f"Fetching bulk data for {len(symbols)} symbols from yfinance...")
+        df = yf.download(
+            tickers=symbols, 
+            start=start_date, 
+            end=end_date, 
+            auto_adjust=True, 
+            group_by='ticker', 
+            progress=False,
+            threads=True
+        )
+        return df
+
+    @staticmethod
+    def get_ticker_info(symbol: str) -> dict:
+        """
+        Fetches sector and market cap metadata for a symbol.
+        Uses a 7-day cache to aggressively minimize rate-limiting from Yahoo's .info endpoint.
+        """
+        cache_key = f"{symbol}_info"
+        if cache_key in cache:
+            return cache[cache_key]
+            
+        print(f"Fetching metadata for {symbol} from yfinance...")
+        result = {"sector": None, "marketCap": None}
+        
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+            if info:
+                result["sector"] = info.get("sector")
+                result["marketCap"] = info.get("marketCap")
+            
+            # Cache the result (expire in 7 days = 604800 seconds)
+            cache.set(cache_key, result, expire=604800)
+            
+        except Exception as e:
+            print(f"[ENRICHMENT ERROR] Failed to fetch metadata for {symbol}: {e}")
+            # Do not cache failures so they can be retried later, just return the empty result.
+            
+        return result
+
+    @staticmethod
     def get_latest_price(symbol: str) -> float:
         """
         Gets the latest price for a symbol.

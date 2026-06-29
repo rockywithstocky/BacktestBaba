@@ -3,20 +3,71 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import io
 import json
+import os
 from typing import List, Dict
 from backend.core.backtester import Backtester
 from backend.models.schemas import BacktestReport
 
 app = FastAPI(title="Stock Screener Backtester Pro")
 
-# CORS
+# CORS — configure via CORS_ORIGINS env var (comma-separated), defaults to localhost for dev
+cors_origins = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:5174"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For dev
+    allow_origins=[origin.strip() for origin in cors_origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Maximum upload size: 10MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
+def parse_upload_data(data: bytes) -> pd.DataFrame:
+    """Parse uploaded file bytes into a DataFrame with validation."""
+    # Size check
+    if len(data) > MAX_FILE_SIZE:
+        raise ValueError(f"File too large ({len(data) // (1024*1024)}MB). Maximum is 10MB.")
+    
+    if len(data) == 0:
+        raise ValueError("File is empty.")
+    
+    # Try CSV first, then Excel
+    df = None
+    try:
+        df = pd.read_csv(io.BytesIO(data))
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeDecodeError):
+        pass
+    
+    if df is None or df.empty:
+        try:
+            df = pd.read_excel(io.BytesIO(data))
+        except Exception:
+            raise ValueError("Could not parse file. Please upload a valid CSV or Excel file.")
+    
+    if df.empty:
+        raise ValueError("File contains no data rows.")
+    
+    # Normalize column headers
+    df.columns = [c.strip() for c in df.columns]
+    
+    # Validate required columns (case-insensitive)
+    col_lower = {c.lower(): c for c in df.columns}
+    has_symbol = 'symbol' in col_lower
+    has_date = 'date' in col_lower or 'signal_date' in col_lower
+    
+    if not has_symbol or not has_date:
+        available = ', '.join(df.columns.tolist())
+        raise ValueError(
+            f"File must contain 'symbol' and 'date' columns. "
+            f"Found columns: [{available}]"
+        )
+    
+    return df
 
 @app.get("/")
 def read_root():
@@ -29,18 +80,12 @@ async def websocket_endpoint(websocket: WebSocket):
         # Receive file content as bytes
         data = await websocket.receive_bytes()
         
-        # We assume the client sends the file bytes directly
         try:
-            df = pd.read_csv(io.BytesIO(data))
-        except:
-            try:
-                df = pd.read_excel(io.BytesIO(data))
-            except:
-                await websocket.send_json({"type": "error", "message": "Invalid file format"})
-                return
+            df = parse_upload_data(data)
+        except ValueError as e:
+            await websocket.send_json({"type": "error", "message": str(e)})
+            return
 
-        # Normalize headers
-        df.columns = [c.strip() for c in df.columns]
         signals = df.to_dict(orient="records")
         
         # Progress callback
@@ -66,30 +111,27 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         import traceback
         traceback.print_exc()
-        await websocket.send_json({"type": "error", "message": str(e)})
+        try:
+            await websocket.send_json({"type": "error", "message": str(e)})
+        except Exception:
+            pass  # Connection already closed
 
 @app.post("/api/backtest", response_model=BacktestReport)
 async def run_backtest_endpoint(file: UploadFile = File(...)):
-    # Keep this for compatibility or non-WS clients
+    """REST endpoint for backtest — no progress updates, returns full report."""
     try:
         contents = await file.read()
-        
-        if file.filename.endswith('.csv'):
-            df = pd.read_csv(io.BytesIO(contents))
-        elif file.filename.endswith(('.xls', '.xlsx')):
-            df = pd.read_excel(io.BytesIO(contents))
-        else:
-            raise HTTPException(status_code=400, detail="Invalid file format. Please upload CSV or Excel.")
-            
-        df.columns = [c.strip() for c in df.columns]
+        df = parse_upload_data(contents)
         signals = df.to_dict(orient="records")
         
         # Run Backtest (no progress callback for HTTP)
         report = await Backtester.run_backtest_async(signals)
-        
         return report
         
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+

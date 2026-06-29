@@ -17,9 +17,77 @@ We'll use:
 
 ---
 
-## 🔧 Part 1: Deploy Backend to Render
+## ⚡ Quick Deploy: Updating Existing Projects
 
-### Step 1: Prepare Backend for Deployment
+**For existing deployed services on Render & Vercel, deployment is automatic!**
+
+### For Backend (Render)
+
+1. **Make changes locally**
+   ```bash
+   # Make your code changes
+   git add .
+   git commit -m "fix: description of change"
+   git push origin main
+   ```
+
+2. **Render auto-deploys**
+   - Render detects the push to `main` branch
+   - Automatically rebuilds and redeploys backend
+   - Monitor deployment at: https://dashboard.render.com → backtestbaba-api → Deployments tab
+   - Takes ~3-5 minutes
+
+3. **Verify deployment**
+   ```bash
+   # Check backend is live
+   curl https://backtestbaba-api.onrender.com/docs
+   ```
+
+### For Frontend (Vercel)
+
+1. **Make changes locally**
+   ```bash
+   # Make your code changes
+   git add .
+   git commit -m "fix: description of change"
+   git push origin main
+   ```
+
+2. **Vercel auto-deploys**
+   - Vercel detects the push to `main` branch
+   - Automatically rebuilds and redeploys frontend
+   - Monitor deployment at: https://vercel.com/dashboard → chartchampion → Deployments tab
+   - Takes ~2-3 minutes
+
+3. **Verify deployment**
+   - Visit: `https://chartchampion.vercel.app`
+   - Check browser console (F12) for any errors
+
+### Verify End-to-End
+
+```bash
+# Open frontend in browser
+https://chartchampion.vercel.app
+
+# Test by running a backtest
+# Should connect to backend at: https://backtestbaba-api.onrender.com
+```
+
+### Troubleshooting Live Deployment
+
+| Issue | Solution |
+|-------|----------|
+| **Backend not updating** | Check Render → backtestbaba-api → Logs for build errors; verify `requirements.txt` has all dependencies |
+| **Frontend not updating** | Check Vercel → chartchampion → Deployments → Build Logs; verify `npm run build` succeeds |
+| **CORS errors** | Backend may be on old code; check `backend/main.py` CORS settings include `https://chartchampion.vercel.app` |
+| **Backend slow/timing out** | Render free tier sleeps after 15 min inactivity; first request takes ~30s to wake up |
+| **Environment variables not working** | Vercel: Check chartchampion → Settings → Environment Variables; Render: Check backtestbaba-api → Environment |
+
+---
+
+## 🔧 Part 1: Initial Deploy - Backend to Render (First Time Only)
+
+### Step 1: Prepare Backend for Deployment (First Time Only)
 
 1. Create `render.yaml` in project root:
 
@@ -43,7 +111,7 @@ services:
 origins = [
     "http://localhost:5173",
     "http://localhost:5174",
-    "https://your-frontend-name.vercel.app",  # Add this after deployment
+    "https://chartchampion.vercel.app",  # Vercel deployment
     "*"  # Remove in production for security
 ]
 ```
@@ -59,7 +127,7 @@ origins = [
    - Select your repo: `stock-screener-backtester-pro`
 
 4. **Configure Service**
-   - **Name**: `stock-backtester-api`
+   - **Name**: `backtestbaba-api`
    - **Region**: Select closest to you
    - **Branch**: `main`
    - **Root Directory**: Leave empty (or `backend` if structured differently)
@@ -80,25 +148,25 @@ origins = [
 7. **Wait for Deployment** (3-5 minutes)
 
 8. **Copy Your Backend URL**: 
-   - Example: `https://stock-backtester-api.onrender.com`
+   - `https://backtestbaba-api.onrender.com`
 
 ### Step 3: Test Backend
 
-Visit: `https://your-backend-url.onrender.com/docs`
+Visit: `https://backtestbaba-api.onrender.com/docs`
 
 You should see the FastAPI Swagger documentation.
 
 ---
 
-## 🎨 Part 2: Deploy Frontend to Vercel
+## 🎨 Part 2: Initial Deploy - Frontend to Vercel (First Time Only)
 
-### Step 1: Prepare Frontend
+### Step 1: Prepare Frontend (First Time Only)
 
 1. Update `frontend/src/services/api.js`:
 
 ```javascript
 // Replace localhost URL with your Render backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://stock-backtester-api.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backtestbaba-api.onrender.com';
 
 export const runBacktest = async (file, onProgress) => {
     const formData = new FormData();
@@ -125,7 +193,7 @@ export const runBacktest = async (file, onProgress) => {
 2. Create `frontend/.env.production`:
 
 ```env
-VITE_API_URL=https://your-backend-url.onrender.com
+VITE_API_URL=https://backtestbaba-api.onrender.com
 ```
 
 3. Add to `frontend/vite.config.js`:
@@ -175,7 +243,7 @@ vercel
 # - Set up and deploy? Yes
 # - Which scope? Your account
 # - Link to existing project? No
-# - Project name? stock-backtester
+# - Project name? chartchampion
 # - Directory? ./
 # - Override settings? No
 
@@ -202,14 +270,15 @@ vercel --prod
 
 5. **Environment Variables**
    - Click "Environment Variables"
-   - Add: `VITE_API_URL` = `https://your-backend-url.onrender.com`
+   - Add: `VITE_API_URL` = `https://backtestbaba-api.onrender.com`
 
 6. **Click "Deploy"**
 
 7. **Wait for Deployment** (2-3 minutes)
 
 8. **Copy Your Frontend URL**:
-   - Example: `https://stock-backtester.vercel.app`
+   - `https://chartchampion.vercel.app`
+   - **Project ID**: `prj_3nME2iUL17NQTr82IpwuX21tjG5O`
 
 ### Step 3: Update Backend CORS
 
@@ -217,7 +286,7 @@ Go back to Render and update `backend/main.py`:
 
 ```python
 origins = [
-    "https://stock-backtester.vercel.app",  # Your Vercel URL
+    "https://chartchampion.vercel.app",  # Your Vercel URL
     "https://*.vercel.app",  # Allow all Vercel preview deployments
 ]
 ```
@@ -240,17 +309,15 @@ Commit and push - Render will auto-deploy!
 ## 🔍 Monitoring & Logs
 
 ### Render Logs
-1. Go to Render Dashboard
-2. Click on your service
-3. Click "Logs" tab
-4. Monitor real-time logs
+1. Go to Render Dashboard → backtestbaba-api
+2. Click "Logs" tab
+3. Monitor real-time logs
 
 ### Vercel Logs
-1. Go to Vercel Dashboard
-2. Click on your project
-3. Click "Deployments"
-4. Click on a deployment
-5. View "Build Logs" or "Function Logs"
+1. Go to Vercel Dashboard → chartchampion
+2. Click "Deployments" tab
+3. Click on a deployment
+4. View "Build Logs" or "Function Logs"
 
 ---
 
@@ -282,7 +349,7 @@ uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://your-frontend.vercel.app"
+        "https://chartchampion.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -302,8 +369,8 @@ app.add_middleware(
 
 **Solution:**
 ```bash
-# Vercel - Add in dashboard under "Environment Variables"
-VITE_API_URL=https://your-backend.onrender.com
+# Vercel (chartchampion) - Add in dashboard under "Environment Variables"
+VITE_API_URL=https://backtestbaba-api.onrender.com
 
 # Must start with VITE_ to be accessible in Vite
 ```
@@ -358,14 +425,14 @@ Both Render and Vercel support automatic deployments:
 
 ## 🌐 Custom Domain (Optional)
 
-### Add Custom Domain to Vercel
+### Add Custom Domain to Vercel (chartchampion)
 
 1. Go to Project Settings → Domains
 2. Add your domain (e.g., `backtester.yourdomain.com`)
 3. Update DNS records as instructed
 4. SSL certificate is automatically provisioned
 
-### Add Custom Domain to Render
+### Add Custom Domain to Render (backtestbaba-api)
 
 1. Go to Service Settings → Custom Domain
 2. Add your domain (e.g., `api.yourdomain.com`)
@@ -414,8 +481,8 @@ export default defineConfig({
 Your Stock Screener Backtester Pro is now live and accessible worldwide! 
 
 **Share your app:**
-- Frontend: `https://your-app.vercel.app`
-- Backend API: `https://your-api.onrender.com`
+- Frontend: `https://chartchampion.vercel.app`
+- Backend API: `https://backtestbaba-api.onrender.com`
 
 ---
 
