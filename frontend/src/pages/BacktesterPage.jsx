@@ -10,6 +10,7 @@ const BacktesterPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [progress, setProgress] = useState(null);
     const [error, setError] = useState(null);
+    const [entryMode, setEntryMode] = useState('next_close');
 
     const handleUpload = (file) => {
         setIsLoading(true);
@@ -30,7 +31,8 @@ const BacktesterPage = () => {
                 setError(errorMessage || 'Backtest failed');
                 setIsLoading(false);
                 setProgress(null);
-            }
+            },
+            entryMode
         );
     };
 
@@ -57,6 +59,8 @@ const BacktesterPage = () => {
                                 onUpload={handleUpload}
                                 isLoading={isLoading}
                                 progress={progress}
+                                entryMode={entryMode}
+                                onEntryModeChange={setEntryMode}
                             />
 
                             {error && (

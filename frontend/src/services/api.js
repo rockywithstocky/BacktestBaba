@@ -3,12 +3,13 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : 'https://backtestbaba-api.onrender.com/api');
 const WS_URL = import.meta.env.VITE_WS_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'ws://localhost:8000/ws' : 'wss://backtestbaba-api.onrender.com/ws');
 
-const runBacktestHTTPFallback = async (file, onProgress, onComplete, onError) => {
+const runBacktestHTTPFallback = async (file, onProgress, onComplete, onError, entryMode = 'next_close') => {
     try {
         onProgress({ current: 0, total: 100, symbol: 'Backend waking up...' });
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('entry_mode', entryMode);
 
         await axios.post(`${API_URL}/backtest`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -23,15 +24,15 @@ const runBacktestHTTPFallback = async (file, onProgress, onComplete, onError) =>
     }
 };
 
-export const runBacktestWS = (file, onProgress, onComplete, onError) => {
-    const ws = new WebSocket(`${WS_URL}/backtest`);
+export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode = 'next_close') => {
+    const ws = new WebSocket(`${WS_URL}/backtest?entry_mode=${entryMode}`);
     let settled = false;
 
     const wsTimeout = setTimeout(() => {
         if (!settled) {
             settled = true;
             ws.close();
-            runBacktestHTTPFallback(file, onProgress, onComplete, onError);
+            runBacktestHTTPFallback(file, onProgress, onComplete, onError, entryMode);
         }
     }, 10000);
 
@@ -71,7 +72,7 @@ export const runBacktestWS = (file, onProgress, onComplete, onError) => {
         if (!settled) {
             settled = true;
             clearTimeout(wsTimeout);
-            runBacktestHTTPFallback(file, onProgress, onComplete, onError);
+            runBacktestHTTPFallback(file, onProgress, onComplete, onError, entryMode);
         }
     };
 

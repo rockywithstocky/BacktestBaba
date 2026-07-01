@@ -15,6 +15,13 @@ def get_next_trading_day(date: datetime, data: pd.DataFrame, max_lookahead: int 
             return target_date
     return None
 
+def get_future_trading_day(date: datetime, data: pd.DataFrame, max_lookahead: int = 5) -> datetime | None:
+    for i in range(1, max_lookahead + 1):
+        target_date = date + timedelta(days=i)
+        if target_date in data.index:
+            return target_date
+    return None
+
 def parse_date(date_str: str) -> datetime:
     """
     Parses date string in various formats to datetime object.

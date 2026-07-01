@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 from typing import List, Dict
 from .data_provider import DataProvider
 from .symbol_resolver import SymbolResolver
-from ..utils.date_utils import parse_date, get_next_trading_day
+from ..utils.date_utils import parse_date, get_next_trading_day, get_future_trading_day
 from ..models.schemas import SignalResult, BacktestReport
 
 class Backtester:
     @staticmethod
-    async def run_backtest_async(signals: List[Dict[str, str]], progress_callback=None, duration: int = 90) -> BacktestReport:
+    async def run_backtest_async(signals: List[Dict[str, str]], progress_callback=None, duration: int = 90, entry_mode: str = "next_close") -> BacktestReport:
         results: List[SignalResult] = []
         total = len(signals)
         duration = min(max(duration, 7), 180)
@@ -174,23 +174,38 @@ class Backtester:
             # Ensure index is datetime
             df.index = pd.to_datetime(df.index).tz_localize(None)
             
-            # Find Entry Price (Nearest trading day to signal date)
-            entry_date = get_next_trading_day(signal_date, df)
+            # Signal Close Price (nearest trading day to signal_date)
+            signal_trading_day = get_next_trading_day(signal_date, df)
+            signal_close_price = (df.loc[signal_trading_day]["Close"]
+                                  if signal_trading_day is not None
+                                  else None)
+            
+            # Entry Date (always NEXT trading day after signal_date)
+            entry_date = get_future_trading_day(signal_date, df)
             if not entry_date:
                  results.append(SignalResult(
                     symbol=resolved_symbol,
-                    signal_date=date_str,
+                    signal_date=signal_date.strftime("%Y-%m-%d"),
                     entry_price=0.0,
+                    entry_mode=entry_mode,
                     status="No Entry Data"
                 ))
                  continue
-                 
-            entry_price = df.loc[entry_date]["Close"]
             
+            # Entry Price (mode-dependent)
+            if entry_mode == "next_open":
+                entry_price = df.loc[entry_date]["Open"]
+            else:
+                entry_price = df.loc[entry_date]["Close"]
+            
+            normalized_signal_date = signal_date.strftime("%Y-%m-%d")
             res = SignalResult(
                 symbol=resolved_symbol,
-                signal_date=entry_date.strftime("%Y-%m-%d"),
-                entry_price=entry_price,
+                signal_date=normalized_signal_date,
+                signal_close_price=round(signal_close_price, 2) if signal_close_price is not None else None,
+                entry_date=entry_date.strftime("%Y-%m-%d"),
+                entry_price=round(entry_price, 2),
+                entry_mode=entry_mode,
                 sector=metadata_map.get(resolved_symbol, {}).get("sector"),
                 market_cap=str(metadata_map.get(resolved_symbol, {}).get("marketCap")) if metadata_map.get(resolved_symbol, {}).get("marketCap") is not None else None,
                 status="Success"
@@ -243,6 +258,7 @@ class Backtester:
             total_signals=len(signals),
             successful_signals=len(successful),
             failed_signals=len(signals) - len(successful),
+            entry_mode=entry_mode,
             trades=results
         )
         

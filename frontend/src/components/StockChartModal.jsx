@@ -17,6 +17,8 @@ const StockChartModal = ({ stock, period, onClose }) => {
     const periodDays = period === '7d' ? 7 : period === '30d' ? 30 : 90;
     const periodName = period === '7d' ? '7 Days' : period === '30d' ? '30 Days' : '90 Days';
 
+    const entryDateStr = stock.entry_date || stock.signal_date;
+
     // Calculate exit date
     const getExitDate = (entryDateStr, days) => {
         const date = new Date(entryDateStr);
@@ -24,14 +26,14 @@ const StockChartModal = ({ stock, period, onClose }) => {
         return date.toLocaleDateString('en-IN');
     };
 
-    const exitDate = getExitDate(stock.signal_date, periodDays);
+    const exitDate = getExitDate(entryDateStr, periodDays);
     const returnValue = stock[periodKey];
     const isPositive = returnValue > 0;
 
     // Create comprehensive chart data
     const chartData = [
         {
-            date: stock.signal_date,
+            date: entryDateStr,
             price: stock.entry_price,
             type: 'Entry',
             marker: '🟢'
@@ -131,7 +133,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
                         <div className="modal-stat">
                             <span className="modal-stat-label">Entry</span>
                             <span className="modal-stat-value">₹{stock.entry_price?.toFixed(2)}</span>
-                            <span className="modal-stat-date">{stock.signal_date}</span>
+                            <span className="modal-stat-date">{entryDateStr}</span>
                         </div>
                         <div className="modal-stat">
                             <span className="modal-stat-label">Exit</span>
@@ -231,7 +233,8 @@ const StockChartModal = ({ stock, period, onClose }) => {
 
                     <div className="modal-footer flex justify-between items-center">
                         <p className="modal-note">
-                            <strong>Entry:</strong> {stock.signal_date} |
+                            <strong>Signal:</strong> {stock.signal_date} |
+                            <strong> Entry:</strong> {entryDateStr} |
                             <strong> Exit:</strong> {exitDate} |
                             <strong> Period:</strong> {periodName}
                         </p>

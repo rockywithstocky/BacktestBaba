@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import io
@@ -74,7 +74,7 @@ def read_root():
     return {"message": "Stock Screener Backtester Pro API is running"}
 
 @app.websocket("/ws/backtest")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close"):
     await websocket.accept()
     try:
         # Receive file content as bytes
@@ -98,7 +98,7 @@ async def websocket_endpoint(websocket: WebSocket):
             })
 
         # Run Backtest
-        report = await Backtester.run_backtest_async(signals, on_progress)
+        report = await Backtester.run_backtest_async(signals, on_progress, entry_mode=entry_mode)
         
         # Send final report
         await websocket.send_json({
@@ -117,7 +117,7 @@ async def websocket_endpoint(websocket: WebSocket):
             pass  # Connection already closed
 
 @app.post("/api/backtest", response_model=BacktestReport)
-async def run_backtest_endpoint(file: UploadFile = File(...)):
+async def run_backtest_endpoint(file: UploadFile = File(...), entry_mode: str = Form("next_close")):
     """REST endpoint for backtest — no progress updates, returns full report."""
     try:
         contents = await file.read()
@@ -125,7 +125,7 @@ async def run_backtest_endpoint(file: UploadFile = File(...)):
         signals = df.to_dict(orient="records")
         
         # Run Backtest (no progress callback for HTTP)
-        report = await Backtester.run_backtest_async(signals)
+        report = await Backtester.run_backtest_async(signals, entry_mode=entry_mode)
         return report
         
     except ValueError as e:

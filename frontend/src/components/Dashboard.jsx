@@ -14,7 +14,7 @@ import StockChartModal from './StockChartModal';
 
 const Dashboard = ({ report, onBack }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortConfig, setSortConfig] = useState({ key: 'return_30d', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'signal_date', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(25);
     const [capital, setCapital] = useState(100000);
@@ -138,7 +138,7 @@ const Dashboard = ({ report, onBack }) => {
                 let aVal = a[sortConfig.key];
                 let bVal = b[sortConfig.key];
 
-                if (sortConfig.key === 'signal_date') {
+                if (sortConfig.key === 'signal_date' || sortConfig.key === 'entry_date' || sortConfig.key === 'max_high_date' || sortConfig.key === 'max_low_date') {
                     aVal = new Date(aVal).getTime();
                     bVal = new Date(bVal).getTime();
                 }
@@ -162,9 +162,11 @@ const Dashboard = ({ report, onBack }) => {
     const formatCurrency = (val) => val ? `₹${val.toFixed(2)}` : 'N/A';
     const getColorClass = (val) => val > 0 ? 'positive' : val < 0 ? 'negative' : 'neutral';
 
-    const getExitDate = (entryDate, period) => {
+    const getEntryDate = (trade) => trade.entry_date || trade.signal_date;
+
+    const getExitDate = (trade, period) => {
         const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
-        const date = new Date(entryDate);
+        const date = new Date(getEntryDate(trade));
         date.setDate(date.getDate() + days);
         return date.toLocaleDateString('en-IN');
     };
@@ -177,7 +179,7 @@ const Dashboard = ({ report, onBack }) => {
     // Enhanced tooltip content
     const getTooltipContent = (trade, period) => {
         const exitPriceKey = `exit_price_${period}`;
-        const exitDate = getExitDate(trade.signal_date, period);
+        const exitDate = getExitDate(trade, period);
         const exitPrice = trade[exitPriceKey];
 
         return `📅 Exit Date: ${exitDate}\n💰 Exit Price: ${formatCurrency(exitPrice)}`;
@@ -431,10 +433,19 @@ const Dashboard = ({ report, onBack }) => {
                                     Symbol {sortConfig.key === 'symbol' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
                                 <th onClick={() => handleSort('signal_date')}>
-                                    Date {sortConfig.key === 'signal_date' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                    Signal Date {sortConfig.key === 'signal_date' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                </th>
+                                <th onClick={() => handleSort('signal_close_price')}>
+                                    Close {sortConfig.key === 'signal_close_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                </th>
+                                <th onClick={() => handleSort('entry_date')}>
+                                    Entry Date {sortConfig.key === 'entry_date' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
                                 <th onClick={() => handleSort('entry_price')}>
                                     Entry {sortConfig.key === 'entry_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                </th>
+                                <th>
+                                    Mode
                                 </th>
                                 <th onClick={() => handleSort('return_7d')}>
                                     1 Week Return {sortConfig.key === 'return_7d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
@@ -458,7 +469,14 @@ const Dashboard = ({ report, onBack }) => {
                                 <tr key={idx}>
                                     <td className="symbol-cell">{trade.symbol}</td>
                                     <td>{trade.signal_date}</td>
+                                    <td>{trade.signal_close_price ? formatCurrency(trade.signal_close_price) : '-'}</td>
+                                    <td>{getEntryDate(trade)}</td>
                                     <td>{formatCurrency(trade.entry_price)}</td>
+                                    <td>
+                                        <span className={`mode-badge ${trade.entry_mode === 'next_open' ? 'open' : 'close'}`}>
+                                            {trade.entry_mode === 'next_open' ? 'Open' : 'Close'}
+                                        </span>
+                                    </td>
                                     <td
                                         className={`clickable-cell ${getColorClass(trade.return_7d)}`}
                                         onClick={() => handleCellClick(trade, '7d')}

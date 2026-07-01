@@ -9,7 +9,10 @@ class BacktestRequest(BaseModel):
 class SignalResult(BaseModel):
     symbol: str
     signal_date: str
+    signal_close_price: Optional[float] = None
+    entry_date: Optional[str] = None
     entry_price: float
+    entry_mode: str = "next_close"
     
     # Returns & Prices
     return_7d: Optional[float] = None
@@ -45,6 +48,7 @@ class BacktestReport(BaseModel):
     total_signals: int
     successful_signals: int
     failed_signals: int
+    entry_mode: str = "next_close"
     
     # Aggregated Stats
     avg_return_7d: Optional[float] = None

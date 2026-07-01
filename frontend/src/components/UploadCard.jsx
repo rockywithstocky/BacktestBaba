@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Upload, FileText } from 'lucide-react';
+import { Upload, FileText, ArrowRightToLine, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './UploadCard.css';
 
-const UploadCard = ({ onUpload, isLoading, progress }) => {
+const UploadCard = ({ onUpload, isLoading, progress, entryMode, onEntryModeChange }) => {
     const [dragActive, setDragActive] = useState(false);
     const [file, setFile] = useState(null);
 
@@ -81,6 +81,47 @@ const UploadCard = ({ onUpload, isLoading, progress }) => {
                     </div>
                 </label>
             </div>
+
+            {file && !isLoading && (
+                <motion.div
+                    className="entry-mode-section"
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                >
+                    <div className="entry-mode-header">
+                        <span className="entry-mode-label">Entry Mode</span>
+                        <span className="entry-mode-hint">How should entry price be determined?</span>
+                    </div>
+                    <div className="entry-mode-toggle">
+                        <button
+                            className={`mode-btn ${entryMode === 'next_open' ? 'active' : ''}`}
+                            onClick={() => onEntryModeChange('next_open')}
+                            disabled={isLoading}
+                            type="button"
+                        >
+                            <Sun size={16} className="mode-icon" />
+                            <span>Next Open</span>
+                            {entryMode === 'next_open' && <span className="mode-check">✓</span>}
+                        </button>
+                        <button
+                            className={`mode-btn ${entryMode === 'next_close' ? 'active' : ''}`}
+                            onClick={() => onEntryModeChange('next_close')}
+                            disabled={isLoading}
+                            type="button"
+                        >
+                            <ArrowRightToLine size={16} className="mode-icon" />
+                            <span>Next Close</span>
+                            {entryMode === 'next_close' && <span className="mode-check">✓</span>}
+                        </button>
+                    </div>
+                    <p className="entry-mode-desc">
+                        {entryMode === 'next_open'
+                            ? 'Enter at the opening price of the next trading day after signal date.'
+                            : 'Enter at the closing price of the next trading day after signal date.'}
+                    </p>
+                </motion.div>
+            )}
 
             {file && !isLoading && (
                 <motion.button
