@@ -114,10 +114,10 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
         
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
-    except Exception:
+    except Exception as e:
         logger.exception("Unhandled error in WebSocket endpoint")
         try:
-            await websocket.send_json({"type": "error", "message": "Internal server error"})
+            await websocket.send_json({"type": "error", "message": str(e)})
         except Exception:
             pass
 
