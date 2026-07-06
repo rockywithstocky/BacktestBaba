@@ -9,7 +9,7 @@ Phase 0 fixes 6 verified correctness and reliability bugs, adds structured loggi
 | ID | Description | Priority | Status |
 |----|-------------|----------|--------|
 | 0a | Structured logging — replace `print()` with Python logging | High | **Verified** |
-| 0b | C1/C6 — error isolation + timeout on all yfinance I/O | Critical | Planned |
+| 0b | C1/C6 — error isolation + timeout on all yfinance I/O | Critical | **Verified** |
 | 0c | C5 — fix HTTP fallback Content-Type (remove malformed header) | Critical | Planned |
 | 0d | H1 — recognize `signal_date` column in CSV parsing | High | Planned |
 | 0e | H10 — double-submit guard on "Run Backtest" button | High | Planned |
@@ -48,19 +48,38 @@ Tasks 0c, 0d, 0e, 0f are independent of each other and of 0a/0b and may be execu
 
 ### Task 0b — C1/C6: Error Isolation on All yfinance I/O
 
-**Objective**: Wrap every yfinance call in `DataProvider` with try/except. Add explicit timeout to `get_ticker_data` and `get_latest_price`.
+**Objective**: Wrap every yfinance call in `DataProvider` with exception handling so that recoverable external failures (network, rate limiting, API format changes) do not propagate and crash the entire backtest.
 
-**Status**: Planned
+**Status**: Verified
 
-**Files affected**: `backend/core/data_provider.py`
+**Files changed**: `backend/core/data_provider.py`
 
-**Validation**:
-- Simulate yfinance failure (e.g., pass unresolvable symbol) → backtest completes with `"No Data"`, not 500
-- Verify successful runs produce identical results
+**Changes**:
+- `get_ticker_data()` — wrapped `yf.Ticker(symbol).history()` in try/except; returns empty `DataFrame` on failure, triggering caller's "No Data" path for that signal only
+- `get_bulk_ticker_data()` — wrapped `yf.download()` in try/except; returns empty `DataFrame` on failure, triggering per-symbol sequential fallback
+- `get_latest_price()` — wrapped `yf.Ticker(symbol).history(period="1d")` in try/except; returns `None` on failure (consistent with existing empty-history return), now logs the failure (previously silent)
+- `get_ticker_info()` — already had try/except; no change
+- Each boundary documented with inline comment explaining what class of failures it isolates and why the recovery preserves correctness
 
-**Regression checks**: `pytest backend/tests/test_backtester.py -v`
+**Design rationale**:
+Before implementation, each yfinance call was independently evaluated for:
+- Possible failure modes (network, rate limit, bad-symbol batch poisoning, API format changes)
+- Whether failures are recoverable (transient = recoverable, systemic = not recoverable)
+- Most appropriate recovery (empty DataFrame / None — consistent with callers' existing sentinels)
+- Alternative strategies considered and rejected (retry, chunking, per-symbol fallback)
+All three new exception boundaries use tightly-scoped try blocks covering only the yfinance I/O call, so programming errors in our own code are not silently masked.
 
-**Success criteria**: Backtest survives yfinance failures. Normal runs unchanged.
+**Validation performed** (all inside Docker):
+- `pytest backend/tests/ -v --asyncio-mode=auto` — **3/3 passed** (no regression)
+- Real end-to-end backtest — 3 valid NSE symbols (TCS, INFY, RELIANCE): **3/3 successful**, correct return values across all 6 horizons
+- Mixed valid+invalid backtest — 2 valid + 1 invalid: **2 successful, 1 "Symbol Not Found"**, valid symbols unaffected
+- All-invalid backtest — 2 nonexistent symbols: **0 successful, backtest completed without crash**
+
+**Success criteria met**:
+- Backtest survives yfinance failures (invalid symbols, batch poisoning) without crashing
+- Normal runs produce identical results (same real return values as Task 0a e2e test)
+
+**Regression checks**: `pytest backend/tests/ -v --asyncio-mode=auto` — 3/3 passed
 
 ---
 

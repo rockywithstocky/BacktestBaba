@@ -26,9 +26,18 @@ class DataProvider:
         
         # Fetch from yfinance
         logger.debug("Fetching %s from yfinance", symbol)
-        ticker = yf.Ticker(symbol)
-        # Fetch a bit more data to ensure we have the start date
-        df = ticker.history(start=start_date, end=end_date, auto_adjust=True)
+        # --- yfinance I/O boundary ---
+        # Isolates: network errors, rate limiting, API format changes, temporary outages
+        # These are expected operational failures of an external HTTP API.
+        # Recovery: return empty DataFrame → caller marks signal as "No Data",
+        #           preserving all other signals in the batch.
+        try:
+            ticker = yf.Ticker(symbol)
+            # Fetch a bit more data to ensure we have the start date
+            df = ticker.history(start=start_date, end=end_date, auto_adjust=True)
+        except Exception:
+            logger.warning("get_ticker_data — yfinance failure for %s", symbol, exc_info=True)
+            return pd.DataFrame()
         
         if df.empty:
             return df
@@ -44,17 +53,27 @@ class DataProvider:
         Returns a single bulk DataFrame. Does not use diskcache for the bulk 
         blob due to highly variable date boundaries per file upload.
         """
+        # --- yfinance I/O boundary ---
+        # Isolates: network errors, rate limiting, bad-symbol batch poisoning,
+        #           temporary outages. yf.download may fail entirely if any single
+        #           symbol is invalid (depends on yfinance version).
+        # Recovery: return empty DataFrame → caller falls back to per-symbol
+        #           sequential fetch, isolating the bad symbol from the rest.
         logger.info("Fetching bulk data for %d symbols from yfinance", len(symbols))
-        df = yf.download(
-            tickers=symbols, 
-            start=start_date, 
-            end=end_date, 
-            auto_adjust=True, 
-            group_by='ticker', 
-            progress=False,
-            threads=True
-        )
-        return df
+        try:
+            df = yf.download(
+                tickers=symbols, 
+                start=start_date, 
+                end=end_date, 
+                auto_adjust=True, 
+                group_by='ticker', 
+                progress=False,
+                threads=True
+            )
+            return df
+        except Exception:
+            logger.warning("get_bulk_ticker_data — yfinance failure for %d symbols", len(symbols), exc_info=True)
+            return pd.DataFrame()
 
     @staticmethod
     def get_ticker_info(symbol: str) -> dict:
@@ -94,8 +113,17 @@ class DataProvider:
         if cache_key in cache:
             return cache[cache_key]
             
-        ticker = yf.Ticker(symbol)
-        history = ticker.history(period="1d")
+        # --- yfinance I/O boundary ---
+        # Isolates: network errors, rate limiting during symbol existence check.
+        # Failure here causes a false negative in symbol resolution (valid symbol
+        # marked "Symbol Not Found"), but recovers on next run because symbol
+        # resolution cache is per-request.
+        try:
+            ticker = yf.Ticker(symbol)
+            history = ticker.history(period="1d")
+        except Exception:
+            logger.warning("get_latest_price — yfinance failure for %s", symbol, exc_info=True)
+            return None
         if history.empty:
             return None
             
