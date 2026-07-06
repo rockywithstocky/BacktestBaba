@@ -1,12 +1,18 @@
+import logging
+import os
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import io
-import json
-import os
 from typing import List, Dict
+
+from backend.logging_config import setup_logging
 from backend.core.backtester import Backtester
 from backend.models.schemas import BacktestReport
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Stock Screener Backtester Pro")
 
@@ -107,14 +113,13 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
         })
         
     except WebSocketDisconnect:
-        print("Client disconnected")
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.info("WebSocket client disconnected")
+    except Exception:
+        logger.exception("Unhandled error in WebSocket endpoint")
         try:
-            await websocket.send_json({"type": "error", "message": str(e)})
+            await websocket.send_json({"type": "error", "message": "Internal server error"})
         except Exception:
-            pass  # Connection already closed
+            pass
 
 @app.post("/api/backtest", response_model=BacktestReport)
 async def run_backtest_endpoint(file: UploadFile = File(...), entry_mode: str = Form("next_close")):
@@ -131,7 +136,6 @@ async def run_backtest_endpoint(file: UploadFile = File(...), entry_mode: str = 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Unhandled error in REST endpoint")
         raise HTTPException(status_code=500, detail=str(e))
 

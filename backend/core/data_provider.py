@@ -1,8 +1,12 @@
+import logging
+import os
+
 import yfinance as yf
 import pandas as pd
 from diskcache import Cache
-import os
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 # Initialize cache
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache")
@@ -21,7 +25,7 @@ class DataProvider:
             return cache[cache_key]
         
         # Fetch from yfinance
-        print(f"Fetching {symbol} from yfinance...")
+        logger.debug("Fetching %s from yfinance", symbol)
         ticker = yf.Ticker(symbol)
         # Fetch a bit more data to ensure we have the start date
         df = ticker.history(start=start_date, end=end_date, auto_adjust=True)
@@ -40,7 +44,7 @@ class DataProvider:
         Returns a single bulk DataFrame. Does not use diskcache for the bulk 
         blob due to highly variable date boundaries per file upload.
         """
-        print(f"Fetching bulk data for {len(symbols)} symbols from yfinance...")
+        logger.info("Fetching bulk data for %d symbols from yfinance", len(symbols))
         df = yf.download(
             tickers=symbols, 
             start=start_date, 
@@ -62,7 +66,7 @@ class DataProvider:
         if cache_key in cache:
             return cache[cache_key]
             
-        print(f"Fetching metadata for {symbol} from yfinance...")
+        logger.debug("Fetching metadata for %s from yfinance", symbol)
         result = {"sector": None, "marketCap": None}
         
         try:
@@ -75,8 +79,8 @@ class DataProvider:
             # Cache the result (expire in 7 days = 604800 seconds)
             cache.set(cache_key, result, expire=604800)
             
-        except Exception as e:
-            print(f"[ENRICHMENT ERROR] Failed to fetch metadata for {symbol}: {e}")
+        except Exception:
+            logger.warning("Failed to fetch metadata for %s", symbol, exc_info=True)
             # Do not cache failures so they can be retried later, just return the empty result.
             
         return result

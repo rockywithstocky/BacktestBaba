@@ -1,11 +1,17 @@
 import asyncio
+import logging
+import time
+
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import List, Dict
+
 from .data_provider import DataProvider
 from .symbol_resolver import SymbolResolver
 from ..utils.date_utils import parse_date, get_next_trading_day, get_future_trading_day
 from ..models.schemas import SignalResult, BacktestReport
+
+logger = logging.getLogger(__name__)
 
 class Backtester:
     @staticmethod
@@ -28,7 +34,10 @@ class Backtester:
         # If progress callback exists, notify we are resolving
         if progress_callback:
             await progress_callback(0, total_steps, "Initializing...")
-            
+
+        phase_start = time.monotonic()
+        logger.info("Phase A — Resolving %d signals (duration=%d, entry_mode=%s)", total, duration, entry_mode)
+
         for i, signal in enumerate(signals):
             raw_symbol = signal.get("symbol") or signal.get("Symbol")
             date_str = signal.get("date") or signal.get("Date")
@@ -74,13 +83,29 @@ class Backtester:
                 seen_symbols.add(resolved_symbol)
                 unique_resolved_symbols.append(resolved_symbol)
 
+        phase_a_time = time.monotonic() - phase_start
+        valid_count = sum(1 for p in parsed_signals if p["status"] == "Valid")
+        invalid_by_status = {}
+        for p in parsed_signals:
+            s = p["status"]
+            if s != "Valid":
+                invalid_by_status[s] = invalid_by_status.get(s, 0) + 1
+        status_summary = ", ".join(f"{k}={v}" for k, v in sorted(invalid_by_status.items())) if invalid_by_status else "none"
+        logger.info(
+            "Phase A completed — total=%d, valid=%d, unique_symbols=%d, invalid=[%s], elapsed=%.2fs",
+            total, valid_count, len(unique_resolved_symbols), status_summary, phase_a_time
+        )
+
         # --- Phase B: Bulk Fetching & Enrichment ---
         bulk_df = None
         if progress_callback:
             await progress_callback(total, total_steps, "Fetching historical data...")
-            
+
         if unique_resolved_symbols and global_start and global_end:
-            print(f"[BATCH] Fetching {len(unique_resolved_symbols)} unique symbols from {global_start.strftime('%Y-%m-%d')} to {global_end.strftime('%Y-%m-%d')}...")
+            logger.info("Phase B — Fetching %d unique symbols from %s to %s",
+                        len(unique_resolved_symbols),
+                        global_start.strftime("%Y-%m-%d"),
+                        global_end.strftime("%Y-%m-%d"))
             # We fetch everything in one go. If list is massive (>100), yfinance chunks internally anyway.
             bulk_df = await asyncio.to_thread(
                 DataProvider.get_bulk_ticker_data,
@@ -89,12 +114,18 @@ class Backtester:
                 global_end.strftime("%Y-%m-%d")
             )
             
+        phase_b_time = time.monotonic() - phase_start
+        bulk_available = bulk_df is not None and not bulk_df.empty
+        logger.info("Phase B — Bulk fetch completed, data=%s, elapsed=%.2fs",
+                    "available" if bulk_available else "empty/unavailable",
+                    phase_b_time)
+
         metadata_map = {}
         if unique_resolved_symbols:
             if progress_callback:
                 await progress_callback(total, total_steps, "Enriching metadata...")
-                
-            print(f"[ENRICHMENT] Fetching metadata for {len(unique_resolved_symbols)} symbols...")
+
+            logger.info("Phase B — Enriching metadata for %d symbols", len(unique_resolved_symbols))
             sem = asyncio.Semaphore(10)
             
             async def fetch_meta(sym):
@@ -104,9 +135,15 @@ class Backtester:
             meta_results = await asyncio.gather(*(fetch_meta(s) for s in unique_resolved_symbols))
             metadata_map = dict(meta_results)
             
+        meta_time = time.monotonic() - phase_start
+        logger.info("Phase B — Metadata enrichment completed, %d symbols, elapsed=%.2fs",
+                    len(metadata_map), meta_time)
+
         # --- Phase C: Calculation Loop ---
         fallback_count = 0
-        
+        phase_c_start = time.monotonic()
+        logger.info("Phase C — Computing returns for %d signals", len(parsed_signals))
+
         for i, p_sig in enumerate(parsed_signals):
             if progress_callback:
                 # Phase C takes the second half of the progress bar
@@ -141,19 +178,18 @@ class Backtester:
                         if resolved_symbol in bulk_df.columns.get_level_values(0):
                             df = bulk_df[resolved_symbol].dropna(how='all')
                         else:
-                            print(f"[SLICE MISS] {resolved_symbol} not found in bulk_df columns")
+                            logger.warning("Phase C — %s not found in bulk_df columns", resolved_symbol)
                     else:
-                        # Flat index fallback (shouldn't happen with group_by='ticker')
-                        print(f"[SLICE INFO] Flat index detected for {resolved_symbol}, using bulk_df directly")
+                        logger.info("Phase C — Flat index detected for %s, using bulk_df directly", resolved_symbol)
                         df = bulk_df.copy()
-                except Exception as e:
-                    print(f"[SLICE ERROR] {resolved_symbol}: {e} | columns_type={type(bulk_df.columns).__name__}")
+                except Exception:
+                    logger.exception("Phase C — Slice error for %s", resolved_symbol)
                     df = None
             
             # Fallback path (the old sequential logic)
             if df is None or df.empty:
                 fallback_count += 1
-                print(f"[FALLBACK] Triggered sequential fetch for {resolved_symbol}...")
+                logger.warning("Phase C — Fallback triggered for %s", resolved_symbol)
                 df = await asyncio.to_thread(
                     DataProvider.get_ticker_data,
                     resolved_symbol,
@@ -251,6 +287,10 @@ class Backtester:
                 
             results.append(res)
             
+        phase_c_time = time.monotonic() - phase_c_start
+        logger.info("Phase C completed — %d signals computed, %d fallbacks, elapsed=%.2fs",
+                    len(parsed_signals), fallback_count, phase_c_time)
+
         # 5. Aggregate Report
         successful = [r for r in results if r.status == "Success"]
         
@@ -284,5 +324,15 @@ class Backtester:
             if rets_30d:
                 report.best_performer = max(successful, key=lambda x: x.return_30d if x.return_30d is not None else -999)
                 report.worst_performer = min(successful, key=lambda x: x.return_30d if x.return_30d is not None else 999)
+
+        total_time = time.monotonic() - phase_start
+        status_counts = {}
+        for r in results:
+            status_counts[r.status] = status_counts.get(r.status, 0) + 1
+        status_summary = ", ".join(f"{k}={v}" for k, v in sorted(status_counts.items()))
+        logger.info(
+            "Backtest complete — total=%d, successful=%d, failed=%d, elapsed=%.2fs | %s",
+            total, len(successful), total - len(successful), total_time, status_summary
+        )
 
         return report
