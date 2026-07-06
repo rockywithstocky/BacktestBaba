@@ -12,7 +12,6 @@ const runBacktestHTTPFallback = async (file, onProgress, onComplete, onError, en
         formData.append('entry_mode', entryMode);
 
         await axios.post(`${API_URL}/backtest`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
             timeout: 120000,
         }).then(response => {
             onComplete(response.data);

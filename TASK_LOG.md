@@ -10,7 +10,7 @@ Phase 0 fixes 6 verified correctness and reliability bugs, adds structured loggi
 |----|-------------|----------|--------|
 | 0a | Structured logging — replace `print()` with Python logging | High | **Verified** |
 | 0b | C1/C6 — error isolation + timeout on all yfinance I/O | Critical | **Verified** |
-| 0c | C5 — fix HTTP fallback Content-Type (remove malformed header) | Critical | Planned |
+| 0c | C5 — fix HTTP fallback Content-Type (remove malformed header) | Critical | **Verified** |
 | 0d | H1 — recognize `signal_date` column in CSV parsing | High | Planned |
 | 0e | H10 — double-submit guard on "Run Backtest" button | High | Planned |
 | 0f | M11 — wrap `JSON.parse(event.data)` in try/catch | Medium | Planned |
@@ -85,18 +85,27 @@ All three new exception boundaries use tightly-scoped try blocks covering only t
 
 ### Task 0c — C5: HTTP Fallback Content-Type
 
-**Objective**: Remove manually-set `Content-Type: multipart/form-data` from HTTP fallback request.
+**Objective**: Remove manually-set `Content-Type: multipart/form-data` from HTTP fallback Axios request.
 
-**Status**: Planned
+**Status**: Verified
 
-**Files affected**: `frontend/src/services/api.js`
+**Files changed**: `frontend/src/services/api.js`
+
+**Changes**:
+- Removed `headers: { 'Content-Type': 'multipart/form-data' }` from the HTTP fallback Axios POST call (line 15)
+- Without the manual override, Axios auto-derives `Content-Type: multipart/form-data; boundary=...` from the FormData payload, which includes the required boundary parameter
+
+**Bug confirmation** (reproduced before fix):
+- Auto Content-Type: **200 OK**
+- Manual override without boundary: **400** `"Missing boundary in multipart."`
+- Manual override with correct boundary: **200 OK**
 
 **Validation**:
-- Block WebSocket, upload CSV → HTTP fallback delivers complete report
+- Backend unit tests: `pytest backend/tests/ -v --asyncio-mode=auto` — **3/3 passed**
+- HTTP fallback with auto Content-Type (matching fixed frontend behavior): **200 OK**, report delivered
+- WS endpoint unchanged, remains reachable
 
-**Regression checks**: Normal WebSocket backtest still works
-
-**Success criteria**: HTTP fallback delivers report when WS is unavailable.
+**Success criteria met**: HTTP fallback now delivers report; manual Content-Type override removed.
 
 ---
 
