@@ -61,10 +61,17 @@ def parse_upload_data(data: bytes) -> pd.DataFrame:
     # Normalize column headers
     df.columns = [c.strip() for c in df.columns]
     
+    # Normalize signal_date → date if date column is absent
+    # Supports users who upload CSVs with signal_date instead of date.
+    # If both exist, date takes precedence (no rename).
+    col_lower = {c.lower(): c for c in df.columns}
+    if 'signal_date' in col_lower and 'date' not in col_lower:
+        df.rename(columns={col_lower['signal_date']: 'date'}, inplace=True)
+    
     # Validate required columns (case-insensitive)
     col_lower = {c.lower(): c for c in df.columns}
     has_symbol = 'symbol' in col_lower
-    has_date = 'date' in col_lower or 'signal_date' in col_lower
+    has_date = 'date' in col_lower
     
     if not has_symbol or not has_date:
         available = ', '.join(df.columns.tolist())

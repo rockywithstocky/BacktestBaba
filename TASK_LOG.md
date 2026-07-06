@@ -11,7 +11,7 @@ Phase 0 fixes 6 verified correctness and reliability bugs, adds structured loggi
 | 0a | Structured logging — replace `print()` with Python logging | High | **Verified** |
 | 0b | C1/C6 — error isolation + timeout on all yfinance I/O | Critical | **Verified** |
 | 0c | C5 — fix HTTP fallback Content-Type (remove malformed header) | Critical | **Verified** |
-| 0d | H1 — recognize `signal_date` column in CSV parsing | High | Planned |
+| 0d | H1 — recognize `signal_date` column in CSV parsing | High | **Verified** |
 | 0e | H10 — double-submit guard on "Run Backtest" button | High | Planned |
 | 0f | M11 — wrap `JSON.parse(event.data)` in try/catch | Medium | Planned |
 
@@ -111,19 +111,24 @@ All three new exception boundaries use tightly-scoped try blocks covering only t
 
 ### Task 0d — H1: signal_date Column Recognition
 
-**Objective**: Rename `signal_date` column to `date` during CSV parsing so backtester recognizes it.
+**Objective**: Normalize `signal_date` → `date` during CSV parsing so backtester recognizes the column.
 
-**Status**: Planned
+**Status**: Verified
 
-**Files affected**: `backend/main.py`
+**Files changed**: `backend/main.py` (`parse_upload_data()`)
 
-**Validation**:
-- Upload CSV with `signal_date` header → trades have valid dates
-- CSV with both `date` and `signal_date` → `date` is used (no conflict)
+**Changes**:
+- After column header normalization (`.strip()`), if `signal_date` exists and `date` does not, rename `signal_date` → `date`
+- If both exist, `date` takes precedence (no rename)
+- Only `signal_date` is recognized; no generic aliasing system
 
-**Regression checks**: Standard CSV with `date` column produces identical results
+**Validation** (all inside Docker):
+- CSV with `date` column: **200 OK**, 1 successful
+- CSV with `signal_date` column: **200 OK**, 1 successful
+- CSV with both `date` and `signal_date`: **200 OK**, 1 successful (`date` used)
+- Backend tests: `pytest backend/tests/ -v --asyncio-mode=auto` — **3/3 passed**
 
-**Success criteria**: CSV with `signal_date` column produces valid results.
+**Success criteria met**: CSV with `signal_date` produces valid results; `date` takes precedence when both present.
 
 ---
 
