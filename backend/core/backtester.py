@@ -14,6 +14,26 @@ from ..config import Limits
 
 logger = logging.getLogger(__name__)
 
+_METADATA_KEYS = {
+    'sector': ('sector', 'industry', 'sector_name'),
+    'marketCap': ('marketcap', 'market_cap', 'marketcapname', 'market cap', 'mktcap'),
+}
+
+
+def _extract_csv_metadata(signal: dict) -> dict:
+    """Extract sector and marketCap from CSV columns if present.
+    Returns dict with keys 'sector' and 'marketCap' (None if not found).
+    """
+    result = {"sector": None, "marketCap": None}
+    for target_key, candidates in _METADATA_KEYS.items():
+        for c in candidates:
+            val = signal.get(c) or signal.get(c.title()) or signal.get(c.upper())
+            if val is not None and str(val).strip():
+                result[target_key] = str(val).strip()
+                break
+    return result
+
+
 class Backtester:
     @staticmethod
     async def run_backtest_async(
@@ -27,56 +47,71 @@ class Backtester:
         results: List[SignalResult] = []
         total = len(signals)
         duration = min(max(duration, 7), 180)
-        
-        # --- Phase A: Resolution & Bounds Calculation ---
-        parsed_signals = [] 
-        unique_resolved_symbols = [] # Deterministic ordering
-        seen_symbols = set()
-        
-        global_start = None
-        global_end = None
-        
+
         # Progress spans Phase A (resolution) and Phase C (computation)
         total_steps = total * 2
-        
-        # If progress callback exists, notify we are resolving
+
         if progress_callback:
             await progress_callback(0, total_steps, "Initializing...")
 
         phase_start = time.monotonic()
         logger.info("Phase A — Resolving %d signals (duration=%d, entry_mode=%s)", total, duration, entry_mode)
 
+        # ── Phase A: Resolution & Bounds Calculation ──────────────────────
+        # Pass 1: collect unique raw symbols for batch resolution
+        unique_raw = []
+        seen_raw = set()
+        for signal in signals:
+            raw = (signal.get("symbol") or signal.get("Symbol") or "").strip().upper()
+            if raw and raw not in seen_raw:
+                seen_raw.add(raw)
+                unique_raw.append(raw)
+
+        if progress_callback:
+            await progress_callback(1, total_steps, f"Batch resolving {len(unique_raw)} symbols...")
+
+        resolved_map = await asyncio.to_thread(SymbolResolver.batch_resolve, unique_raw)
+
+        # Pass 2: process each signal with pre-resolved symbols
+        parsed_signals = []
+        unique_resolved_symbols = []
+        seen_symbols = set()
+        global_start = None
+        global_end = None
+
         for i, signal in enumerate(signals):
             raw_symbol = signal.get("symbol") or signal.get("Symbol")
             date_str = signal.get("date") or signal.get("Date")
-            
+
             if progress_callback:
-                # Phase A takes up the first half of the progress bar
-                await progress_callback(i + 1, total_steps, f"Resolving: {raw_symbol}")
-                
+                await progress_callback(i + 1, total_steps, f"Processing: {raw_symbol}")
+
             if not raw_symbol or not date_str:
                 parsed_signals.append({"status": "Invalid Input", "raw": str(raw_symbol), "date": str(date_str)})
                 continue
-                
-            resolved_symbol = await asyncio.to_thread(SymbolResolver.resolve, raw_symbol)
+
+            key = raw_symbol.strip().upper()
+            resolved_symbol = resolved_map.get(key)
             if not resolved_symbol:
                 parsed_signals.append({"status": "Symbol Not Found", "raw": raw_symbol, "date": date_str})
                 continue
-                
+
             try:
                 signal_date = parse_date(date_str)
             except ValueError:
                 parsed_signals.append({"status": "Invalid Date", "raw": resolved_symbol, "date": date_str})
                 continue
-                
+
             start_date = signal_date
-            end_date = signal_date + timedelta(days=duration + 10) 
-            
+            end_date = signal_date + timedelta(days=duration + 10)
+
             if global_start is None or start_date < global_start:
                 global_start = start_date
             if global_end is None or end_date > global_end:
                 global_end = end_date
-                
+
+            csv_meta = _extract_csv_metadata(signal)
+
             parsed_signals.append({
                 "status": "Valid",
                 "raw": raw_symbol,
@@ -84,9 +119,10 @@ class Backtester:
                 "date_str": date_str,
                 "signal_date": signal_date,
                 "start_date": start_date,
-                "end_date": end_date
+                "end_date": end_date,
+                "csv_metadata": csv_meta,
             })
-            
+
             if resolved_symbol not in seen_symbols:
                 seen_symbols.add(resolved_symbol)
                 unique_resolved_symbols.append(resolved_symbol)
@@ -128,24 +164,42 @@ class Backtester:
                     "available" if bulk_available else "empty/unavailable",
                     phase_b_time)
 
+        # Build metadata from CSV first, then fetch missing from API
         metadata_map = {}
-        if unique_resolved_symbols:
-            if progress_callback:
-                await progress_callback(total, total_steps, "Enriching metadata...")
+        csv_meta_symbols = set()
+        for p in parsed_signals:
+            if p["status"] == "Valid":
+                sym = p["resolved"]
+                csv_m = p.get("csv_metadata", {})
+                if csv_m and (csv_m.get("sector") or csv_m.get("marketCap")):
+                    if sym not in metadata_map:
+                        metadata_map[sym] = csv_m
+                        csv_meta_symbols.add(sym)
 
-            logger.info("Phase B — Enriching metadata for %d symbols", len(unique_resolved_symbols))
-            sem = asyncio.Semaphore(10)
-            
+        symbols_needing_api = [s for s in unique_resolved_symbols if s not in csv_meta_symbols]
+
+        if symbols_needing_api:
+            if progress_callback:
+                await progress_callback(total, total_steps,
+                                        f"Fetching metadata for {len(symbols_needing_api)} symbols...")
+
+            logger.info("Phase B — Enriching metadata for %d symbols (CSV provided %d, API needed %d)",
+                        len(unique_resolved_symbols), len(csv_meta_symbols), len(symbols_needing_api))
+            sem = asyncio.Semaphore(Limits.MAX_CONCURRENCY_METADATA)
+
             async def fetch_meta(sym):
                 async with sem:
                     return sym, await asyncio.to_thread(DataProvider.get_ticker_info, sym)
-                    
-            meta_results = await asyncio.gather(*(fetch_meta(s) for s in unique_resolved_symbols))
-            metadata_map = dict(meta_results)
-            
+
+            meta_results = await asyncio.gather(*(fetch_meta(s) for s in symbols_needing_api))
+            for sym, meta in meta_results:
+                if sym not in metadata_map:
+                    metadata_map[sym] = meta
+
         meta_time = time.monotonic() - phase_start
-        logger.info("Phase B — Metadata enrichment completed, %d symbols, elapsed=%.2fs",
-                    len(metadata_map), meta_time)
+        api_count = len(symbols_needing_api)
+        logger.info("Phase B — Metadata enrichment completed, %d symbols (%d from API), elapsed=%.2fs",
+                    len(metadata_map), api_count, meta_time)
 
         # --- Phase C: Calculation Loop ---
         fallback_count = 0
