@@ -166,13 +166,21 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
     try:
         data = await websocket.receive_bytes()
 
-        async def on_progress(current, total, symbol):
-            await websocket.send_json({
+        async def on_progress(current, total, symbol, **kwargs):
+            msg = {
                 "type": "progress",
                 "current": current,
                 "total": total,
                 "symbol": symbol
-            })
+            }
+            if "trades" in kwargs:
+                msg = {
+                    "type": "trade_batch",
+                    "batch": kwargs["trades"],
+                    "current": current,
+                    "total": total
+                }
+            await websocket.send_json(msg)
 
         try:
             report = await _handle_backtest(data, entry_mode, progress_callback=on_progress)

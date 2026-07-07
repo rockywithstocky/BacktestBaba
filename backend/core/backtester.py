@@ -224,17 +224,28 @@ class Backtester:
         batch_num = 0
         batch_results = []
 
-        def _flush_batch():
-            nonlocal batch_num, batch_results
-            if job_store and batch_results:
+        # Online single-pass aggregation accumulators
+        horizons = [7, 14, 30, 45, 60, 90]
+        agg = {h: {"sum": 0.0, "count": 0, "wins": 0} for h in horizons}
+        best_performer = None
+        worst_performer = None
+
+        async def _flush_batch():
+            nonlocal batch_num, batch_results, best_performer, worst_performer
+            if not batch_results:
+                return
+            if job_store:
                 dicts = [r.dict() for r in batch_results]
                 job_store.save_batch(batch_num, dicts)
                 batch_num += 1
-                batch_results = []
+            if progress_callback:
+                await progress_callback(total + batch_num - 1, total_steps,
+                                        f"Batch {batch_num}: {len(batch_results)} trades",
+                                        trades=[r.dict() for r in batch_results])
+            batch_results = []
 
         for i, p_sig in enumerate(parsed_signals):
             if progress_callback:
-                # Phase C takes the second half of the progress bar
                 await progress_callback(total + i + 1, total_steps, f"Computing: {p_sig.get('raw') or 'Unknown'}")
 
             if p_sig["status"] != "Valid":
@@ -355,9 +366,13 @@ class Backtester:
                     # For this iteration, we will populate standard fields and ensure data is fetched up to 'duration'.
                     # The schema supports 7d, 14d, 30d, 45d, 60d, 90d.
                     
-                    if h in [7, 14, 30, 45, 60, 90]:
+                    if h in horizons:
                         setattr(res, f"return_{h}d", round(ret, 2))
                         setattr(res, f"exit_price_{h}d", round(exit_price, 2))
+                        agg[h]["sum"] += round(ret, 2)
+                        agg[h]["count"] += 1
+                        if ret > 0:
+                            agg[h]["wins"] += 1
             
             # Max High/Low in Duration
             window_end = entry_date + timedelta(days=duration)
@@ -372,21 +387,28 @@ class Backtester:
                 max_low_idx = window_df["Low"].idxmin()
                 res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
                 res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
-                
-            results.append(res)
-            if job_store:
-                batch_results.append(res)
-                if len(batch_results) >= Limits.BATCH_SIZE:
-                    _flush_batch()
 
-        _flush_batch()
+            # Online best/worst tracking
+            ret_90 = res.return_90d
+            if ret_90 is not None:
+                if best_performer is None or ret_90 > getattr(best_performer, "return_90d", -999):
+                    best_performer = res
+                if worst_performer is None or ret_90 < getattr(worst_performer, "return_90d", 999):
+                    worst_performer = res
+
+            results.append(res)
+            batch_results.append(res)
+            if len(batch_results) >= Limits.BATCH_SIZE:
+                await _flush_batch()
+
+        await _flush_batch()
         phase_c_time = time.monotonic() - phase_c_start
         logger.info("Phase C completed — %d signals computed, %d fallbacks, elapsed=%.2fs",
                     len(parsed_signals), fallback_count, phase_c_time)
 
-        # 5. Aggregate Report
+        # 5. Aggregate Report (single-pass aggregation)
         successful = [r for r in results if r.status == "Success"]
-        
+
         report = BacktestReport(
             total_signals=len(signals),
             successful_signals=len(successful),
@@ -394,29 +416,16 @@ class Backtester:
             entry_mode=entry_mode,
             trades=results
         )
-        
-        if successful:
-            # Helper to calc stats
-            def calc_stats(horizon):
-                rets = [getattr(r, f"return_{horizon}d") for r in successful if getattr(r, f"return_{horizon}d") is not None]
-                if rets:
-                    avg = round(sum(rets) / len(rets), 2)
-                    win_rate = round((len([x for x in rets if x > 0]) / len(rets)) * 100, 2)
-                    setattr(report, f"avg_return_{horizon}d", avg)
-                    setattr(report, f"win_rate_{horizon}d", win_rate)
 
-            calc_stats(7)
-            calc_stats(14)
-            calc_stats(30)
-            calc_stats(45)
-            calc_stats(60)
-            calc_stats(90)
-                
-            # Best/Worst (based on 30d for now, or max gain)
-            rets_30d = [r.return_30d for r in successful if r.return_30d is not None]
-            if rets_30d:
-                report.best_performer = max(successful, key=lambda x: x.return_30d if x.return_30d is not None else -999)
-                report.worst_performer = min(successful, key=lambda x: x.return_30d if x.return_30d is not None else 999)
+        if successful:
+            for h in horizons:
+                a = agg[h]
+                if a["count"] > 0:
+                    setattr(report, f"avg_return_{h}d", round(a["sum"] / a["count"], 2))
+                    setattr(report, f"win_rate_{h}d", round((a["wins"] / a["count"]) * 100, 2))
+
+            report.best_performer = best_performer
+            report.worst_performer = worst_performer
 
         total_time = time.monotonic() - phase_start
         status_counts = {}
