@@ -2,6 +2,8 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : 'https://backtestbaba-api.onrender.com/api');
 const WS_URL = import.meta.env.VITE_WS_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'ws://localhost:8000/ws' : 'wss://backtestbaba-api.onrender.com/ws');
+const WS_TIMEOUT = parseInt(import.meta.env.VITE_WS_TIMEOUT || '30000', 10);
+const HTTP_TIMEOUT = parseInt(import.meta.env.VITE_HTTP_TIMEOUT || '120000', 10);
 
 const runBacktestHTTPFallback = async (file, onProgress, onComplete, onError, entryMode = 'next_close') => {
     try {
@@ -12,7 +14,7 @@ const runBacktestHTTPFallback = async (file, onProgress, onComplete, onError, en
         formData.append('entry_mode', entryMode);
 
         await axios.post(`${API_URL}/backtest`, formData, {
-            timeout: 120000,
+            timeout: HTTP_TIMEOUT,
         }).then(response => {
             onComplete(response.data);
         });
@@ -31,9 +33,10 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
         if (!settled) {
             settled = true;
             ws.close();
+            onProgress({ current: 0, total: 100, symbol: 'WebSocket timeout, falling back to HTTP...' });
             runBacktestHTTPFallback(file, onProgress, onComplete, onError, entryMode);
         }
-    }, 10000);
+    }, WS_TIMEOUT);
 
     ws.onopen = () => {
         clearTimeout(wsTimeout);
