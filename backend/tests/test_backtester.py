@@ -70,7 +70,7 @@ async def test_backtester_run(mock_dependencies):
 async def test_backtester_invalid_symbol(monkeypatch):
     """Test that unresolvable symbols are handled gracefully."""
     monkeypatch.setattr(DataProvider, "get_ticker_data", mock_get_ticker_data)
-    monkeypatch.setattr(SymbolResolver, "resolve", lambda s: None)  # Always fail
+    monkeypatch.setattr(SymbolResolver, "batch_resolve", lambda symbols: {s: None for s in symbols})
     
     signals = [
         {"symbol": "FAKESYMBOL", "date": "2023-01-01"}

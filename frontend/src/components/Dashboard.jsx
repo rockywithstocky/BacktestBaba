@@ -3,7 +3,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, ComposedChart, Scatter
 } from 'recharts';
-import { ArrowLeft, TrendingUp, TrendingDown, Percent, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, X, BarChart3, LineChart as LineChartIcon, Activity, ArrowRight } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Percent, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, X, BarChart3, LineChart as LineChartIcon, Activity, ArrowRight, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import './Dashboard.css';
@@ -436,7 +436,15 @@ const Dashboard = ({ report, onBack }) => {
                                     Signal Date {sortConfig.key === 'signal_date' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
                                 <th onClick={() => handleSort('signal_close_price')}>
-                                    Close {sortConfig.key === 'signal_close_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                    <span className="inline-flex items-center gap-1">
+                                        Close {sortConfig.key === 'signal_close_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                        <span className="relative group">
+                                            <Info size={14} className="text-gray-400 hover:text-gray-600 cursor-help" />
+                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-gray-800 text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                                Split-adjusted — returns account for corporate actions
+                                            </span>
+                                        </span>
+                                    </span>
                                 </th>
                                 <th onClick={() => handleSort('entry_date')}>
                                     Entry Date {sortConfig.key === 'entry_date' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}

@@ -174,8 +174,8 @@ python -m pytest backend/tests/test_backtester.py -v
 ## Section 7 — Decisions Made
 
 | Date | Decision | Why |
-|---|---|---|
-| *(Section starts empty — record decisions here as they are made)* | | |
+|---|---|---|---|
+| 2026-07-06 | The Persistent Historical Data Store will use SQLite as its embedded database unless future requirements materially change (see `docs/adr/004-persistent-data-store.md`) | SQLite is embedded, zero-maintenance, and matches the application's read-dominated, single-writer access pattern without requiring new infrastructure |
 
 ---
 

@@ -1,16 +1,13 @@
 # BacktestBaba — AI Agent Guide
 
-**Stock Screener Backtester Pro**: Full-stack application for backtesting stock trading signals with real-time progress tracking, interactive charts, and comprehensive performance analytics.
+**Stock Screener Backtester Pro**: Full-stack app for backtesting stock trading signals with real-time progress, charts, and analytics. Live at [chartchampion.vercel.app](https://chartchampion.vercel.app).
 
 ## Quick Start
-
-### Running the Application
 
 **Backend** (FastAPI on port 8000):
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate  # Windows: use source venv/bin/activate on Mac/Linux
+python -m venv venv; venv\Scripts\activate  # Windows: source venv/bin/activate on Mac/Linux
 pip install -r requirements.txt
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 # Swagger docs: http://localhost:8000/docs
@@ -23,229 +20,146 @@ npm install
 npm run dev
 ```
 
-### Testing
+## Testing
 
 ```bash
-# All tests with asyncio support
+# All tests (asyncio mode auto)
 pytest backend/tests/ -v --asyncio-mode=auto
 
-# Regression test (ensures bulk fetch ≈ sequential fallback)
+# Single file / function
+pytest backend/tests/test_backtester.py -v
+pytest backend/tests/test_backtester.py::test_valid_signals -v
+
+# Bulk fetch ≈ sequential fallback regression check
 python backend/tests/verify_regression.py
 
-# Lint
+# Horizons output verification (fetches real data)
+python backend/verify_horizons.py
+
+# Frontend lint only (no test runner configured)
 cd frontend && npm run lint
 ```
 
-## Architecture Overview
+## Architecture (3-Phase Backtester)
 
-**Tech Stack**:
-- Backend: FastAPI, yfinance, Pandas, diskcache, WebSocket
-- Frontend: React 18, Vite, TailwindCSS, Recharts, Framer Motion
+1. **Resolution** (0-50%): Deterministic symbol extraction → NSE/BSE ticker resolution via `SymbolResolver` (in-memory cache per request) → global date bounds
+2. **Bulk Fetch** (50% mark): Single `yf.download(group_by='ticker')` → MultiIndex DataFrame (24h diskcache). Sequential fallback per symbol if bulk fetch fails
+3. **Computation** (50-100%): Per-symbol slicing → return calc for 6 horizons (7/14/30/45/60/90d) → metadata enrichment (sector, marketCap, 7-day cache, Semaphore(10))
 
-**3-Phase Backtester**:
-1. **Resolution** (0-50%): Deterministically extract unique symbols, resolve NSE/BSE tickers, compute global date bounds
-2. **Bulk Fetch** (50% mark): Single `yf.download(group_by='ticker')` call → MultiIndex DataFrame
-3. **Computation** (50-100%): Per-symbol slicing, return calculations, metadata enrichment (sector/marketCap)
+## Key Files
 
-**Key Files**:
-- [backend/core/backtester.py](backend/core/backtester.py) — Orchestrates 3-phase pipeline; async I/O via `asyncio.to_thread`
-- [backend/core/data_provider.py](backend/core/data_provider.py) — Bulk ticker data fetch (24h cache), metadata enrichment (7-day cache, concurrent with Semaphore(10))
-- [backend/core/symbol_resolver.py](backend/core/symbol_resolver.py) — Resolves symbols to NSE/BSE tickers; in-memory cache per request
-- [backend/models/schemas.py](backend/models/schemas.py) — SignalResult, BacktestReport Pydantic models
-- [backend/main.py](backend/main.py) — FastAPI endpoints: `/api/backtest` (REST), `/ws/backtest` (WebSocket with progress)
-- [frontend/src/components/Dashboard.jsx](frontend/src/components/Dashboard.jsx) — Main UI (~500 lines); monolith with state, charts, table
-- [frontend/src/services/api.js](frontend/src/services/api.js) — HTTP + WebSocket client
+| File | Role |
+|------|------|
+| `backend/core/backtester.py` | Orchestrates all 3 phases; async I/O via `asyncio.to_thread` |
+| `backend/core/data_provider.py` | Bulk/fallback ticker fetch, metadata, latest price; diskcache-based |
+| `backend/core/symbol_resolver.py` | Resolves → `.NS` / `.BO`; in-memory cache per request |
+| `backend/models/schemas.py` | `SignalResult` + `BacktestReport` Pydantic models |
+| `backend/main.py` | FastAPI: `POST /api/backtest` (REST), `WS /ws/backtest` (WebSocket + progress) |
+| `backend/utils/date_utils.py` | `parse_date()` (7 formats), `get_next_trading_day()`, `get_future_trading_day()` |
+| `frontend/src/services/api.js` | `runBacktestWS()` — WS with 10s timeout → HTTP fallback |
+| `frontend/src/pages/BacktesterPage.jsx` | Orchestrates UploadCard + Dashboard; entry mode toggle |
+| `frontend/src/components/Dashboard.jsx` | Charts, stats, paginated trade table (~525 lines) |
+| `frontend/src/components/StockChartModal.jsx` | Area/Line/Bar chart modal per trade |
 
-## Critical Patterns & Pitfalls
+## Frontend Routing (react-router-dom v7)
 
-### Backend: Async I/O (Non-Negotiable)
+| Route | Component | Auth |
+|-------|-----------|------|
+| `/` | LandingPage | Public |
+| `/login`, `/signup` | LoginPage, SignupPage | Public |
+| `/dashboard` | DashboardHub | Protected |
+| `/dashboard/backtester` | BacktesterPage | Protected |
+| `/dashboard/fundamental/:symbol` | FundamentalAnalysis | Protected |
 
-**Rule**: All yfinance calls must be wrapped with `asyncio.to_thread()` to prevent WebSocket disconnects on large backtests.
+Auth is localStorage-based (`isLoggedIn === 'true'`), implemented via `ProtectedRoute` wrapper in `App.jsx`.
 
+## Critical Pitfalls
+
+### Async I/O — yfinance blocks the event loop
+Every yfinance call **must** be wrapped with `asyncio.to_thread()`:
 ```python
-# ✓ Correct
 df = await asyncio.to_thread(yf.download, symbols, start, end)
-
-# ✗ Wrong (blocks event loop → WebSocket hangs)
-df = yf.download(symbols, start, end)
 ```
+Without it, WebSocket pongs are blocked → browser disconnects after ~60s idle.
 
-**Why**: yfinance uses sync `requests.get()` internally. Without `asyncio.to_thread`, the event loop is blocked, preventing WebSocket pong responses → browser closes after ~60s idle.
-
-### Backend: MultiIndex DataFrame Slicing
-
-**Rule**: Check `isinstance(bulk_df.columns, pd.MultiIndex)` before slicing—don't assume flat index.
-
+### MultiIndex slicing — `yf.download(group_by='ticker')`
 ```python
-# ✓ Correct
 if isinstance(bulk_df.columns, pd.MultiIndex):
     if symbol in bulk_df.columns.get_level_values(0):
         df = bulk_df[symbol].dropna(how='all')
 else:
     df = bulk_df.copy()
-
-# ✗ Wrong (crashes on single symbol)
-df = bulk_df[symbol]  # KeyError when bulk has 1 column
 ```
+`group_by='ticker'` returns MultiIndex for n≥2 symbols but **flat index for n=1**.
 
-**Why**: `yf.download(group_by='ticker')` returns MultiIndex for n≥2 symbols but flat index for n=1.
-
-### Backend: Graceful Degradation
-
-**Rule**: Metadata enrichment (sector, marketCap) must never crash the backtest. Return defaults, don't cache failures.
-
+### Graceful degradation — metadata must never crash backtest
 ```python
-def get_ticker_info(symbol: str) -> dict:
-    result = {"sector": None, "marketCap": None}  # Safe default
-    try:
-        info = yf.Ticker(symbol).info
-        if info:
-            result.update({"sector": info.get("sector"), "marketCap": info.get("marketCap")})
-        cache.set(key, result, expire=604800)  # 7-day cache
-    except Exception as e:
-        print(f"[ENRICHMENT ERROR] {symbol}: {e}")
-        # Don't cache → retry next time
-    return result
+result = {"sector": None, "marketCap": None}  # safe default
+try:
+    info = yf.Ticker(symbol).info
+    ...
+    cache.set(key, result, expire=604800)  # 7 days
+except Exception:
+    pass  # don't cache failures → retry next time
 ```
 
-### Backend: Date Normalization
+### Date normalization — always `YYYY-MM-DD`
+All `signal_date`, `entry_date`, `max_high_date`, `max_low_date` fields **must** be normalized to `YYYY-MM-DD` strings. Frontend does not parse dates. Use `backend/utils/date_utils.parse_date()` (handles 7 formats).
 
-**Rule**: All outgoing `signal_date` fields must normalize to `YYYY-MM-DD` format. Frontend does not parse.
+### Input columns — case-insensitive
+Parser accepts:
+- `symbol` or `Symbol` (for ticker)
+- `date` or `signal_date` (for signal date)
 
-```python
-# Use backend/utils/date_utils.py
-from backend.utils.date_utils import parse_date
-signal_date = parse_date(user_input)  # Handles 7 format patterns
-```
-
-### Frontend: WebSocket Cleanup
-
-**Rule**: Always close WebSocket after complete/error; never leave it hanging.
-
+### Env vars — use `VITE_*` in frontend
 ```javascript
-// ✓ Correct
-const ws = new WebSocket(wsUrl);
+const API_URL = import.meta.env.VITE_API_URL;  // ✓ correct
+const API_URL = process.env.VITE_API_URL;       // ✗ undefined at runtime
+```
+
+Env files at `frontend/.env.development` and `frontend/.env.production` with VITE_API_URL + VITE_WS_URL.
+
+### Entry mode — query param
+`entry_mode` accepts `"next_close"` (default) or `"next_open"`. Passed as WS query param: `/ws/backtest?entry_mode=next_open`.
+
+### Duration — hardcoded at 90 days
+`run_backtest_async(duration=90)` capped to [7, 180]. Not exposed via API; controls fetch window and max_high/low period.
+
+### WebSocket cleanup — always close on complete/error
+```javascript
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.type === "complete" || data.type === "error") {
-        ws.close();  // Essential cleanup
+        ws.close();  // essential — prevents stale connection on next run
     }
 };
-
-// ✗ Wrong (memory leak; hangs on next run)
-ws.onmessage = (event) => { /* process */ };  // Never close
 ```
 
-### Frontend: Environment Variables
-
-**Rule**: Use `import.meta.env.VITE_*` (not `process.env.*`).
-
-```javascript
-// ✓ Correct
-const API_URL = import.meta.env.VITE_API_URL;
-
-// ✗ Wrong (undefined in production)
-const API_URL = process.env.VITE_API_URL;
-```
-
-## Known Architectural Issues
-
-See [CURRENT_STATE.md](docs/ai/CURRENT_STATE.md) for system architecture details.
-
-See [implementation_plan.md](implementation_plan.md) for phased improvements:
-
-- **Phase 1**: Event loop starvation → concurrent I/O via worker pool + bounded Semaphore
-- **Phase 2**: O(3n) API calls → batch resolution + bulk fetch, with cache-key optimization
-- **Phase 3**: Ephemeral state → persistence layer (DB + user identity)
-- **Phase 4**: Schema drift → horizons parameter-driven, schema unified across stack
-- **Phase 5**: Monolithic frontend → component decomposition + virtualized table
-- **Phase 6**: Zero observability → structured logging, Sentry, metrics
-
-## Naming Conventions
-
-**Python**: `snake_case` files, `PascalCase` classes, `snake_case` functions, `UPPER_SNAKE_CASE` constants
-
-**JavaScript**: `PascalCase.jsx` components, `camelCase.js` utils, `camelCase` functions, `UPPER_SNAKE_CASE` constants
-
-## Common Git Workflow
-
-```bash
-# Check status
-git status
-
-# See recent changes
-git log --oneline -5
-
-# Create feature branch
-git checkout -b feature/descriptive-name
-
-# Make changes, then
-git add .
-git commit -m "component: clear description of change"
-git push origin feature/descriptive-name
-```
-
-## Running Specific Tests
-
-```bash
-# Single test file
-pytest backend/tests/test_backtester.py -v
-
-# Single test function
-pytest backend/tests/test_backtester.py::test_valid_signals -v
-
-# With print debugging
-pytest backend/tests/test_backtester.py -v -s
-
-# Specific symbol test
-pytest -k "test_invalid_symbols" -v
-```
-
-## Debugging Tips
-
-**Backend**:
-- Print statements are logged: `print(f"[TAG] message")` (use `[BATCH]`, `[FALLBACK]`, `[ENRICHMENT ERROR]`)
-- Uvicorn reload watches file changes; edit and save to re-run
-- Check `localhost:8000/docs` to test endpoints interactively
-
-**Frontend**:
-- Open DevTools (F12) → Console for errors
-- Network tab shows WebSocket frames
-- React DevTools extension useful for component tree inspection
-
-**yfinance**:
-- Slow downloads? Check rate limits (Yahoo limits ~2000/hour)
-- Test single symbol first: `yf.download('RELIANCE.NS', start='2024-01-01', end='2024-12-31')`
-- Use `verify_regression.py` to ensure fallback logic works
-
-## Documentation Map
-
-- [README.md](README.md) — Quick start & features
-- [docs/ai/CURRENT_STATE.md](docs/ai/CURRENT_STATE.md) — System architecture, 3-phase backtester, WebSocket protocol
-- [implementation_plan.md](implementation_plan.md) — Known limitations & phased roadmap
-- [DEPLOYMENT.md](DEPLOYMENT.md) — Render backend, Vercel frontend, env vars
-- [LIVE_APP_GUIDE.md](LIVE_APP_GUIDE.md) — End-user walkthrough
+### Tailwind CSS v4
+Uses Tailwind v4 with `@tailwindcss/postcss` plugin (not v3 `@tailwind` directives). CSS entry is `@import "tailwindcss"` in `index.css`. PostCSS config at `frontend/postcss.config.js`.
 
 ## Environment Setup
 
-**Local Dev** (`.env.local` in backend/ and frontend/):
-
-Backend `.env.local`:
+**Backend** `.env.local`:
 ```
 CORS_ORIGINS=http://localhost:5173,http://localhost:5174
-PORT=8000  # Optional; overridden by $PORT in production
+PORT=8000
 ```
 
-Frontend `.env.local`:
+**Frontend** `.env.development` (already committed):
 ```
 VITE_API_URL=http://localhost:8000/api
 VITE_WS_URL=ws://localhost:8000/ws
 ```
 
-**Production**: Environment variables set in Render (backend) and Vercel (frontend) dashboards.
+## Tech Stack
 
-## Questions or Changes?
+- **Backend**: Python 3.8+, FastAPI, yfinance 0.2.66, Pandas, diskcache, Pydantic v2 (uses `.dict()` for serialization), websockets
+- **Frontend**: React 19, Vite 7, TailwindCSS v4, Recharts 3, Framer Motion, lucide-react, react-router-dom v7, Axios
 
-- For architecture decisions, see [docs/adr/](docs/adr/) (Architecture Decision Records)
-- For ongoing work, check [RESUME_WORK.md](RESUME_WORK.md)
-- For AI context, see [docs/ai/](docs/ai/)
+## References
+
+- [implementation_plan.md](implementation_plan.md) — Phased roadmap for known issues (concurrency, O(3n) API calls, persistence)
+- [RESUME_WORK.md](RESUME_WORK.md) — Current session state and next tasks
+- [docs/ai/CURRENT_STATE.md](docs/ai/CURRENT_STATE.md) — Detailed system architecture
+- [DEPLOYMENT.md](DEPLOYMENT.md) — Render (backend) + Vercel (frontend) deployment

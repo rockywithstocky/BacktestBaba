@@ -1,36 +1,101 @@
+import logging
+
 import yfinance as yf
 import pandas as pd
 from diskcache import Cache
-import os
 from datetime import datetime, timedelta
 
-# Initialize cache
-CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache")
-cache = Cache(CACHE_DIR)
+from ..config import Paths, CacheTTL, Limits
+
+logger = logging.getLogger(__name__)
+
+cache = Cache(Paths.CACHE_DIR, size_limit=CacheTTL.DISKCACHE_SIZE_LIMIT_MB * 1024 * 1024)
 
 class DataProvider:
     @staticmethod
+    def _data_key(symbol: str) -> str:
+        return f"sd_{symbol}"
+
+    @staticmethod
+    def _range_key(symbol: str) -> str:
+        return f"sr_{symbol}"
+
+    @staticmethod
+    def persist_symbol_data(symbol: str, df: pd.DataFrame):
+        """Cache per-symbol data with date range metadata.
+
+        Called after bulk fetch to persist each symbol's slice.
+        Skipped if existing cache already covers a wider range.
+        """
+        if df is None or df.empty:
+            return
+        rkey = DataProvider._range_key(symbol)
+        existing = cache.get(rkey)
+        actual_start = df.index[0]
+        actual_end = df.index[-1]
+        if existing is not None:
+            cached_start, cached_end = existing
+            if cached_start <= actual_start and cached_end >= actual_end:
+                return
+        dkey = DataProvider._data_key(symbol)
+        end_dt = pd.to_datetime(actual_end) if not isinstance(actual_end, pd.Timestamp) else actual_end
+        is_recent = (datetime.now() - end_dt).days < CacheTTL.RECENT_CUTOFF_DAYS
+        ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
+        cache.set(dkey, df, expire=ttl)
+        cache.set(rkey, (actual_start, actual_end), expire=ttl)
+        logger.debug("persist_symbol_data — cached %s [%s to %s] ttl=%ds",
+                     symbol, actual_start.date(), actual_end.date(), ttl)
+
+    @staticmethod
     def get_ticker_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """
-        Fetches historical data for a symbol with caching.
+        Fetches historical data for a symbol with range-aware caching.
+        Checks per-symbol cache first; if cached range covers requested,
+        returns a slice. Otherwise fetches full range and caches it.
         """
-        cache_key = f"{symbol}_{start_date}_{end_date}"
-        
-        # Check cache
-        if cache_key in cache:
-            return cache[cache_key]
-        
+        # Legacy exact-range key (backward compat)
+        legacy_key = f"{symbol}_{start_date}_{end_date}"
+        if legacy_key in cache:
+            return cache[legacy_key]
+
+        # Per-symbol wide cache with range check
+        rkey = DataProvider._range_key(symbol)
+        range_meta = cache.get(rkey)
+        if range_meta is not None:
+            dkey = DataProvider._data_key(symbol)
+            df_cached = cache.get(dkey)
+            if df_cached is not None:
+                cached_start, cached_end = range_meta
+                req_start = pd.to_datetime(start_date)
+                req_end = pd.to_datetime(end_date)
+                if cached_start <= req_start and cached_end >= req_end:
+                    logger.debug("get_ticker_data — cache HIT for %s (range %s to %s)",
+                                 symbol, cached_start.date(), cached_end.date())
+                    return df_cached.loc[str(req_start):str(req_end)]
+
         # Fetch from yfinance
-        print(f"Fetching {symbol} from yfinance...")
-        ticker = yf.Ticker(symbol)
-        # Fetch a bit more data to ensure we have the start date
-        df = ticker.history(start=start_date, end=end_date, auto_adjust=True)
-        
+        logger.debug("Fetching %s from yfinance", symbol)
+        try:
+            ticker = yf.Ticker(symbol)
+            df = ticker.history(start=start_date, end=end_date, auto_adjust=True)
+        except Exception:
+            logger.warning("get_ticker_data — yfinance failure for %s", symbol, exc_info=True)
+            return pd.DataFrame()
+
         if df.empty:
             return df
-            
-        # Cache the result (expire in 24 hours)
-        cache.set(cache_key, df, expire=86400)
+
+        # Cache with range metadata
+        dkey = DataProvider._data_key(symbol)
+        rkey = DataProvider._range_key(symbol)
+        actual_start = df.index[0]
+        actual_end = df.index[-1]
+        cache.set(dkey, df)
+        cache.set(rkey, (actual_start, actual_end))
+        end_dt = pd.to_datetime(end_date) if isinstance(end_date, str) else end_date
+        is_recent = (datetime.now() - end_dt).days < CacheTTL.RECENT_CUTOFF_DAYS
+        ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
+        cache.set(legacy_key, df, expire=ttl)
         return df
 
     @staticmethod
@@ -40,17 +105,27 @@ class DataProvider:
         Returns a single bulk DataFrame. Does not use diskcache for the bulk 
         blob due to highly variable date boundaries per file upload.
         """
-        print(f"Fetching bulk data for {len(symbols)} symbols from yfinance...")
-        df = yf.download(
-            tickers=symbols, 
-            start=start_date, 
-            end=end_date, 
-            auto_adjust=True, 
-            group_by='ticker', 
-            progress=False,
-            threads=True
-        )
-        return df
+        # --- yfinance I/O boundary ---
+        # Isolates: network errors, rate limiting, bad-symbol batch poisoning,
+        #           temporary outages. yf.download may fail entirely if any single
+        #           symbol is invalid (depends on yfinance version).
+        # Recovery: return empty DataFrame → caller falls back to per-symbol
+        #           sequential fetch, isolating the bad symbol from the rest.
+        logger.info("Fetching bulk data for %d symbols from yfinance", len(symbols))
+        try:
+            df = yf.download(
+                tickers=symbols, 
+                start=start_date, 
+                end=end_date, 
+                auto_adjust=True, 
+                group_by='ticker', 
+                progress=False,
+                threads=True
+            )
+            return df
+        except Exception:
+            logger.warning("get_bulk_ticker_data — yfinance failure for %d symbols", len(symbols), exc_info=True)
+            return pd.DataFrame()
 
     @staticmethod
     def get_ticker_info(symbol: str) -> dict:
@@ -62,7 +137,7 @@ class DataProvider:
         if cache_key in cache:
             return cache[cache_key]
             
-        print(f"Fetching metadata for {symbol} from yfinance...")
+        logger.debug("Fetching metadata for %s from yfinance", symbol)
         result = {"sector": None, "marketCap": None}
         
         try:
@@ -72,11 +147,10 @@ class DataProvider:
                 result["sector"] = info.get("sector")
                 result["marketCap"] = info.get("marketCap")
             
-            # Cache the result (expire in 7 days = 604800 seconds)
-            cache.set(cache_key, result, expire=604800)
+            cache.set(cache_key, result, expire=CacheTTL.TICKER_INFO)
             
-        except Exception as e:
-            print(f"[ENRICHMENT ERROR] Failed to fetch metadata for {symbol}: {e}")
+        except Exception:
+            logger.warning("Failed to fetch metadata for %s", symbol, exc_info=True)
             # Do not cache failures so they can be retried later, just return the empty result.
             
         return result
@@ -90,11 +164,20 @@ class DataProvider:
         if cache_key in cache:
             return cache[cache_key]
             
-        ticker = yf.Ticker(symbol)
-        history = ticker.history(period="1d")
+        # --- yfinance I/O boundary ---
+        # Isolates: network errors, rate limiting during symbol existence check.
+        # Failure here causes a false negative in symbol resolution (valid symbol
+        # marked "Symbol Not Found"), but recovers on next run because symbol
+        # resolution cache is per-request.
+        try:
+            ticker = yf.Ticker(symbol)
+            history = ticker.history(period="1d")
+        except Exception:
+            logger.warning("get_latest_price — yfinance failure for %s", symbol, exc_info=True)
+            return None
         if history.empty:
             return None
             
         price = history["Close"].iloc[-1]
-        cache.set(cache_key, price, expire=300) # 5 min cache for live price
+        cache.set(cache_key, price, expire=CacheTTL.LATEST_PRICE)
         return price
