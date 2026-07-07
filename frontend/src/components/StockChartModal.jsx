@@ -7,6 +7,20 @@ import { X, BarChart3, LineChart as LineChartIcon, Activity, ArrowRight } from '
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
+const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+            <div className="custom-tooltip">
+                <p className="tooltip-label">{data.marker} {data.type}</p>
+                <p className="tooltip-date"><strong>Date:</strong> {data.date}</p>
+                <p className="tooltip-price"><strong>Price:</strong> ₹{data.price?.toFixed(2)}</p>
+            </div>
+        );
+    }
+    return null;
+};
+
 const StockChartModal = ({ stock, period, onClose }) => {
     const [chartType, setChartType] = useState('area'); // 'area', 'line', 'bar'
 
@@ -60,20 +74,6 @@ const StockChartModal = ({ stock, period, onClose }) => {
 
     // Sort by date for proper line rendering
     const sortedChartData = [...chartData].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            const data = payload[0].payload;
-            return (
-                <div className="custom-tooltip">
-                    <p className="tooltip-label">{data.marker} {data.type}</p>
-                    <p className="tooltip-date"><strong>Date:</strong> {data.date}</p>
-                    <p className="tooltip-price"><strong>Price:</strong> ₹{data.price?.toFixed(2)}</p>
-                </div>
-            );
-        }
-        return null;
-    };
 
     return (
         <AnimatePresence>

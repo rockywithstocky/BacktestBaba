@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+
 import { Link } from 'react-router-dom';
 import { TrendingUp, BarChart2, Shield, Zap, ArrowRight, Sparkles, LineChart, Target } from 'lucide-react';
 
