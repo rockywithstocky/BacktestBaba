@@ -29,16 +29,26 @@ class DataProvider:
         """
         if df is None or df.empty:
             return
+        # Normalize tz-aware index (from yfinance) to tz-naive for consistent comparison
+        if df.index.tz is not None:
+            df = df.copy()
+            df.index = df.index.tz_localize(None)
         rkey = DataProvider._range_key(symbol)
         existing = cache.get(rkey)
         actual_start = df.index[0]
         actual_end = df.index[-1]
         if existing is not None:
             cached_start, cached_end = existing
+            if hasattr(cached_start, 'tz') and cached_start.tz is not None:
+                cached_start = cached_start.tz_localize(None)
+            if hasattr(cached_end, 'tz') and cached_end.tz is not None:
+                cached_end = cached_end.tz_localize(None)
             if cached_start <= actual_start and cached_end >= actual_end:
                 return
         dkey = DataProvider._data_key(symbol)
-        end_dt = pd.to_datetime(actual_end) if not isinstance(actual_end, pd.Timestamp) else actual_end
+        end_dt = actual_end if isinstance(actual_end, datetime) else pd.to_datetime(actual_end)
+        if hasattr(end_dt, 'tz') and end_dt.tz is not None:
+            end_dt = end_dt.tz_localize(None)
         is_recent = (datetime.now() - end_dt).days < CacheTTL.RECENT_CUTOFF_DAYS
         ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
         cache.set(dkey, df, expire=ttl)
@@ -66,6 +76,10 @@ class DataProvider:
             df_cached = cache.get(dkey)
             if df_cached is not None:
                 cached_start, cached_end = range_meta
+                if hasattr(cached_start, 'tz') and cached_start.tz is not None:
+                    cached_start = cached_start.tz_localize(None)
+                if hasattr(cached_end, 'tz') and cached_end.tz is not None:
+                    cached_end = cached_end.tz_localize(None)
                 req_start = pd.to_datetime(start_date)
                 req_end = pd.to_datetime(end_date)
                 if cached_start <= req_start and cached_end >= req_end:
@@ -85,6 +99,10 @@ class DataProvider:
         if df.empty:
             return df
 
+        # Normalize tz-aware index (from yfinance) to tz-naive before caching
+        if df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+
         # Cache with range metadata
         dkey = DataProvider._data_key(symbol)
         rkey = DataProvider._range_key(symbol)
@@ -92,7 +110,9 @@ class DataProvider:
         actual_end = df.index[-1]
         cache.set(dkey, df)
         cache.set(rkey, (actual_start, actual_end))
-        end_dt = pd.to_datetime(end_date) if isinstance(end_date, str) else end_date
+        end_dt = end_date if isinstance(end_date, datetime) else pd.to_datetime(end_date)
+        if hasattr(end_dt, 'tz') and end_dt.tz is not None:
+            end_dt = end_dt.tz_localize(None)
         is_recent = (datetime.now() - end_dt).days < CacheTTL.RECENT_CUTOFF_DAYS
         ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
         cache.set(legacy_key, df, expire=ttl)
