@@ -13,38 +13,89 @@ cache = Cache(Paths.CACHE_DIR, size_limit=CacheTTL.DISKCACHE_SIZE_LIMIT_MB * 102
 
 class DataProvider:
     @staticmethod
+    def _data_key(symbol: str) -> str:
+        return f"sd_{symbol}"
+
+    @staticmethod
+    def _range_key(symbol: str) -> str:
+        return f"sr_{symbol}"
+
+    @staticmethod
+    def persist_symbol_data(symbol: str, df: pd.DataFrame):
+        """Cache per-symbol data with date range metadata.
+
+        Called after bulk fetch to persist each symbol's slice.
+        Skipped if existing cache already covers a wider range.
+        """
+        if df is None or df.empty:
+            return
+        rkey = DataProvider._range_key(symbol)
+        existing = cache.get(rkey)
+        actual_start = df.index[0]
+        actual_end = df.index[-1]
+        if existing is not None:
+            cached_start, cached_end = existing
+            if cached_start <= actual_start and cached_end >= actual_end:
+                return
+        dkey = DataProvider._data_key(symbol)
+        end_dt = pd.to_datetime(actual_end) if not isinstance(actual_end, pd.Timestamp) else actual_end
+        is_recent = (datetime.now() - end_dt).days < CacheTTL.RECENT_CUTOFF_DAYS
+        ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
+        cache.set(dkey, df, expire=ttl)
+        cache.set(rkey, (actual_start, actual_end), expire=ttl)
+        logger.debug("persist_symbol_data — cached %s [%s to %s] ttl=%ds",
+                     symbol, actual_start.date(), actual_end.date(), ttl)
+
+    @staticmethod
     def get_ticker_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """
-        Fetches historical data for a symbol with caching.
+        Fetches historical data for a symbol with range-aware caching.
+        Checks per-symbol cache first; if cached range covers requested,
+        returns a slice. Otherwise fetches full range and caches it.
         """
-        cache_key = f"{symbol}_{start_date}_{end_date}"
-        
-        # Check cache
-        if cache_key in cache:
-            return cache[cache_key]
-        
+        # Legacy exact-range key (backward compat)
+        legacy_key = f"{symbol}_{start_date}_{end_date}"
+        if legacy_key in cache:
+            return cache[legacy_key]
+
+        # Per-symbol wide cache with range check
+        rkey = DataProvider._range_key(symbol)
+        range_meta = cache.get(rkey)
+        if range_meta is not None:
+            dkey = DataProvider._data_key(symbol)
+            df_cached = cache.get(dkey)
+            if df_cached is not None:
+                cached_start, cached_end = range_meta
+                req_start = pd.to_datetime(start_date)
+                req_end = pd.to_datetime(end_date)
+                if cached_start <= req_start and cached_end >= req_end:
+                    logger.debug("get_ticker_data — cache HIT for %s (range %s to %s)",
+                                 symbol, cached_start.date(), cached_end.date())
+                    return df_cached.loc[str(req_start):str(req_end)]
+
         # Fetch from yfinance
         logger.debug("Fetching %s from yfinance", symbol)
-        # --- yfinance I/O boundary ---
-        # Isolates: network errors, rate limiting, API format changes, temporary outages
-        # These are expected operational failures of an external HTTP API.
-        # Recovery: return empty DataFrame → caller marks signal as "No Data",
-        #           preserving all other signals in the batch.
         try:
             ticker = yf.Ticker(symbol)
-            # Fetch a bit more data to ensure we have the start date
             df = ticker.history(start=start_date, end=end_date, auto_adjust=True)
         except Exception:
             logger.warning("get_ticker_data — yfinance failure for %s", symbol, exc_info=True)
             return pd.DataFrame()
-        
+
         if df.empty:
             return df
-            
+
+        # Cache with range metadata
+        dkey = DataProvider._data_key(symbol)
+        rkey = DataProvider._range_key(symbol)
+        actual_start = df.index[0]
+        actual_end = df.index[-1]
+        cache.set(dkey, df)
+        cache.set(rkey, (actual_start, actual_end))
         end_dt = pd.to_datetime(end_date) if isinstance(end_date, str) else end_date
         is_recent = (datetime.now() - end_dt).days < CacheTTL.RECENT_CUTOFF_DAYS
         ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
-        cache.set(cache_key, df, expire=ttl)
+        cache.set(legacy_key, df, expire=ttl)
         return df
 
     @staticmethod

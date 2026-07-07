@@ -150,14 +150,29 @@ class Backtester:
                         len(unique_resolved_symbols),
                         global_start.strftime("%Y-%m-%d"),
                         global_end.strftime("%Y-%m-%d"))
-            # We fetch everything in one go. If list is massive (>100), yfinance chunks internally anyway.
             bulk_df = await asyncio.to_thread(
                 DataProvider.get_bulk_ticker_data,
                 unique_resolved_symbols,
                 global_start.strftime("%Y-%m-%d"),
                 global_end.strftime("%Y-%m-%d")
             )
-            
+
+            # Persist per-symbol slices from bulk fetch for future cache hits
+            if bulk_df is not None and not bulk_df.empty:
+                for sym in unique_resolved_symbols:
+                    try:
+                        if isinstance(bulk_df.columns, pd.MultiIndex):
+                            if sym in bulk_df.columns.get_level_values(0):
+                                slice_df = bulk_df[sym].dropna(how='all')
+                                if not slice_df.empty:
+                                    DataProvider.persist_symbol_data(sym, slice_df)
+                            else:
+                                logger.debug("Phase B — %s not in bulk_df, skipping cache", sym)
+                        else:
+                            DataProvider.persist_symbol_data(sym, bulk_df.copy())
+                    except Exception:
+                        logger.debug("Phase B — Failed to cache slice for %s", sym, exc_info=True)
+
         phase_b_time = time.monotonic() - phase_start
         bulk_available = bulk_df is not None and not bulk_df.empty
         logger.info("Phase B — Bulk fetch completed, data=%s, elapsed=%.2fs",
