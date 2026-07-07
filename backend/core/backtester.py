@@ -142,42 +142,59 @@ class Backtester:
 
         # --- Phase B: Bulk Fetching & Enrichment ---
         bulk_df = None
-        if progress_callback:
-            await progress_callback(total, total_steps, "Fetching historical data...")
+        total_chunks = 0
+        chunks_with_data = 0
 
         if unique_resolved_symbols and global_start and global_end:
-            logger.info("Phase B — Fetching %d unique symbols from %s to %s",
+            logger.info("Phase B — Chunked fetch for %d unique symbols from %s to %s (chunk_size=%d)",
                         len(unique_resolved_symbols),
                         global_start.strftime("%Y-%m-%d"),
-                        global_end.strftime("%Y-%m-%d"))
-            bulk_df = await asyncio.to_thread(
-                DataProvider.get_bulk_ticker_data,
-                unique_resolved_symbols,
-                global_start.strftime("%Y-%m-%d"),
-                global_end.strftime("%Y-%m-%d")
-            )
+                        global_end.strftime("%Y-%m-%d"),
+                        Limits.BULK_FETCH_CHUNK)
 
-            # Persist per-symbol slices from bulk fetch for future cache hits
-            if bulk_df is not None and not bulk_df.empty:
-                for sym in unique_resolved_symbols:
-                    try:
-                        if isinstance(bulk_df.columns, pd.MultiIndex):
-                            if sym in bulk_df.columns.get_level_values(0):
-                                slice_df = bulk_df[sym].dropna(how='all')
-                                if not slice_df.empty:
-                                    DataProvider.persist_symbol_data(sym, slice_df)
+            chunk_size = Limits.BULK_FETCH_CHUNK
+            syms = unique_resolved_symbols
+            chunks = [syms[i:i + chunk_size] for i in range(0, len(syms), chunk_size)]
+            total_chunks = len(chunks)
+
+            if progress_callback:
+                await progress_callback(total, total_steps, f"Fetching data in {total_chunks} batches...")
+
+            for chunk_idx, chunk in enumerate(chunks):
+                if progress_callback:
+                    await progress_callback(
+                        total, total_steps,
+                        f"Fetching batch {chunk_idx + 1}/{total_chunks} ({len(chunk)} symbols)..."
+                    )
+
+                chunk_df = await asyncio.to_thread(
+                    DataProvider.get_bulk_ticker_data,
+                    chunk,
+                    global_start.strftime("%Y-%m-%d"),
+                    global_end.strftime("%Y-%m-%d")
+                )
+
+                if chunk_df is not None and not chunk_df.empty:
+                    chunks_with_data += 1
+                    for sym in chunk:
+                        try:
+                            if isinstance(chunk_df.columns, pd.MultiIndex):
+                                if sym in chunk_df.columns.get_level_values(0):
+                                    slice_df = chunk_df[sym].dropna(how='all')
+                                    if not slice_df.empty:
+                                        DataProvider.persist_symbol_data(sym, slice_df)
+                                else:
+                                    logger.debug("Phase B chunk %d — %s not in data, skipping cache",
+                                                 chunk_idx + 1, sym)
                             else:
-                                logger.debug("Phase B — %s not in bulk_df, skipping cache", sym)
-                        else:
-                            DataProvider.persist_symbol_data(sym, bulk_df.copy())
-                    except Exception:
-                        logger.debug("Phase B — Failed to cache slice for %s", sym, exc_info=True)
+                                DataProvider.persist_symbol_data(sym, chunk_df.copy())
+                        except Exception:
+                            logger.debug("Phase B chunk %d — Failed to cache slice for %s",
+                                         chunk_idx + 1, sym, exc_info=True)
 
         phase_b_time = time.monotonic() - phase_start
-        bulk_available = bulk_df is not None and not bulk_df.empty
-        logger.info("Phase B — Bulk fetch completed, data=%s, elapsed=%.2fs",
-                    "available" if bulk_available else "empty/unavailable",
-                    phase_b_time)
+        logger.info("Phase B — Chunked fetch completed (%d/%d chunks with data), elapsed=%.2fs",
+                    chunks_with_data, total_chunks, phase_b_time)
 
         # Build metadata from CSV first, then fetch missing from API
         metadata_map = {}
