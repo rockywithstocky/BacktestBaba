@@ -1,5 +1,5 @@
 import React from 'react';
-
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { TrendingUp, PieChart, Search, ArrowRight, Lock, Sparkles } from 'lucide-react';
 
