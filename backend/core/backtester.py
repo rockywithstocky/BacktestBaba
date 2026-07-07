@@ -141,7 +141,6 @@ class Backtester:
         )
 
         # --- Phase B: Bulk Fetching & Enrichment ---
-        bulk_df = None
         total_chunks = 0
         chunks_with_data = 0
 
@@ -284,34 +283,15 @@ class Backtester:
             signal_date = p_sig["signal_date"]
             date_str = p_sig["date_str"]
             
-            df = None
-            
-            # Slicing Logic
-            # yf.download(group_by='ticker') always returns MultiIndex, even for 1 symbol
-            if bulk_df is not None and not bulk_df.empty:
-                try:
-                    if isinstance(bulk_df.columns, pd.MultiIndex):
-                        if resolved_symbol in bulk_df.columns.get_level_values(0):
-                            df = bulk_df[resolved_symbol].dropna(how='all')
-                        else:
-                            logger.warning("Phase C — %s not found in bulk_df columns", resolved_symbol)
-                    else:
-                        logger.info("Phase C — Flat index detected for %s, using bulk_df directly", resolved_symbol)
-                        df = bulk_df.copy()
-                except Exception:
-                    logger.exception("Phase C — Slice error for %s", resolved_symbol)
-                    df = None
-            
-            # Fallback path (the old sequential logic)
-            if df is None or df.empty:
-                fallback_count += 1
-                logger.warning("Phase C — Fallback triggered for %s", resolved_symbol)
-                df = await asyncio.to_thread(
-                    DataProvider.get_ticker_data,
-                    resolved_symbol,
-                    p_sig["start_date"].strftime("%Y-%m-%d"),
-                    p_sig["end_date"].strftime("%Y-%m-%d")
-                )
+            # Data path: Phase B populated per-symbol cache via persist_symbol_data().
+            # get_ticker_data() checks this cache first (0 API cost on cache hit),
+            # falls back to yfinance API only if cache miss or insufficient range.
+            df = await asyncio.to_thread(
+                DataProvider.get_ticker_data,
+                resolved_symbol,
+                p_sig["start_date"].strftime("%Y-%m-%d"),
+                p_sig["end_date"].strftime("%Y-%m-%d")
+            )
             
             if df is None or df.empty:
                 results.append(SignalResult(
