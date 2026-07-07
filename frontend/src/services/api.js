@@ -50,15 +50,27 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
         reader.readAsArrayBuffer(file);
     };
 
+    let trades = [];
+
     ws.onmessage = (event) => {
         if (settled) return;
         const data = JSON.parse(event.data);
 
         if (data.type === 'progress') {
             onProgress(data);
+        } else if (data.type === 'trade_batch') {
+            trades = trades.concat(data.batch);
+            onProgress({
+                type: 'progress',
+                current: data.current,
+                total: data.total,
+                symbol: `Loaded ${trades.length} trades...`
+            });
+        } else if (data.type === 'ping') {
+            // Server keepalive — ignore
         } else if (data.type === 'complete') {
             settled = true;
-            onComplete(data.report);
+            onComplete({ ...data.report, trades });
             ws.close();
         } else if (data.type === 'error') {
             settled = true;

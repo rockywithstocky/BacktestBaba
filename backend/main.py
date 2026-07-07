@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 
@@ -163,6 +164,20 @@ async def _handle_backtest(
 @app.websocket("/ws/backtest")
 async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close"):
     await websocket.accept()
+    stop_event = asyncio.Event()
+
+    async def keepalive():
+        while not stop_event.is_set():
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=30)
+            except asyncio.TimeoutError:
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except Exception:
+                    break
+
+    keepalive_task = asyncio.create_task(keepalive())
+
     try:
         data = await websocket.receive_bytes()
 
@@ -180,13 +195,18 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
                     "current": current,
                     "total": total
                 }
-            await websocket.send_json(msg)
+            try:
+                await websocket.send_json(msg)
+            except Exception:
+                pass
 
         try:
             report = await _handle_backtest(data, entry_mode, progress_callback=on_progress)
+            report_dict = report.dict()
+            report_dict.pop("trades", None)
             await websocket.send_json({
                 "type": "complete",
-                "report": report.dict()
+                "report": report_dict
             })
         except ValueError as e:
             await websocket.send_json({"type": "error", "message": str(e)})
@@ -199,6 +219,9 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
             await websocket.send_json({"type": "error", "message": str(e)})
         except Exception:
             pass
+    finally:
+        stop_event.set()
+        keepalive_task.cancel()
 
 
 @app.post("/api/backtest", response_model=BacktestReport)
