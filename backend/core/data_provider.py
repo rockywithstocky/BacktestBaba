@@ -1,16 +1,15 @@
 import logging
-import os
 
 import yfinance as yf
 import pandas as pd
 from diskcache import Cache
 from datetime import datetime, timedelta
 
+from ..config import Paths, CacheTTL, Limits
+
 logger = logging.getLogger(__name__)
 
-# Initialize cache
-CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache")
-cache = Cache(CACHE_DIR)
+cache = Cache(Paths.CACHE_DIR, size_limit=CacheTTL.DISKCACHE_SIZE_LIMIT_MB * 1024 * 1024)
 
 class DataProvider:
     @staticmethod
@@ -42,8 +41,10 @@ class DataProvider:
         if df.empty:
             return df
             
-        # Cache the result (expire in 24 hours)
-        cache.set(cache_key, df, expire=86400)
+        end_dt = pd.to_datetime(end_date) if isinstance(end_date, str) else end_date
+        is_recent = (datetime.now() - end_dt).days < CacheTTL.RECENT_CUTOFF_DAYS
+        ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
+        cache.set(cache_key, df, expire=ttl)
         return df
 
     @staticmethod
@@ -95,8 +96,7 @@ class DataProvider:
                 result["sector"] = info.get("sector")
                 result["marketCap"] = info.get("marketCap")
             
-            # Cache the result (expire in 7 days = 604800 seconds)
-            cache.set(cache_key, result, expire=604800)
+            cache.set(cache_key, result, expire=CacheTTL.TICKER_INFO)
             
         except Exception:
             logger.warning("Failed to fetch metadata for %s", symbol, exc_info=True)
@@ -128,5 +128,5 @@ class DataProvider:
             return None
             
         price = history["Close"].iloc[-1]
-        cache.set(cache_key, price, expire=300) # 5 min cache for live price
+        cache.set(cache_key, price, expire=CacheTTL.LATEST_PRICE)
         return price
