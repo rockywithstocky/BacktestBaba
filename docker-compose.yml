@@ -28,6 +28,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_URL: http://localhost:8000/api
+        VITE_WS_URL: ws://localhost:8000/ws
     container_name: backtestbaba-frontend
     ports:
       - "5174:5174"

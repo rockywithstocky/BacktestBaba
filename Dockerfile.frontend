@@ -13,6 +13,12 @@ RUN npm ci
 # Copy source code
 COPY frontend/ .
 
+# VITE env vars — pass via docker build --build-arg or docker compose args
+ARG VITE_API_URL
+ARG VITE_WS_URL
+ARG VITE_WS_TIMEOUT=300000
+ARG VITE_HTTP_TIMEOUT=600000
+
 # Build production bundle
 RUN npm run build
 
