@@ -4,18 +4,26 @@ import time
 
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from .data_provider import DataProvider
 from .symbol_resolver import SymbolResolver
 from ..utils.date_utils import parse_date, get_next_trading_day, get_future_trading_day
 from ..models.schemas import SignalResult, BacktestReport
+from ..config import Limits
 
 logger = logging.getLogger(__name__)
 
 class Backtester:
     @staticmethod
-    async def run_backtest_async(signals: List[Dict[str, str]], progress_callback=None, duration: int = 90, entry_mode: str = "next_close") -> BacktestReport:
+    async def run_backtest_async(
+        signals: List[Dict[str, str]],
+        progress_callback=None,
+        duration: int = 90,
+        entry_mode: str = "next_close",
+        run_id: Optional[str] = None,
+        job_store=None,
+    ) -> BacktestReport:
         results: List[SignalResult] = []
         total = len(signals)
         duration = min(max(duration, 7), 180)
@@ -143,6 +151,17 @@ class Backtester:
         fallback_count = 0
         phase_c_start = time.monotonic()
         logger.info("Phase C — Computing returns for %d signals", len(parsed_signals))
+
+        batch_num = 0
+        batch_results = []
+
+        def _flush_batch():
+            nonlocal batch_num, batch_results
+            if job_store and batch_results:
+                dicts = [r.dict() for r in batch_results]
+                job_store.save_batch(batch_num, dicts)
+                batch_num += 1
+                batch_results = []
 
         for i, p_sig in enumerate(parsed_signals):
             if progress_callback:
@@ -286,7 +305,12 @@ class Backtester:
                 res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
                 
             results.append(res)
-            
+            if job_store:
+                batch_results.append(res)
+                if len(batch_results) >= Limits.BATCH_SIZE:
+                    _flush_batch()
+
+        _flush_batch()
         phase_c_time = time.monotonic() - phase_c_start
         logger.info("Phase C completed — %d signals computed, %d fallbacks, elapsed=%.2fs",
                     len(parsed_signals), fallback_count, phase_c_time)
