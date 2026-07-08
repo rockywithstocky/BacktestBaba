@@ -134,6 +134,16 @@ async def _handle_backtest(
     cached = FileHashCache.get(file_hash, entry_mode)
     if cached is not None:
         logger.info("Returning cached report for file_hash=%s", file_hash[:12])
+        if progress_callback is not None:
+            trades = cached.get("trades", [])
+            batch_size = Limits.BATCH_SIZE
+            for i in range(0, len(trades), batch_size):
+                batch = trades[i:i + batch_size]
+                await progress_callback(
+                    i, len(trades),
+                    f"Loading {i + len(batch)}/{len(trades)} trades from cache...",
+                    trades=batch
+                )
         return BacktestReport(**cached) if progress_callback is not None else cached
 
     signals = parse_upload_data(data)
