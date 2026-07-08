@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import logging
 import time
 
@@ -190,6 +191,9 @@ class Backtester:
                         except Exception:
                             logger.debug("Phase B chunk %d — Failed to cache slice for %s",
                                          chunk_idx + 1, sym, exc_info=True)
+
+                del chunk_df
+                gc.collect()
 
         phase_b_time = time.monotonic() - phase_start
         logger.info("Phase B — Chunked fetch completed (%d/%d chunks with data), elapsed=%.2fs",

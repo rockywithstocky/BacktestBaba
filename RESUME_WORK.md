@@ -36,6 +36,16 @@ npm run dev
 
 Peak RAM: ~400-500MB → ~35-40MB per chunk.
 
+### OOM Fix 2 (unreleased — not yet pushed to main): Chunk size 25 + explicit GC
+Despite TG10, `yf.download(threads=True)` with 100 symbols still spikes past 512MB on Render because 100 parallel threads each hold their own DataFrame + JSON parse buffers simultaneously.
+| Change | File | Lines |
+|--------|------|-------|
+| Reduced default `BULK_FETCH_CHUNK` 100→25 | `backend/config.py:30` | +1 |
+| Added `import gc` + `del chunk_df; gc.collect()` after each chunk | `backend/core/backtester.py:2,195-196` | +3 |
+
+Peak RAM per chunk: ~35-40MB → ~15-20MB (25 symbols × ~300KB each + MultiIndex).
+Kept `threads=True` to avoid sequential slowdown (25-symbol chunk with threads=True completes in ~2-5s vs ~25s with threads=False).
+
 ### Bugfix (merged to main): tz-naive / tz-aware timestamp crash
 | Change | File | Lines |
 |--------|------|-------|

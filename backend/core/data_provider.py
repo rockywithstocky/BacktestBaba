@@ -134,11 +134,11 @@ class DataProvider:
         logger.info("Fetching bulk data for %d symbols from yfinance", len(symbols))
         try:
             df = yf.download(
-                tickers=symbols, 
-                start=start_date, 
-                end=end_date, 
-                auto_adjust=True, 
-                group_by='ticker', 
+                tickers=symbols,
+                start=start_date,
+                end=end_date,
+                auto_adjust=True,
+                group_by='ticker',
                 progress=False,
                 threads=True
             )
