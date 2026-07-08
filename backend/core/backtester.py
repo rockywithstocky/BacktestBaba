@@ -141,6 +141,11 @@ class Backtester:
             total, valid_count, len(unique_resolved_symbols), status_summary, phase_a_time
         )
 
+        # Recalculate total_steps to include Phase B chunks
+        chunk_size = Limits.BULK_FETCH_CHUNK
+        num_chunks = (len(unique_resolved_symbols) + chunk_size - 1) // chunk_size if unique_resolved_symbols else 0
+        total_steps = total + num_chunks + total
+
         # --- Phase B: Bulk Fetching & Enrichment ---
         total_chunks = 0
         chunks_with_data = 0
@@ -163,7 +168,7 @@ class Backtester:
             for chunk_idx, chunk in enumerate(chunks):
                 if progress_callback:
                     await progress_callback(
-                        total, total_steps,
+                        total + chunk_idx + 1, total_steps,
                         f"Fetching batch {chunk_idx + 1}/{total_chunks} ({len(chunk)} symbols)..."
                     )
 
@@ -251,7 +256,7 @@ class Backtester:
         worst_performer = None
 
         async def _flush_batch():
-            nonlocal batch_num, batch_results, best_performer, worst_performer
+            nonlocal batch_num, batch_results, best_performer, worst_performer, num_chunks
             if not batch_results:
                 return
             if job_store:
@@ -259,14 +264,15 @@ class Backtester:
                 job_store.save_batch(batch_num, dicts)
                 batch_num += 1
             if progress_callback:
-                await progress_callback(total + batch_num - 1, total_steps,
+                await progress_callback(total + num_chunks + batch_num - 1, total_steps,
                                         f"Batch {batch_num}: {len(batch_results)} trades",
                                         trades=[r.dict() for r in batch_results])
             batch_results = []
 
         for i, p_sig in enumerate(parsed_signals):
             if progress_callback:
-                await progress_callback(total + i + 1, total_steps, f"Computing: {p_sig.get('raw') or 'Unknown'}")
+                await progress_callback(total + num_chunks + i + 1, total_steps,
+                                        f"Computing: {p_sig.get('raw') or 'Unknown'}")
 
             if p_sig["status"] != "Valid":
                 # Normalize date to YYYY-MM-DD for failed signals too
