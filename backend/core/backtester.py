@@ -71,7 +71,16 @@ class Backtester:
         if progress_callback:
             await progress_callback(1, total_steps, f"Batch resolving {len(unique_raw)} symbols...")
 
-        resolved_map = await asyncio.to_thread(SymbolResolver.batch_resolve, unique_raw)
+        resolved_map = {}
+        for batch_i in range(0, len(unique_raw), Limits.BATCH_RESOLVE_CHUNK):
+            batch = unique_raw[batch_i:batch_i + Limits.BATCH_RESOLVE_CHUNK]
+            chunk_result = await asyncio.to_thread(SymbolResolver.batch_resolve, batch)
+            resolved_map.update(chunk_result)
+            if progress_callback:
+                await progress_callback(
+                    1, total_steps,
+                    f"Batch resolving {len(resolved_map)}/{len(unique_raw)} symbols..."
+                )
 
         # Pass 2: process each signal with pre-resolved symbols
         parsed_signals = []
