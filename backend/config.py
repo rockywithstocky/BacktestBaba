@@ -27,7 +27,10 @@ class Limits:
     ))
 
     BATCH_RESOLVE_CHUNK = int(os.getenv("BATCH_RESOLVE_CHUNK", "50"))
-    BULK_FETCH_CHUNK = int(os.getenv("BULK_FETCH_CHUNK", "25"))
+    BULK_FETCH_CHUNK = int(os.getenv(
+        "BULK_FETCH_CHUNK",
+        "25" if is_render() else "100"
+    ))
     RATE_LIMIT_BACKOFF_SEC = float(os.getenv("RATE_LIMIT_BACKOFF_SEC", "1.0"))
 
     WS_TIMEOUT_SEC = int(os.getenv("WS_TIMEOUT_SEC", "300"))
