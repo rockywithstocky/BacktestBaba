@@ -11,14 +11,16 @@ logger = logging.getLogger(__name__)
 
 cache = Cache(Paths.CACHE_DIR, size_limit=CacheTTL.DISKCACHE_SIZE_LIMIT_MB * 1024 * 1024)
 
+CACHE_VERSION = "v1"
+
 class DataProvider:
     @staticmethod
     def _data_key(symbol: str) -> str:
-        return f"sd_{symbol}"
+        return f"sd_{CACHE_VERSION}_{symbol}"
 
     @staticmethod
     def _range_key(symbol: str) -> str:
-        return f"sr_{symbol}"
+        return f"sr_{CACHE_VERSION}_{symbol}"
 
     @staticmethod
     def persist_symbol_data(symbol: str, df: pd.DataFrame):
@@ -63,8 +65,8 @@ class DataProvider:
         Checks per-symbol cache first; if cached range covers requested,
         returns a slice. Otherwise fetches full range and caches it.
         """
-        # Legacy exact-range key (backward compat)
-        legacy_key = f"{symbol}_{start_date}_{end_date}"
+        # Legacy exact-range key (backward compat — versioned to avoid stale adjusted data)
+        legacy_key = f"{symbol}_{start_date}_{end_date}_v{CACHE_VERSION}"
         if legacy_key in cache:
             return cache[legacy_key]
 
@@ -91,7 +93,7 @@ class DataProvider:
         logger.debug("Fetching %s from yfinance", symbol)
         try:
             ticker = yf.Ticker(symbol)
-            df = ticker.history(start=start_date, end=end_date, auto_adjust=True)
+            df = ticker.history(start=start_date, end=end_date, auto_adjust=False)
         except Exception:
             logger.warning("get_ticker_data — yfinance failure for %s", symbol, exc_info=True)
             return pd.DataFrame()
@@ -137,7 +139,7 @@ class DataProvider:
                 tickers=symbols,
                 start=start_date,
                 end=end_date,
-                auto_adjust=True,
+                auto_adjust=False,
                 group_by='ticker',
                 progress=False,
                 threads=True
