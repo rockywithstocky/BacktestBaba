@@ -1,6 +1,6 @@
 **Project:** ChartChampion (formerly BacktestBaba)
-**Branch:** `main` (merged from `feature/perf-persistence-stabilize`)
-**Status:** All 10 task groups complete ✅ | 1 bugfix merged ✅ | 1 pending UI task
+**Branch:** `feature/stockchart-modal-enhancement` (not yet merged)
+**Status:** StockChartModal enhancement in progress — candlestick as 4th chart type, hero return, stats reorg
 
 Production URLs:
 - Frontend: https://chartchampion.vercel.app
@@ -54,29 +54,43 @@ Kept `threads=True` to avoid sequential slowdown (25-symbol chunk with threads=T
 
 Resolves: `Cannot compare tz-naive and tz-aware timestamps` crash in production.
 
-## 3. Pending Task — TG11: Horizon Selector Dropdown UI
+## 3. Current Task — StockChartModal Enhancement
 
-**Branch**: Create from `main` → `feature/ui-horizon-selector`
+**Branch**: `feature/stockchart-modal-enhancement`
 
-**Problem**: Backend returns 6 horizons (7d/14d/30d/45d/60d/90d) but UI only shows 7d/30d/90d.
+**Problem**: StockChartModal shows only 4 abstract data points (Entry/Exit/MaxHigh/MaxLow) via Recharts. Chart area feels sparse. No price context. No professional charting experience.
 
-**Plan**: Add a single `<select>` dropdown in the header area (next to Capital input) that switches which horizon's data is displayed:
+**Solution**: 
+1. Add TradingView-style candlestick chart as 4th chart type (alongside existing Area/Line/Bar)
+2. Hero return % as the primary visual element
+3. Reorganize stats into 4 scannable cards (Entry/Exit/Peak/Trough)
+4. New backend endpoint `GET /api/prices/{symbol}` for OHLCV data
+5. Lazy-import `lightweight-charts` (45KB gzip) — zero impact on initial bundle
 
-```
-Stats:  Win Rate 52%  |  Avg Return +8.3%   (updates per dropdown)
-Table:  Symbol | Date | Close | Entry | Return | Exit Price | Max High | Max Low
-        [single Return column for selected horizon]
-Charts: "Optimal Holding Period" — already shows all 6, no change
-```
+**Key guards**:
+- Existing Area/Line/Bar charts untouched
+- AbortController + stale response guard for fast symbol switching
+- React 19 StrictMode double-mount guard
+- Marker snap to nearest trading day
+- Dynamic import error boundary (graceful fallback to area chart)
+- Null-safe marker creation
 
-**Files changed**: 1 file — `frontend/src/components/Dashboard.jsx`
-- Add `useState` for `selectedHorizon` (default '30d')
-- Add `<select>` dropdown with 6 options in header
-- Swap 3 static return columns for 1 dynamic column
-- Swap 3 static stat cards for 1 dynamic pair
-- ~20 lines total
+**Files changed**:
+| File | Change |
+|------|--------|
+| `backend/main.py` | +30 lines — new prices endpoint |
+| `frontend/src/services/api.js` | +10 lines — fetchSymbolPrices helper |
+| `frontend/src/components/StockChartModal.jsx` | Hero return, stats reorg, candlestick |
+| `frontend/src/components/Dashboard.css` | +50 lines — skeleton, tooltip, hero, grid |
+| `frontend/package.json` | +lightweight-charts dependency |
 
-**Why not 3 more columns**: Table already has 11 columns. Adding 3 more = 16. Unusable on mobile. Dropdown keeps it compact and scales to any number of horizons.
+**Task breakdown**:
+1. Update docs (SPEC, RESUME_WORK, CURRENT_STATE, AGENTS)
+2. Backend prices endpoint
+3. Frontend npm + api helper
+4. StockChartModal rewrite
+5. CSS additions
+6. Full verification (pytest + build + manual)
 
 ## 4. Pre-existing Issues (Not Caused by Changes)
 - `verify_regression.py` has 0.01 floating-point noise between bulk/sequential modes (yfinance response variation)

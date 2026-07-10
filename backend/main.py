@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import math
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,7 @@ from typing import List, Dict
 
 from backend.logging_config import setup_logging
 from backend.core.backtester import Backtester
+from backend.core.data_provider import DataProvider
 from backend.models.schemas import BacktestReport
 from backend.config import Limits, Paths, is_render
 from backend.storage import FileHashCache, JobStorage, compute_file_hash, generate_run_id
@@ -121,6 +123,43 @@ def read_root():
     return {"message": "Stock Screener Backtester Pro API is running"}
 
 
+@app.get("/api/prices/{symbol}")
+async def get_symbol_prices(symbol: str, start: str = None, end: str = None):
+    """Return daily OHLCV for a resolved symbol (e.g. 'ASIANHOTNR.NS').
+    Cache-first via get_ticker_data(); yfinance fallback on miss.
+    """
+    candidates = [symbol]
+    if not symbol.endswith(('.NS', '.BO')):
+        candidates = [f"{symbol}.NS", f"{symbol}.BO"]
+
+    for s in candidates:
+        df = await asyncio.to_thread(DataProvider.get_ticker_data, s, start, end)
+        if df is not None and not df.empty:
+            prices = []
+            for idx, row in df.iterrows():
+                date_str = idx.strftime('%Y-%m-%d') if hasattr(idx, 'strftime') else str(idx)[:10]
+                prices.append({
+                    "date": date_str,
+                    "open": round(float(row.get('Open', row.get('open', 0))), 2),
+                    "high": round(float(row.get('High', row.get('high', 0))), 2),
+                    "low": round(float(row.get('Low', row.get('low', 0))), 2),
+                    "close": round(float(row.get('Close', row.get('close', 0))), 2),
+                })
+            return {"symbol": s, "prices": prices}
+
+    return {"symbol": symbol, "prices": []}
+
+
+def _clean_nan(obj):
+    if isinstance(obj, float) and math.isnan(obj):
+        return None
+    if isinstance(obj, dict):
+        return {k: _clean_nan(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_nan(v) for v in obj]
+    return obj
+
+
 async def _handle_backtest(
     data: bytes,
     entry_mode: str,
@@ -206,7 +245,7 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
                     "total": total
                 }
             try:
-                await websocket.send_json(msg)
+                await websocket.send_json(_clean_nan(msg))
             except Exception:
                 pass
 
@@ -214,10 +253,10 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
             report = await _handle_backtest(data, entry_mode, progress_callback=on_progress)
             report_dict = report.dict()
             report_dict.pop("trades", None)
-            await websocket.send_json({
+            await websocket.send_json(_clean_nan({
                 "type": "complete",
                 "report": report_dict
-            })
+            }))
         except ValueError as e:
             await websocket.send_json({"type": "error", "message": str(e)})
 

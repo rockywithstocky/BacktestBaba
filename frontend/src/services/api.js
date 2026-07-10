@@ -57,7 +57,13 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
 
     ws.onmessage = (event) => {
         if (settled) return;
-        const data = JSON.parse(event.data);
+        let data;
+        try {
+            data = JSON.parse(event.data);
+        } catch (e) {
+            console.error('[WS] Invalid JSON from server:', e.message);
+            return;
+        }
 
         if (data.type === 'progress') {
             onProgress(data);
@@ -95,4 +101,12 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
     };
 
     return ws;
+};
+
+export const fetchSymbolPrices = async (symbol, start, end) => {
+    const { data } = await axios.get(`${API_URL}/prices/${symbol}`, {
+        params: { start, end },
+        timeout: 10000,
+    });
+    return data.prices;
 };

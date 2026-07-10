@@ -26,6 +26,7 @@
 ### 4. Frontend Architecture
 - **Navbar**: `sticky top-0` positioning (not `fixed`). Participates in document flow without hiding content.
 - **Dashboard.jsx**: Monolith orchestrator (~500 lines). Owns all state, calculations, and derived data. 
-- **Extracted Components**: `StockChartModal.jsx` (presentational, owns only internal `chartType` state).
+- **Extracted Components**: `StockChartModal.jsx` — enhanced with hero return, 4-card stats grid, and 4 chart types (Area/Line/Bar + Candlestick). Candlestick uses lazy-loaded `lightweight-charts` via dynamic import. Area/Line/Bar use Recharts (unchanged).
+- **Backend**: `GET /api/prices/{symbol}` endpoint returns daily OHLCV data from diskcache-backed `get_ticker_data()`.
 - **Summary Cards**: Dynamic coloring based on actual values. Win Rate cards glow green/red based on >= 50% threshold. Avg Return text colored by sign. Label says "data available" not "successful".
 - **Stats Table**: Column labeled "Avg Profit/Trade" (not "Capital Return"). System is signal-level return analysis, not portfolio simulation.

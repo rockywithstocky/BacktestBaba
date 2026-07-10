@@ -786,13 +786,20 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding: 1.75rem;
+    padding: 1rem 1.25rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
 .modal-title {
     font-family: 'Outfit', sans-serif;
-    font-size: 1.75rem;
+    font-size: 1.25rem;
     font-weight: 800;
     background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -802,10 +809,27 @@
 }
 
 .modal-subtitle {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     color: #9ca3af;
-    margin-top: 0.375rem;
     font-weight: 500;
+    width: 100%;
+}
+
+.hero-badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    line-height: 1.4;
+}
+.hero-badge.positive {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.15);
+}
+.hero-badge.negative {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
 }
 
 .modal-close {
@@ -914,31 +938,105 @@
 }
 
 .modal-chart {
-    padding: 1.75rem;
+    padding: 1rem 1.25rem;
 }
 
-/* Modal Legend */
-.modal-legend {
-    display: flex;
-    justify-content: center;
-    gap: 1.75rem;
-    padding: 1.25rem 1.75rem;
-    background: rgba(17, 24, 39, 0.5);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    flex-wrap: wrap;
+/* Stats Grid (4 cards) — Compact */
+.modal-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: rgba(17, 24, 39, 0.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
+.stat-card {
+    text-align: center;
+    padding: 0.5rem 0.375rem;
+    background: rgba(17, 24, 39, 0.6);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.stat-card .stat-label {
+    font-size: 0.5625rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+.stat-card .stat-price {
+    font-family: 'Outfit', sans-serif;
     font-size: 0.875rem;
-    color: #9ca3af;
-    font-weight: 500;
+    font-weight: 700;
+    color: #f9fafb;
+    display: block;
+}
+.stat-card .stat-price.positive { color: #10b981; }
+.stat-card .stat-price.negative { color: #ef4444; }
+.stat-card .stat-date {
+    font-size: 0.5625rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+    display: block;
 }
 
-.legend-marker {
-    font-size: 1.125rem;
+/* Chart Loading Skeleton */
+.chart-skeleton {
+    width: 100%;
+    height: 350px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* lightweight-charts tooltip */
+.lwc-tooltip {
+    position: absolute;
+    display: none;
+    padding: 12px 16px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    z-index: 1000;
+    font-family: 'Outfit', sans-serif;
+    min-width: 180px;
+}
+.lwc-tooltip .tt-symbol {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f9fafb;
+    margin-bottom: 6px;
+}
+.lwc-tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 12px;
+    color: #cbd5e1;
+    margin: 2px 0;
+}
+.lwc-tooltip .tt-change {
+    font-size: 14px;
+    font-weight: 800;
+    margin-top: 6px;
+}
+.lwc-tooltip .tt-change.positive { color: #10b981; }
+.lwc-tooltip .tt-change.negative { color: #ef4444; }
+.lwc-tooltip .tt-date {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 4px;
 }
 
 /* Custom Tooltip - Glass Effect */
@@ -974,7 +1072,7 @@
 }
 
 .modal-footer {
-    padding: 1.25rem 1.75rem;
+    padding: 0.75rem 1.25rem;
     background: rgba(17, 24, 39, 0.95);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 0 0 24px 24px;

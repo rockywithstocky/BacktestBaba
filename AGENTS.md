@@ -54,12 +54,12 @@ cd frontend && npm run lint
 | `backend/core/data_provider.py` | Bulk/fallback ticker fetch, metadata, latest price; diskcache-based |
 | `backend/core/symbol_resolver.py` | Resolves → `.NS` / `.BO`; in-memory cache per request |
 | `backend/models/schemas.py` | `SignalResult` + `BacktestReport` Pydantic models |
-| `backend/main.py` | FastAPI: `POST /api/backtest` (REST), `WS /ws/backtest` (WebSocket + progress) |
+| `backend/main.py` | FastAPI: `POST /api/backtest` (REST), `WS /ws/backtest` (WebSocket + progress), `GET /api/prices/{symbol}` (OHLCV data) |
 | `backend/utils/date_utils.py` | `parse_date()` (7 formats), `get_next_trading_day()`, `get_future_trading_day()` |
 | `frontend/src/services/api.js` | `runBacktestWS()` — WS with 10s timeout → HTTP fallback |
 | `frontend/src/pages/BacktesterPage.jsx` | Orchestrates UploadCard + Dashboard; entry mode toggle |
 | `frontend/src/components/Dashboard.jsx` | Charts, stats, paginated trade table (~525 lines) |
-| `frontend/src/components/StockChartModal.jsx` | Area/Line/Bar chart modal per trade |
+| `frontend/src/components/StockChartModal.jsx` | Area/Line/Bar/Candlestick chart modal per trade; candlestick uses lazy-loaded lightweight-charts |
 
 ## Frontend Routing (react-router-dom v7)
 
