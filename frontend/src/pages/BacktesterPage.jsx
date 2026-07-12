@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UploadCard from '../components/UploadCard';
 import Dashboard from '../components/Dashboard';
 import { runBacktestWS } from '../services/api';
@@ -6,11 +6,22 @@ import { Activity, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const BacktesterPage = () => {
-    const [report, setReport] = useState(null);
+    const [report, setReport] = useState(() => {
+        const saved = sessionStorage.getItem('backtest_report');
+        return saved ? JSON.parse(saved) : null;
+    });
     const [isLoading, setIsLoading] = useState(false);
     const [progress, setProgress] = useState(null);
     const [error, setError] = useState(null);
     const [entryMode, setEntryMode] = useState('next_close');
+
+    useEffect(() => {
+        if (report) {
+            sessionStorage.setItem('backtest_report', JSON.stringify(report));
+        } else {
+            sessionStorage.removeItem('backtest_report');
+        }
+    }, [report]);
 
     const handleUpload = (file) => {
         setIsLoading(true);
@@ -39,6 +50,7 @@ const BacktesterPage = () => {
     const handleReset = () => {
         setReport(null);
         setError(null);
+        sessionStorage.removeItem('backtest_report');
     };
 
     return (

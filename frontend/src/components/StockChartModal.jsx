@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-    LineChart, Line, Area, AreaChart, ComposedChart, Scatter
+    LineChart, Line, Area, AreaChart, ComposedChart
 } from 'recharts';
 import { X, BarChart3, LineChart as LineChartIcon, Activity, CandlestickChart, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,8 +46,12 @@ const StockChartModal = ({ stock, period, onClose }) => {
 
     const getExitDate = (entryDateStr, days) => {
         const date = new Date(entryDateStr);
+        if (isNaN(date.getTime())) return '';
         date.setDate(date.getDate() + days);
-        return date.toLocaleDateString('en-IN');
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     };
 
     const exitDate = entryDateStr ? getExitDate(entryDateStr, periodDays) : '';
@@ -143,7 +147,27 @@ const StockChartModal = ({ stock, period, onClose }) => {
                     },
                 },
                 rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
-                timeScale: { borderColor: 'rgba(255,255,255,0.1)' },
+                timeScale: {
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    barSpacing: 10,
+                    rightOffset: 3,
+                    timeVisible: false,
+                    tickMarkFormatter: (time) => {
+                        let d;
+                        if (typeof time === 'object' && time !== null) {
+                            d = new Date(time.year, time.month - 1, time.day);
+                        } else if (typeof time === 'string') {
+                            d = new Date(time + 'T00:00:00');
+                        } else if (typeof time === 'number') {
+                            d = new Date(time * 1000);
+                        } else {
+                            return '';
+                        }
+                        if (isNaN(d.getTime())) return '';
+                        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                        return `${d.getDate()} ${months[d.getMonth()]}`;
+                    },
+                },
             });
             chartRef.current = chart;
 
@@ -169,7 +193,8 @@ const StockChartModal = ({ stock, period, onClose }) => {
                 }
 
                 const entryPx = stock?.entry_price;
-                const changePct = entryPx ? ((data.close - entryPx) / entryPx * 100) : 0;
+                const rawChange = Number.isFinite(entryPx) ? ((data.close - entryPx) / entryPx * 100) : NaN;
+                const changePct = Number.isFinite(rawChange) ? rawChange : 0;
 
                 tooltip.innerHTML = `
                     <div class="tt-symbol">${symbol}</div>
@@ -228,12 +253,13 @@ const StockChartModal = ({ stock, period, onClose }) => {
                     wickUpColor: '#10b981',
                 });
                 candlestickSeries.setData(mappedCandles);
+                chart.timeScale().scrollToRealTime();
                 seriesRef.current = candlestickSeries;
 
                 // Price reference lines on Y-axis
                 const entryPrice = stock?.entry_price;
                 const exitPrice = stock?.[exitPriceKey];
-                if (entryPrice) {
+                if (Number.isFinite(entryPrice)) {
                     candlestickSeries.createPriceLine({
                         price: entryPrice,
                         color: '#10b981',
@@ -243,7 +269,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
                         title: `Entry ₹${entryPrice.toFixed(0)}`,
                     });
                 }
-                if (exitPrice) {
+                if (Number.isFinite(exitPrice)) {
                     candlestickSeries.createPriceLine({
                         price: exitPrice,
                         color: exitPrice >= entryPrice ? '#10b981' : '#ef4444',
@@ -253,7 +279,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
                         title: `Exit ₹${exitPrice.toFixed(0)}`,
                     });
                 }
-                if (stock?.max_high_90d != null) {
+                if (Number.isFinite(stock?.max_high_90d)) {
                     candlestickSeries.createPriceLine({
                         price: stock.max_high_90d,
                         color: '#8b5cf6',
@@ -263,7 +289,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
                         title: `High ₹${stock.max_high_90d.toFixed(0)}`,
                     });
                 }
-                if (stock?.max_low_90d != null) {
+                if (Number.isFinite(stock?.max_low_90d)) {
                     candlestickSeries.createPriceLine({
                         price: stock.max_low_90d,
                         color: '#f59e0b',
@@ -298,13 +324,13 @@ const StockChartModal = ({ stock, period, onClose }) => {
                 const highTime = snapToNearest(stock.max_high_date);
                 const lowTime = snapToNearest(stock.max_low_date);
 
-                if (entryTime && stock.entry_price != null) {
+                if (entryTime && Number.isFinite(stock.entry_price)) {
                     markers.push({
                         time: entryTime, position: 'belowBar', color: '#10b981',
                         shape: 'arrowUp', text: `Entry ₹${stock.entry_price.toFixed(2)}`,
                     });
                 }
-                if (exitTime && stock[exitPriceKey] != null) {
+                if (exitTime && Number.isFinite(stock[exitPriceKey])) {
                     markers.push({
                         time: exitTime,
                         position: isPositive ? 'aboveBar' : 'belowBar',
@@ -313,20 +339,19 @@ const StockChartModal = ({ stock, period, onClose }) => {
                         text: `Exit ₹${stock[exitPriceKey].toFixed(2)}`,
                     });
                 }
-                if (highTime && stock.max_high_90d != null) {
+                if (highTime && Number.isFinite(stock.max_high_90d)) {
                     markers.push({
                         time: highTime, position: 'aboveBar', color: '#8b5cf6',
                         shape: 'arrowDown', text: `High ₹${stock.max_high_90d.toFixed(2)}`,
                     });
                 }
-                if (lowTime && stock.max_low_90d != null) {
+                if (lowTime && Number.isFinite(stock.max_low_90d)) {
                     markers.push({
                         time: lowTime, position: 'belowBar', color: '#f59e0b',
                         shape: 'arrowUp', text: `Low ₹${stock.max_low_90d.toFixed(2)}`,
                     });
                 }
                 candlestickSeries.setMarkers(markers);
-                chart.timeScale().fitContent();
             } catch {
                 if (!destroyed) {
                     setCandleLoading(false);
@@ -404,7 +429,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
                     {/* Compact Stats Row */}
                     <div className="modal-stats-compact">
                         <span className="compact-stat">Entry <strong>₹{stock.entry_price?.toFixed(2)}</strong> <em>{entryDateStr}</em></span>
-                        <span className="compact-stat">Exit <strong>₹{stock[exitPriceKey]?.toFixed(2)}</strong> <em>{exitDate}</em></span>
+                        <span className="compact-stat">Exit <strong>₹{stock[exitPriceKey]?.toFixed(2)}</strong> <span className={returnValue >= 0 ? 'positive' : 'negative'}>{returnValue >= 0 ? '+' : ''}{returnValue?.toFixed(2)}%</span> <em>{exitDate}</em></span>
                         <span className="compact-stat">Peak <strong className="positive">₹{stock.max_high_90d?.toFixed(2)}</strong> <em>{stock.max_high_date || 'N/A'}</em></span>
                         <span className="compact-stat">Trough <strong className="negative">₹{stock.max_low_90d?.toFixed(2)}</strong> <em>{stock.max_low_date || 'N/A'}</em></span>
                     </div>
@@ -439,32 +464,28 @@ const StockChartModal = ({ stock, period, onClose }) => {
 
                     <div className="modal-chart" style={{ height: chartHeight }}>
                         {chartType === 'candlestick' ? (
-                            <>
+                            <div style={{ position: 'relative', width: '100%', height: chartHeight }}>
                                 {candleLoading && (
-                                    <div className="chart-skeleton" style={{ height: chartHeight }} />
+                                    <div className="chart-skeleton" style={{ position: 'absolute', inset: 0, zIndex: 5 }} />
                                 )}
                                     <div
                                         ref={chartContainerRef}
                                         className="chart-container"
-                                        style={{
-                                            width: '100%',
-                                            height: candleLoading ? 0 : chartHeight,
-                                            display: candleLoading ? 'none' : 'block',
-                                        }}
+                                        style={{ width: '100%', height: chartHeight }}
                                     />
                                     {!candleLoading && !ohlcvData && (
-                                        <div className="flex items-center justify-center" style={{ height: chartHeight }}>
+                                        <div className="flex items-center justify-center" style={{ position: 'absolute', inset: 0 }}>
                                             <p className="text-gray-500 text-sm">No price data available for this period.</p>
                                         </div>
                                     )}
-                            </>
+                            </div>
                         ) : (
                             <ResponsiveContainer width="100%" height={chartHeight}>
                                 {chartType === 'area' && (
                                     <ComposedChart data={sortedChartData}>
                                         <defs>
                                             <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
+                                                <stop offset="5%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.7} />
                                                 <stop offset="95%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
@@ -478,12 +499,6 @@ const StockChartModal = ({ stock, period, onClose }) => {
                                             stroke={isPositive ? "#10b981" : "#ef4444"}
                                             strokeWidth={3}
                                             fill="url(#colorPrice)"
-                                        />
-                                        <Scatter
-                                            dataKey="price"
-                                            fill={isPositive ? "#10b981" : "#ef4444"}
-                                            shape="circle"
-                                            r={6}
                                         />
                                     </ComposedChart>
                                 )}
@@ -519,16 +534,13 @@ const StockChartModal = ({ stock, period, onClose }) => {
                         )}
                     </div>
 
-                    <div className="modal-footer flex justify-between items-center">
-                        <p className="modal-note">
-                            <strong>Signal:</strong> {stock.signal_date} |
-                            <strong> Entry:</strong> {entryDateStr} |
-                            <strong> Exit:</strong> {exitDate} |
-                            <strong> Period:</strong> {periodName}
-                        </p>
+                    <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <span className="modal-note" style={{ flex: '1 1 auto', minWidth: 0 }}>
+                            Signal: {stock.signal_date} | Entry: {entryDateStr} | Exit: {exitDate} | Period: {periodName}
+                        </span>
                         <Link
                             to={`/dashboard/fundamental/${stock.symbol}`}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors text-xs"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors text-xs flex-shrink-0"
                         >
                             Fundamentals <ArrowRight size={14} />
                         </Link>
