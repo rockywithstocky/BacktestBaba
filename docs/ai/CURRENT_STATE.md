@@ -1,10 +1,9 @@
 # Current System Architecture
 
 ## Core Tech Stack
-- **Backend**: FastAPI (Python), `yfinance`, Pandas, `diskcache`, `httpx`, `pytest-asyncio`.
+- **Backend**: FastAPI (Python), `yfinance`, Pandas, `diskcache`, `pytest-asyncio`.
 - **Frontend**: React 18, Vite, TailwindCSS, Recharts, Framer Motion.
-- **Persistence**: Cloudflare D1 (SQLite, 5GB free) via separate Worker microservice.
-- **Communication**: Dual-path (REST + WebSocket with progress streaming). D1 persistence is fire-and-forget via background task.
+- **Communication**: Dual-path (REST + WebSocket with progress streaming).
 
 ## System State
 ### 1. Calculation Engine (Backtester)
@@ -24,16 +23,7 @@
 - **Caching**: 7-Day TTL via `diskcache`.
 - **Optionality**: Guaranteed non-blocking. Exceptions trigger structured `[ENRICHMENT ERROR]` logs and degrade gracefully to `null`.
 
-### 5. D1 Persistence Layer (New — Phase A Complete)
-- **Architecture**: Cloudflare Worker microservice at `https://backtestbaba-d1-proxy.rockywithstocky-ff8.workers.dev`. Python communicates via HTTP with 3s timeout.
-- **Abstraction**: `PersistenceBackend` ABC with `D1WorkerBackend` (real) and `NullBackend` (no-op default).
-- **Schema**: 3 tables — `uploads` (file metadata), `signal_hashes` (per-trade results with `results_json` TEXT blob), `quota` (write counter, hard block at 95%).
-- **Dedup**: `row_hash = SHA256(symbol + "|" + date + "|" + entry_mode)` with UNIQUE constraint. INSERT OR IGNORE.
-- **Graceful Degradation**: Backtest NEVER depends on D1. Persistence runs in `asyncio.create_task` AFTER WebSocket response is sent. Worker timeout/429/500 = log warning, skip persist, backtest result still delivered.
-- **Config-Gated**: `PERSISTENCE_ENABLED=False` by default. Flip to `True` only after Worker is deployed and D1 bound.
-- **Phase Status**: A (backend abstraction) committed. B (main.py integration) pending. C (Worker code) pending. D (E2E test) pending.
-
-### 6. Frontend Architecture
+### 4. Frontend Architecture
 - **Navbar**: `sticky top-0` positioning (not `fixed`). Participates in document flow without hiding content.
 - **Dashboard.jsx**: Monolith orchestrator (~500 lines). Owns all state, calculations, and derived data. 
 - **Extracted Components**: `StockChartModal.jsx` — enhanced with hero return, 4-card stats grid, and 4 chart types (Area/Line/Bar + Candlestick). Candlestick uses lazy-loaded `lightweight-charts` via dynamic import. Area/Line/Bar use Recharts (unchanged).
