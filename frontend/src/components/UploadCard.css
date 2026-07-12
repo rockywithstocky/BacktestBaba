@@ -263,6 +263,20 @@
     font-weight: 500;
 }
 
+/* Indeterminate progress bar */
+.progress-bar-bg.indeterminate {
+    background: rgba(55, 65, 81, 0.4);
+}
+.progress-bar-fill.indeterminate {
+    width: 40%;
+    animation: indeterminatePulse 2s ease-in-out infinite;
+}
+@keyframes indeterminatePulse {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(150%); }
+    100% { transform: translateX(350%); }
+}
+
 .entry-mode-section {
     margin-top: 1.5rem;
     padding: 1.25rem 1.5rem;

@@ -23,7 +23,7 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 const StockChartModal = ({ stock, period, onClose }) => {
-    const [chartType, setChartType] = useState('area');
+    const [chartType, setChartType] = useState('candlestick');
     const [ohlcvData, setOhlcvData] = useState(null);
     const [candleLoading, setCandleLoading] = useState(false);
 
@@ -33,6 +33,9 @@ const StockChartModal = ({ stock, period, onClose }) => {
     const toolTipRef = useRef(null);
     const currentSymbolRef = useRef(null);
     const resizeObserverRef = useRef(null);
+    const abortControllerRef = useRef(null);
+
+    const chartHeight = Math.max(200, Math.min(500, (typeof window !== 'undefined' ? window.innerHeight : 900) - 240));
 
     const periodKey = `return_${period}`;
     const exitPriceKey = `exit_price_${period}`;
@@ -77,7 +80,8 @@ const StockChartModal = ({ stock, period, onClose }) => {
                 chartRef.current = null;
                 seriesRef.current = null;
                 if (toolTipRef.current) {
-                    toolTipRef.current.style.display = 'none';
+                    toolTipRef.current.remove();
+                    toolTipRef.current = null;
                 }
             }
             return;
@@ -86,6 +90,13 @@ const StockChartModal = ({ stock, period, onClose }) => {
         let destroyed = false;
         const symbol = stock?.symbol || '';
         currentSymbolRef.current = symbol;
+
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         setCandleLoading(true);
         setOhlcvData(null);
 
@@ -186,7 +197,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
 
             // Fetch data
             try {
-                const prices = await fetchSymbolPrices(symbol, startDate, endDate);
+                const prices = await fetchSymbolPrices(symbol, startDate, endDate, controller.signal);
                 if (symbol !== currentSymbolRef.current) return;
 
                 if (destroyed) return;
@@ -340,6 +351,10 @@ const StockChartModal = ({ stock, period, onClose }) => {
 
         return () => {
             destroyed = true;
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+            }
             if (resizeObserverRef.current) {
                 resizeObserverRef.current.disconnect();
                 resizeObserverRef.current = null;
@@ -350,7 +365,8 @@ const StockChartModal = ({ stock, period, onClose }) => {
                 seriesRef.current = null;
             }
             if (toolTipRef.current) {
-                toolTipRef.current.style.display = 'none';
+                toolTipRef.current.remove();
+                toolTipRef.current = null;
             }
         };
     }, [chartType, stock, period]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -379,39 +395,28 @@ const StockChartModal = ({ stock, period, onClose }) => {
                             <span className={`hero-badge ${isPositive ? 'positive' : 'negative'}`}>
                                 {isPositive ? '+' : ''}{returnValue?.toFixed(2)}%
                             </span>
-                            <p className="modal-subtitle">{periodName} • {entryDateStr} → {exitDate}</p>
                         </div>
                         <button className="modal-close" onClick={onClose}>
                             <X size={24} />
                         </button>
                     </div>
 
-                    {/* Stats Grid */}
-                    <div className="modal-stats-grid">
-                        <div className="stat-card">
-                            <span className="stat-label">Entry</span>
-                            <span className="stat-price">₹{stock.entry_price?.toFixed(2)}</span>
-                            <span className="stat-date">{entryDateStr}</span>
-                        </div>
-                        <div className="stat-card">
-                            <span className="stat-label">Exit</span>
-                            <span className="stat-price">₹{stock[exitPriceKey]?.toFixed(2)}</span>
-                            <span className="stat-date">{exitDate}</span>
-                        </div>
-                        <div className="stat-card">
-                            <span className="stat-label">Peak</span>
-                            <span className="stat-price positive">₹{stock.max_high_90d?.toFixed(2)}</span>
-                            <span className="stat-date">{stock.max_high_date || 'N/A'}</span>
-                        </div>
-                        <div className="stat-card">
-                            <span className="stat-label">Trough</span>
-                            <span className="stat-price negative">₹{stock.max_low_90d?.toFixed(2)}</span>
-                            <span className="stat-date">{stock.max_low_date || 'N/A'}</span>
-                        </div>
+                    {/* Compact Stats Row */}
+                    <div className="modal-stats-compact">
+                        <span className="compact-stat">Entry <strong>₹{stock.entry_price?.toFixed(2)}</strong> <em>{entryDateStr}</em></span>
+                        <span className="compact-stat">Exit <strong>₹{stock[exitPriceKey]?.toFixed(2)}</strong> <em>{exitDate}</em></span>
+                        <span className="compact-stat">Peak <strong className="positive">₹{stock.max_high_90d?.toFixed(2)}</strong> <em>{stock.max_high_date || 'N/A'}</em></span>
+                        <span className="compact-stat">Trough <strong className="negative">₹{stock.max_low_90d?.toFixed(2)}</strong> <em>{stock.max_low_date || 'N/A'}</em></span>
                     </div>
 
                     {/* Chart Type Switcher */}
                     <div className="chart-type-switcher">
+                        <button
+                            className={`chart-type-btn ${chartType === 'candlestick' ? 'active' : ''}`}
+                            onClick={() => setChartType('candlestick')}
+                        >
+                            <CandlestickChart size={18} /> Candlestick
+                        </button>
                         <button
                             className={`chart-type-btn ${chartType === 'area' ? 'active' : ''}`}
                             onClick={() => setChartType('area')}
@@ -430,36 +435,31 @@ const StockChartModal = ({ stock, period, onClose }) => {
                         >
                             <BarChart3 size={18} /> Bar
                         </button>
-                        <button
-                            className={`chart-type-btn ${chartType === 'candlestick' ? 'active' : ''}`}
-                            onClick={() => setChartType('candlestick')}
-                        >
-                            <CandlestickChart size={18} /> Candlestick
-                        </button>
                     </div>
 
-                    <div className="modal-chart">
+                    <div className="modal-chart" style={{ height: chartHeight }}>
                         {chartType === 'candlestick' ? (
                             <>
                                 {candleLoading && (
-                                    <div className="chart-skeleton" style={{ height: 280 }} />
+                                    <div className="chart-skeleton" style={{ height: chartHeight }} />
                                 )}
                                     <div
                                         ref={chartContainerRef}
+                                        className="chart-container"
                                         style={{
                                             width: '100%',
-                                            height: candleLoading ? 0 : 280,
+                                            height: candleLoading ? 0 : chartHeight,
                                             display: candleLoading ? 'none' : 'block',
                                         }}
                                     />
                                     {!candleLoading && !ohlcvData && (
-                                        <div className="flex items-center justify-center" style={{ height: 280 }}>
+                                        <div className="flex items-center justify-center" style={{ height: chartHeight }}>
                                             <p className="text-gray-500 text-sm">No price data available for this period.</p>
                                         </div>
                                     )}
                             </>
                         ) : (
-                            <ResponsiveContainer width="100%" height={280}>
+                            <ResponsiveContainer width="100%" height={chartHeight}>
                                 {chartType === 'area' && (
                                     <ComposedChart data={sortedChartData}>
                                         <defs>
@@ -469,7 +469,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                        <XAxis dataKey="date" stroke="#9ca3af" angle={-15} textAnchor="end" height={80} />
+                                        <XAxis dataKey="date" stroke="#9ca3af" height={40} />
                                         <YAxis stroke="#9ca3af" domain={['dataMin - 5', 'dataMax + 5']} />
                                         <RechartsTooltip content={<CustomTooltip />} />
                                         <Area
@@ -490,7 +490,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
                                 {chartType === 'line' && (
                                     <ComposedChart data={sortedChartData}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                        <XAxis dataKey="date" stroke="#9ca3af" angle={-15} textAnchor="end" height={80} />
+                                        <XAxis dataKey="date" stroke="#9ca3af" height={40} />
                                         <YAxis stroke="#9ca3af" domain={['dataMin - 5', 'dataMax + 5']} />
                                         <RechartsTooltip content={<CustomTooltip />} />
                                         <Line
@@ -505,7 +505,7 @@ const StockChartModal = ({ stock, period, onClose }) => {
                                 {chartType === 'bar' && (
                                     <BarChart data={sortedChartData}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                        <XAxis dataKey="date" stroke="#9ca3af" angle={-15} textAnchor="end" height={80} />
+                                        <XAxis dataKey="date" stroke="#9ca3af" height={40} />
                                         <YAxis stroke="#9ca3af" domain={['dataMin - 5', 'dataMax + 5']} />
                                         <RechartsTooltip content={<CustomTooltip />} />
                                         <Bar

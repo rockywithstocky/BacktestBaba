@@ -38,7 +38,8 @@ const UploadCard = ({ onUpload, isLoading, progress, entryMode, onEntryModeChang
         }
     };
 
-    const progressPercent = progress ? Math.round((progress.current / progress.total) * 100) : 0;
+    const isIndeterminate = progress?.indeterminate === true;
+    const progressPercent = !isIndeterminate && progress ? Math.round((progress.current / progress.total) * 100) : 0;
 
     return (
         <motion.div
@@ -144,21 +145,23 @@ const UploadCard = ({ onUpload, isLoading, progress, entryMode, onEntryModeChang
                     >
                         <div className="progress-header">
                             <span className="progress-text">
-                                Processing: <span className="highlight">{progress.symbol || "Initializing..."}</span>
+                                <span className="highlight">{progress.symbol || "Initializing..."}</span>
                             </span>
-                            <span className="progress-percentage">{progressPercent}%</span>
+                            {!isIndeterminate && <span className="progress-percentage">{progressPercent}%</span>}
                         </div>
-                        <div className="progress-bar-bg">
+                        <div className={`progress-bar-bg ${isIndeterminate ? 'indeterminate' : ''}`}>
                             <motion.div
-                                className="progress-bar-fill"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${progressPercent}%` }}
+                                className={`progress-bar-fill ${isIndeterminate ? 'indeterminate' : ''}`}
+                                initial={false}
+                                animate={isIndeterminate ? {} : { width: `${progressPercent}%` }}
                                 transition={{ duration: 0.3 }}
                             />
                         </div>
-                        <div className="progress-stats">
-                            {progress.current} / {progress.total} signals processed
-                        </div>
+                        {!isIndeterminate && (
+                            <div className="progress-stats">
+                                {progress.current} / {progress.total} signals processed
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>

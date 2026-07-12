@@ -395,11 +395,13 @@ class Backtester:
                 if pd.notna(max_high):
                     res.max_high_90d = round(max_high, 2)
                     max_high_idx = window_df["High"].idxmax()
-                    res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
+                    if pd.notna(max_high_idx):
+                        res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
                 if pd.notna(max_low):
                     res.max_low_90d = round(max_low, 2)
                     max_low_idx = window_df["Low"].idxmin()
-                    res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
+                    if pd.notna(max_low_idx):
+                        res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
 
             # Online best/worst tracking
             ret_90 = res.return_90d
