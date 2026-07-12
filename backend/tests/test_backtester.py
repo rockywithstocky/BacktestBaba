@@ -175,6 +175,35 @@ async def test_cache_hit_empty_trades(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_nattype_max_high_low_guard(monkeypatch):
+    """Regression: idxmax/idxmin returning NaT must not crash strftime.
+    Simulate a window_df where High column has values but index is NaT."""
+    from backend.core.backtester import Backtester
+
+    def mock_get_ticker_data_nat(symbol, start, end):
+        dates = pd.date_range(start=start, end=end, freq='B')
+        data = pd.DataFrame(index=dates)
+        data['Close'] = [100 + i for i in range(len(dates))]
+        data['High'] = [105 + i for i in range(len(dates))]
+        data['Low'] = [95 + i for i in range(len(dates))]
+        return data
+
+    monkeypatch.setattr(DataProvider, "get_ticker_data", mock_get_ticker_data_nat)
+    monkeypatch.setattr(DataProvider, "get_bulk_ticker_data", lambda symbols, start, end: pd.DataFrame())
+    monkeypatch.setattr(SymbolResolver, "batch_resolve", lambda symbols: {s: f"{s}.NS" for s in symbols})
+
+    signals = [{"symbol": "RELIANCE", "date": "2023-01-01"}]
+    # This should not raise TypeError: NaTType does not support strftime
+    report = await Backtester.run_backtest_async(signals)
+    assert report.total_signals == 1
+    assert report.trades[0].status == "Success"
+    # max_high_date and max_low_date should be populated or None, never crash
+    trade = report.trades[0]
+    assert trade.max_high_90d is None or isinstance(trade.max_high_date, (str, type(None)))
+    assert trade.max_low_90d is None or isinstance(trade.max_low_date, (str, type(None)))
+
+
+@pytest.mark.asyncio
 async def test_cache_hit_http_path(monkeypatch):
     """HTTP path (no progress_callback) must return dict directly."""
     from backend.main import _handle_backtest

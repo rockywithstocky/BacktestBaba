@@ -374,35 +374,34 @@ class Backtester:
                 
                 if exit_date:
                     exit_price = df.loc[exit_date]["Close"]
-                    ret = ((exit_price - entry_price) / entry_price) * 100
-                    
-                    # Dynamically set attributes if they exist in schema, otherwise just add to a dict if we were using one
-                    # For now, we stick to the fixed schema fields but ensure 'duration' specific logic is handled
-                    # The schema supports 7d, 30d, 90d. If duration is custom (e.g. 60), we might need to add it to schema or just use it for chart limits.
-                    # For this iteration, we will populate standard fields and ensure data is fetched up to 'duration'.
-                    # The schema supports 7d, 14d, 30d, 45d, 60d, 90d.
-                    
-                    if h in horizons:
-                        setattr(res, f"return_{h}d", round(ret, 2))
-                        setattr(res, f"exit_price_{h}d", round(exit_price, 2))
-                        agg[h]["sum"] += round(ret, 2)
-                        agg[h]["count"] += 1
-                        if ret > 0:
-                            agg[h]["wins"] += 1
+                    if pd.notna(exit_price) and pd.notna(entry_price) and entry_price != 0:
+                        ret = ((exit_price - entry_price) / entry_price) * 100
+                        
+                        if h in horizons:
+                            setattr(res, f"return_{h}d", round(ret, 2))
+                            setattr(res, f"exit_price_{h}d", round(exit_price, 2))
+                            agg[h]["sum"] += round(ret, 2)
+                            agg[h]["count"] += 1
+                            if ret > 0:
+                                agg[h]["wins"] += 1
             
             # Max High/Low in Duration
             window_end = entry_date + timedelta(days=duration)
             window_df = df[entry_date:window_end]
             
             if not window_df.empty:
-                res.max_high_90d = round(window_df["High"].max(), 2) # Reusing field name for max high in period
-                res.max_low_90d = round(window_df["Low"].min(), 2)   # Reusing field name for max low in period
-                
-                # Find dates of max high and max low
-                max_high_idx = window_df["High"].idxmax()
-                max_low_idx = window_df["Low"].idxmin()
-                res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
-                res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
+                max_high = window_df["High"].max()
+                max_low = window_df["Low"].min()
+                if pd.notna(max_high):
+                    res.max_high_90d = round(max_high, 2)
+                    max_high_idx = window_df["High"].idxmax()
+                    if pd.notna(max_high_idx):
+                        res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
+                if pd.notna(max_low):
+                    res.max_low_90d = round(max_low, 2)
+                    max_low_idx = window_df["Low"].idxmin()
+                    if pd.notna(max_low_idx):
+                        res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
 
             # Online best/worst tracking
             ret_90 = res.return_90d
