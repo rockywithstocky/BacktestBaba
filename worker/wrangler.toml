@@ -1,0 +1,11 @@
+name = "backtestbaba-d1-proxy"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "backtestbaba"
+database_id = ""
+
+[vars]
+PASSWORD_SALT = "backtestbaba-salt-2026"

@@ -1,8 +1,9 @@
 # Current System Architecture
 
 ## Core Tech Stack
-- **Backend**: FastAPI (Python), `yfinance`, Pandas, `diskcache`, `pytest-asyncio`.
+- **Backend**: FastAPI (Python), `yfinance`, Pandas, `diskcache`, `pytest-asyncio`, `httpx`.
 - **Frontend**: React 18, Vite, TailwindCSS, Recharts, Framer Motion.
+- **Infrastructure**: Cloudflare Workers + D1 (persistence, feature branch), Render.com (backend hosting), Vercel (frontend).
 - **Communication**: Dual-path (REST + WebSocket with progress streaming).
 
 ## System State
@@ -26,7 +27,17 @@
 ### 4. Frontend Architecture
 - **Navbar**: `sticky top-0` positioning (not `fixed`). Participates in document flow without hiding content.
 - **Dashboard.jsx**: Monolith orchestrator (~500 lines). Owns all state, calculations, and derived data. 
-- **Extracted Components**: `StockChartModal.jsx` — enhanced with hero return, 4-card stats grid, and 4 chart types (Area/Line/Bar + Candlestick). Candlestick uses lazy-loaded `lightweight-charts` via dynamic import. Area/Line/Bar use Recharts (unchanged).
+- **StockChartModal**: 4 chart types (Area/Line/Bar via Recharts + Candlestick via lazy-loaded `lightweight-charts`). Hero return display, 4-card stats grid.
 - **Backend**: `GET /api/prices/{symbol}` endpoint returns daily OHLCV data from diskcache-backed `get_ticker_data()`.
-- **Summary Cards**: Dynamic coloring based on actual values. Win Rate cards glow green/red based on >= 50% threshold. Avg Return text colored by sign. Label says "data available" not "successful".
+- **Summary Cards**: Dynamic coloring based on actual values. Win Rate cards glow green/red based on >= 50% threshold.
 - **Stats Table**: Column labeled "Avg Profit/Trade" (not "Capital Return"). System is signal-level return analysis, not portfolio simulation.
+
+### 5. Persistence Layer (D1 — Feature Branch)
+- **Abstraction**: `PersistenceBackend` ABC with 5 methods (`save_upload`, `save_signals`, `list_uploads`, `get_quota`, `healthcheck`).
+- **Implementations**: `NullBackend` (no-op, default when `PERSISTENCE_ENABLED=false`) and `D1WorkerBackend` (HTTP to Cloudflare Worker via `httpx.AsyncClient`, 3s timeout).
+- **Dedup**: `compute_row_hash()` = SHA-256 of `symbol|signal_date|entry_mode`. Worker uses `INSERT OR IGNORE`.
+- **Quota**: Worker tracks total writes against 1M-row limit, returns 429 at 95% capacity. Backend logs WARNING and drops.
+- **Data Model**: `UploadRecord` (file_hash, filename, entry_mode, signal_count) and `TradeRecord` (row_hash, symbol, signal_date, entry_date, entry_price, entry_mode, status, results_json). `_build_results_json()` serializes 6-horizon returns as JSON blob.
+- **Integration**: Fire-and-forget `asyncio.create_task` after WebSocket send. Config-gated: `PERSISTENCE_ENABLED` (default false), `WORKER_URL`, `PERSISTENCE_TIMEOUT`.
+- **Config**: 3 env vars in `backend/config.py`. No circular imports (`persistence.py` imports only stdlib + httpx).
+- **Testing**: 29 unit tests in `backend/tests/test_persistence.py` with mocked httpx. All pass.
