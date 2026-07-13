@@ -1,5 +1,6 @@
 import asyncio
 import gc
+import hashlib
 import logging
 import time
 
@@ -301,109 +302,128 @@ class Backtester:
             resolved_symbol = p_sig["resolved"]
             signal_date = p_sig["signal_date"]
             date_str = p_sig["date_str"]
-            
-            # Data path: Phase B populated per-symbol cache via persist_symbol_data().
-            # get_ticker_data() checks this cache first (0 API cost on cache hit),
-            # falls back to yfinance API only if cache miss or insufficient range.
-            df = await asyncio.to_thread(
-                DataProvider.get_ticker_data,
-                resolved_symbol,
-                p_sig["start_date"].strftime("%Y-%m-%d"),
-                p_sig["end_date"].strftime("%Y-%m-%d")
-            )
-            
-            if df is None or df.empty:
-                results.append(SignalResult(
-                    symbol=resolved_symbol,
-                    signal_date=signal_date.strftime("%Y-%m-%d"),
-                    entry_price=0.0,
-                    status="No Data"
-                ))
-                continue
-                
-            # 4. Calculate Returns
-            # Ensure index is datetime
-            df.index = pd.to_datetime(df.index).tz_localize(None)
-            
-            # Signal Close Price (nearest trading day to signal_date)
-            signal_trading_day = get_next_trading_day(signal_date, df)
-            signal_close_price = (df.loc[signal_trading_day]["Close"]
-                                  if signal_trading_day is not None
-                                  else None)
-            
-            # Entry Date (always NEXT trading day after signal_date)
-            entry_date = get_future_trading_day(signal_date, df)
-            if not entry_date:
-                 results.append(SignalResult(
-                    symbol=resolved_symbol,
-                    signal_date=signal_date.strftime("%Y-%m-%d"),
-                    entry_price=0.0,
-                    entry_mode=entry_mode,
-                    status="No Entry Data"
-                ))
-                 continue
-            
-            # Entry Price (mode-dependent)
-            if entry_mode == "next_open":
-                entry_price = df.loc[entry_date]["Open"]
-            else:
-                entry_price = df.loc[entry_date]["Close"]
-            
-            normalized_signal_date = signal_date.strftime("%Y-%m-%d")
-            res = SignalResult(
-                symbol=resolved_symbol,
-                signal_date=normalized_signal_date,
-                signal_close_price=round(signal_close_price, 2) if signal_close_price is not None else None,
-                entry_date=entry_date.strftime("%Y-%m-%d"),
-                entry_price=round(entry_price, 2),
-                entry_mode=entry_mode,
-                sector=metadata_map.get(resolved_symbol, {}).get("sector"),
-                market_cap=str(metadata_map.get(resolved_symbol, {}).get("marketCap")) if metadata_map.get(resolved_symbol, {}).get("marketCap") is not None else None,
-                status="Success"
-            )
-            
-            # Calculate forward returns dynamically
-            # Standard horizons + custom duration if not present
-            horizons = sorted(list(set([7, 14, 30, 45, 60, 90, duration])))
-            
-            for h in horizons:
-                if h > duration: continue
-                
-                target_date = entry_date + timedelta(days=h)
-                exit_date = get_next_trading_day(target_date, df)
-                
-                if exit_date:
-                    exit_price = df.loc[exit_date]["Close"]
-                    if pd.notna(exit_price) and pd.notna(entry_price) and entry_price != 0:
-                        ret = ((exit_price - entry_price) / entry_price) * 100
-                        
-                        if h in horizons:
-                            setattr(res, f"return_{h}d", round(ret, 2))
-                            setattr(res, f"exit_price_{h}d", round(exit_price, 2))
-                            agg[h]["sum"] += round(ret, 2)
-                            agg[h]["count"] += 1
-                            if ret > 0:
-                                agg[h]["wins"] += 1
-            
-            # Max High/Low in Duration
-            window_end = entry_date + timedelta(days=duration)
-            window_df = df[entry_date:window_end]
-            
-            if not window_df.empty:
-                max_high = window_df["High"].max()
-                max_low = window_df["Low"].min()
-                if pd.notna(max_high):
-                    res.max_high_90d = round(max_high, 2)
-                    max_high_idx = window_df["High"].idxmax()
-                    if pd.notna(max_high_idx):
-                        res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
-                if pd.notna(max_low):
-                    res.max_low_90d = round(max_low, 2)
-                    max_low_idx = window_df["Low"].idxmin()
-                    if pd.notna(max_low_idx):
-                        res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
 
-            # Online best/worst tracking
+            # ── Row-hash cache: skip yfinance + computation if this signal was already computed ──
+            row_hash_input = f"{resolved_symbol}|{date_str}|{entry_mode}|{duration}"
+            row_hash = hashlib.sha256(row_hash_input.encode()).hexdigest()
+            cached_result = DataProvider.get_cached_result(row_hash)
+            horizons = sorted(list(set([7, 14, 30, 45, 60, 90, duration])))
+
+            if cached_result is not None:
+                res = SignalResult(**cached_result)
+                logger.debug("Row-hash HIT for %s (%s)", resolved_symbol, date_str)
+            else:
+                # Data path: Phase B populated per-symbol cache via persist_symbol_data().
+                # get_ticker_data() checks this cache first (0 API cost on cache hit),
+                # falls back to yfinance API only if cache miss or insufficient range.
+                df = await asyncio.to_thread(
+                    DataProvider.get_ticker_data,
+                    resolved_symbol,
+                    p_sig["start_date"].strftime("%Y-%m-%d"),
+                    p_sig["end_date"].strftime("%Y-%m-%d")
+                )
+
+                if df is None or df.empty:
+                    results.append(SignalResult(
+                        symbol=resolved_symbol,
+                        signal_date=signal_date.strftime("%Y-%m-%d"),
+                        entry_price=0.0,
+                        status="No Data"
+                    ))
+                    continue
+
+                # 4. Calculate Returns
+                # Ensure index is datetime
+                df.index = pd.to_datetime(df.index).tz_localize(None)
+
+                # Signal Close Price (nearest trading day to signal_date)
+                signal_trading_day = get_next_trading_day(signal_date, df)
+                signal_close_price = (df.loc[signal_trading_day]["Close"]
+                                      if signal_trading_day is not None
+                                      else None)
+
+                # Entry Date (always NEXT trading day after signal_date)
+                entry_date = get_future_trading_day(signal_date, df)
+                if not entry_date:
+                     results.append(SignalResult(
+                        symbol=resolved_symbol,
+                        signal_date=signal_date.strftime("%Y-%m-%d"),
+                        entry_price=0.0,
+                        entry_mode=entry_mode,
+                        status="No Entry Data"
+                    ))
+                     continue
+
+                # Entry Price (mode-dependent)
+                if entry_mode == "next_open":
+                    entry_price = df.loc[entry_date]["Open"]
+                else:
+                    entry_price = df.loc[entry_date]["Close"]
+
+                normalized_signal_date = signal_date.strftime("%Y-%m-%d")
+                res = SignalResult(
+                    symbol=resolved_symbol,
+                    signal_date=normalized_signal_date,
+                    signal_close_price=round(signal_close_price, 2) if signal_close_price is not None else None,
+                    entry_date=entry_date.strftime("%Y-%m-%d"),
+                    entry_price=round(entry_price, 2),
+                    entry_mode=entry_mode,
+                    sector=metadata_map.get(resolved_symbol, {}).get("sector"),
+                    market_cap=str(metadata_map.get(resolved_symbol, {}).get("marketCap")) if metadata_map.get(resolved_symbol, {}).get("marketCap") is not None else None,
+                    status="Success"
+                )
+
+                # Calculate forward returns dynamically
+                for h in horizons:
+                    if h > duration: continue
+
+                    target_date = entry_date + timedelta(days=h)
+                    exit_date = get_next_trading_day(target_date, df)
+
+                    if exit_date:
+                        exit_price = df.loc[exit_date]["Close"]
+                        if pd.notna(exit_price) and pd.notna(entry_price) and entry_price != 0:
+                            ret = ((exit_price - entry_price) / entry_price) * 100
+
+                            if h in horizons:
+                                setattr(res, f"return_{h}d", round(ret, 2))
+                                setattr(res, f"exit_price_{h}d", round(exit_price, 2))
+                                agg[h]["sum"] += round(ret, 2)
+                                agg[h]["count"] += 1
+                                if ret > 0:
+                                    agg[h]["wins"] += 1
+
+                # Max High/Low in Duration
+                window_end = entry_date + timedelta(days=duration)
+                window_df = df[entry_date:window_end]
+
+                if not window_df.empty:
+                    max_high = window_df["High"].max()
+                    max_low = window_df["Low"].min()
+                    if pd.notna(max_high):
+                        res.max_high_90d = round(max_high, 2)
+                        max_high_idx = window_df["High"].idxmax()
+                        if pd.notna(max_high_idx):
+                            res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
+                    if pd.notna(max_low):
+                        res.max_low_90d = round(max_low, 2)
+                        max_low_idx = window_df["Low"].idxmin()
+                        if pd.notna(max_low_idx):
+                            res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
+
+                DataProvider.set_cached_result(row_hash, res.dict())
+
+            # Aggregation for cached results (computed results already updated above)
+            if cached_result is not None:
+                for h in horizons:
+                    ret = getattr(res, f"return_{h}d", None)
+                    if ret is not None:
+                        agg[h]["sum"] += ret
+                        agg[h]["count"] += 1
+                        if ret > 0:
+                            agg[h]["wins"] += 1
+
+            # Online best/worst tracking (shared: both cached and computed)
             ret_90 = res.return_90d
             if ret_90 is not None:
                 if best_performer is None or ret_90 > getattr(best_performer, "return_90d", -999):

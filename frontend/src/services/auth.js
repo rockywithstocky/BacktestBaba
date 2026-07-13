@@ -57,7 +57,18 @@ export async function signup(name, email, password) {
 }
 
 export async function login(email, password) {
-  const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
+  const url = `${API_URL}/auth/login`;
+  console.log('[auth] POST', url, { email });
+  const response = await axios.post(url, { email, password }, {
+    validateStatus: (status) => true,
+  });
+  console.log('[auth] response:', response.status, response.data);
+  if (response.status !== 200) {
+    const err = new Error(response.data?.detail || response.data?.error || `Login failed (${response.status})`);
+    err.response = response;
+    throw err;
+  }
+  const data = response.data;
   if (data.token && data.user) {
     saveSession(data.token, data.user);
   }

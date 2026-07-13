@@ -178,6 +178,14 @@ class DataProvider:
         return result
 
     @staticmethod
+    def get_cached_result(row_hash: str) -> dict:
+        return cache.get(f"rh_{CACHE_VERSION}_{row_hash}")
+
+    @staticmethod
+    def set_cached_result(row_hash: str, result: dict):
+        cache.set(f"rh_{CACHE_VERSION}_{row_hash}", result, expire=CacheTTL.ROW_HASH)
+
+    @staticmethod
     def get_latest_price(symbol: str) -> float:
         """
         Gets the latest price for a symbol.

@@ -1,10 +1,11 @@
-**Project:** ChartChampion (formerly BacktestBaba)
-**Branch:** `feature/stockchart-modal-enhancement` (not yet merged)
-**Status:** StockChartModal enhancement in progress — candlestick as 4th chart type, hero return, stats reorg
+**Project:** BacktestBaba (ChartChampion)
+**Branch:** `feat/d1-persistence`
+**Status:** Phase D (local persistence + sync) + Phase E (row_hash cache) complete
 
 Production URLs:
 - Frontend: https://chartchampion.vercel.app
 - Backend API: https://backtestbaba-api.onrender.com
+- Worker: https://backtestbaba-d1-proxy.rockywithstocky-ff8.workers.dev
 - Swagger: https://backtestbaba-api.onrender.com/docs
 
 ## 1. Start Local Environment
@@ -21,86 +22,67 @@ npm run dev
 
 ## 2. Completed Work
 
-### TGs 1-8: Streaming batch pipeline (feature branch)
-- Config, file hash cache, batch symbol resolution, CSV metadata extraction, range-aware data cache, online aggregation, WS keepalive/streaming, configurable timeouts
+### Phase A: Persistence ABC (merged to main)
+- `persistence.py` ABC 5→9 methods + NaN guard + 46 tests
+- `NullBackend` (no-op) + `D1WorkerBackend` (HTTP to Worker)
 
-### TG9 (verified): Large CSV verification
-- 9-year CSV: 4658 signals, 1142 symbols, 4636 Success. Phase A 57s, Phase B 175s, Phase C 20s. 0 API metadata calls.
+### Phase B: Backend integration (merged to main)
+- `config.py` (+6 module-level vars: PERSISTENCE_ENABLED, WORKER_URL, etc.)
+- `main.py` (+192 lines: validated init, synchronous persist, auth, admin, ingestion after cache check)
+- D1 Worker deployed — 15 endpoints, 6 D1 tables, batch chunked at 100
 
-### TG10 (merged to main): Chunked bulk fetch — OOM-safe on Render
-| Change | File | Lines |
-|--------|------|-------|
-| Added `BULK_FETCH_CHUNK = 100` config | `backend/config.py` | +1 |
-| Phase B: loop over 100-symbol chunks instead of single `yf.download(all)` | `backend/core/backtester.py` | 45→28 |
-| Phase C: removed `bulk_df` slicing, always uses `get_ticker_data()` (cache-first) | `backend/core/backtester.py` | 9→29 |
+### Phase C: Frontend auth + admin (merged to main)
+- `services/auth.js` — login/signup/validate/logout/isAdmin with token persistence
+- `services/admin.js` — listUsers, setPlan, revokeSessions, getQuota
+- `LoginPage.jsx`, `SignupPage.jsx`, `AdminPage.jsx` — real API, error display
+- `App.jsx` — `/dashboard/admin` route, `ProtectedRoute`
+- `Navbar.jsx` — admin shield link, proper logout
+- `backend/main.py` — `/api/quota` proxy, auth endpoints, admin proxies
 
-Peak RAM: ~400-500MB → ~35-40MB per chunk.
+### Phase D: IndexedDB + client sync (current branch)
+- `services/db.js` — IndexedDB wrapper: saveReport, getReport, listReports, deleteReport
+- `services/sync.js` — IndexedDB save (D1 sync removed — backend already persists server-side)
+- `api.js` — wires syncReport after WS complete + HTTP fallback
+- `BacktesterPage.jsx` — Previous Reports list, confirm on back, refresh on backtest complete
+- **Bugfix**: no auto-load report on nav (always shows upload page first)
+- **Bugfix**: confirm dialog only for fresh runs (skipped for already-saved reports)
 
-### OOM Fix 2 (unreleased — not yet pushed to main): Chunk size 25 + explicit GC
-Despite TG10, `yf.download(threads=True)` with 100 symbols still spikes past 512MB on Render because 100 parallel threads each hold their own DataFrame + JSON parse buffers simultaneously.
-| Change | File | Lines |
-|--------|------|-------|
-| Reduced default `BULK_FETCH_CHUNK` 100→25 | `backend/config.py:30` | +1 |
-| Added `import gc` + `del chunk_df; gc.collect()` after each chunk | `backend/core/backtester.py:2,195-196` | +3 |
+### Phase E: Row-hash cache (current branch)
+- `backend/config.py` — `ROW_HASH_TTL = 2592000` (30d)
+- `backend/core/data_provider.py` — `get_cached_result()` / `set_cached_result()` via diskcache
+- `backend/core/backtester.py` — Phase C checks SHA256(symbol|date|entry_mode|duration) before yfinance call; caches result dict after computation. Re-running same CSV = instant.
+- All 53 tests pass.
 
-Peak RAM per chunk: ~35-40MB → ~15-20MB (25 symbols × ~300KB each + MultiIndex).
-Kept `threads=True` to avoid sequential slowdown (25-symbol chunk with threads=True completes in ~2-5s vs ~25s with threads=False).
+## 3. Files Changed (this branch)
 
-### Bugfix (merged to main): tz-naive / tz-aware timestamp crash
-| Change | File | Lines |
-|--------|------|-------|
-| Normalize yfinance tz-aware index to tz-naive in `persist_symbol_data()` | `backend/core/data_provider.py` | +12 |
-| Normalize cached range metadata + index in `get_ticker_data()` | `backend/core/data_provider.py` | +10 |
-
-Resolves: `Cannot compare tz-naive and tz-aware timestamps` crash in production.
-
-## 3. Current Task — StockChartModal Enhancement
-
-**Branch**: `feature/stockchart-modal-enhancement`
-
-**Problem**: StockChartModal shows only 4 abstract data points (Entry/Exit/MaxHigh/MaxLow) via Recharts. Chart area feels sparse. No price context. No professional charting experience.
-
-**Solution**: 
-1. Add TradingView-style candlestick chart as 4th chart type (alongside existing Area/Line/Bar)
-2. Hero return % as the primary visual element
-3. Reorganize stats into 4 scannable cards (Entry/Exit/Peak/Trough)
-4. New backend endpoint `GET /api/prices/{symbol}` for OHLCV data
-5. Lazy-import `lightweight-charts` (45KB gzip) — zero impact on initial bundle
-
-**Key guards**:
-- Existing Area/Line/Bar charts untouched
-- AbortController + stale response guard for fast symbol switching
-- React 19 StrictMode double-mount guard
-- Marker snap to nearest trading day
-- Dynamic import error boundary (graceful fallback to area chart)
-- Null-safe marker creation
-
-**Files changed**:
 | File | Change |
 |------|--------|
-| `backend/main.py` | +30 lines — new prices endpoint |
-| `frontend/src/services/api.js` | +10 lines — fetchSymbolPrices helper |
-| `frontend/src/components/StockChartModal.jsx` | Hero return, stats reorg, candlestick |
-| `frontend/src/components/Dashboard.css` | +50 lines — skeleton, tooltip, hero, grid |
-| `frontend/package.json` | +lightweight-charts dependency |
+| `.gitignore` | +Data/ChartInk/*.csv, +worker/node_modules/ |
+| `backend/config.py:67` | +`ROW_HASH_TTL` |
+| `backend/core/data_provider.py:182-188` | +get_cached_result / set_cached_result |
+| `backend/core/backtester.py:4,304-420` | +row_hash check in Phase C |
+| `frontend/src/services/db.js` | NEW — IndexedDB wrapper |
+| `frontend/src/services/sync.js` | NEW — IndexedDB save (no D1 proxy) |
+| `frontend/src/services/api.js` | +syncReport import + calls |
+| `frontend/src/services/auth.js` | Better login error handling |
+| `frontend/src/pages/BacktesterPage.jsx` | Previous Reports list, confirm dialog, refresh on complete |
 
-**Task breakdown**:
-1. Update docs (SPEC, RESUME_WORK, CURRENT_STATE, AGENTS)
-2. Backend prices endpoint
-3. Frontend npm + api helper
-4. StockChartModal rewrite
-5. CSS additions
-6. Full verification (pytest + build + manual)
-
-## 4. Pre-existing Issues (Not Caused by Changes)
-- `verify_regression.py` has 0.01 floating-point noise between bulk/sequential modes (yfinance response variation)
-- `test_integration.py` calls non-existent `Backtester.run_backtest` (should be `run_backtest_async`)
-- Pydantic v2 `.dict()` deprecation warnings in tests (pre-existing)
+## 4. Next Steps
+1. Deploy branch to Vercel + Render for live testing
+2. Phase F: Dual-stage row_hash for resolution phase (skip SymbolResolver for cached signals)
+3. Phase G: Admin dashboard — signal usage stats, per-user quota management
 
 ## 5. Testing
 ```powershell
 cd "D:\AI\Stock Market\ChartInk\BacktestBaba\backend"
 .\venv\Scripts\Activate.ps1
-pytest tests/ -v --asyncio-mode=auto          # 3/3 pass
-python tests/verify_regression.py              # Identical reports
+pytest tests/ -v --asyncio-mode=auto          # 53/53 pass
+
+cd "D:\AI\Stock Market\ChartInk\BacktestBaba\frontend"
+npm run build                                  # Compiles clean
 ```
+
+## 6. Pre-existing Issues
+- `verify_regression.py` has 0.01 floating-point noise between bulk/sequential modes
+- `test_integration.py` calls non-existent `Backtester.run_backtest` (should be `run_backtest_async`)
+- Pydantic v2 `.dict()` deprecation warnings (pre-existing)

@@ -63,6 +63,7 @@ class CacheTTL:
     LATEST_PRICE = int(os.getenv("CACHE_TTL_LATEST", "300"))  # 5 min
 
     FILE_HASH_REPORT = int(os.getenv("CACHE_TTL_REPORT", "2592000"))  # 30 days
+    ROW_HASH = int(os.getenv("CACHE_TTL_ROW_HASH", "2592000"))  # 30 days
 
     DISKCACHE_SIZE_LIMIT_MB = int(os.getenv("DISKCACHE_SIZE_LIMIT_MB", "500"))
 

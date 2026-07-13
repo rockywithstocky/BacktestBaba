@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { syncReport } from './sync';
 
 const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : 'https://backtestbaba-api.onrender.com/api');
 const WS_URL = import.meta.env.VITE_WS_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'ws://localhost:8000/ws' : 'wss://backtestbaba-api.onrender.com/ws');
@@ -72,6 +73,7 @@ const runBacktestMobile = async (file, onProgress, onComplete, onError, entryMod
                 type: 'progress', current: 100, total: 100, symbol: 'Complete!', indeterminate: false,
             });
             onComplete(response.data);
+            syncReport(response.data, response.data.trades || []);
         }
     } catch (error) {
         clearInterval(progressTimer);
@@ -162,8 +164,10 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
             // Server keepalive — ignore
         } else if (data.type === 'complete') {
             settled = true;
-            onComplete({ ...data.report, trades });
+            const report = { ...data.report, trades };
+            onComplete(report);
             ws.close();
+            syncReport(data.report, trades);
         } else if (data.type === 'error') {
             settled = true;
             onError(data.message);
