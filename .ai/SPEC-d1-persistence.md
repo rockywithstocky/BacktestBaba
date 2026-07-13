@@ -4,30 +4,90 @@
 
 ---
 
-## 1. Schema — Cloudflare D1
+## 1. Schema — Cloudflare D1 (6 Tables)
+
+### Table: `users`
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+  id              TEXT PRIMARY KEY,
+  email           TEXT NOT NULL UNIQUE,
+  password_hash   TEXT NOT NULL,
+  name            TEXT NOT NULL DEFAULT '',
+  plan            TEXT NOT NULL DEFAULT 'free'
+                  CHECK (plan IN ('free', 'priority')),
+  is_admin        INTEGER NOT NULL DEFAULT 0,
+  max_signals     INTEGER NOT NULL DEFAULT 100,
+  max_file_size_mb INTEGER NOT NULL DEFAULT 2,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+- `plan`: `free` (100 signals, 2MB) or `priority` (5000 signals, 10MB)
+- `is_admin`: 0 = regular user, 1 = admin (access to /dashboard/admin)
+
+### Table: `sessions`
+
+```sql
+CREATE TABLE IF NOT EXISTS sessions (
+  id              TEXT PRIMARY KEY,
+  user_id         TEXT NOT NULL,
+  token           TEXT NOT NULL UNIQUE,
+  expires_at      TEXT NOT NULL,
+  revoked         INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+- `token`: `crypto.randomUUID()` — collision-resistant, no library
+- `expires_at`: 7 days from creation
+- `revoked`: set to 1 by admin to force logout
+
+### Table: `ingestion_log`
+
+```sql
+CREATE TABLE IF NOT EXISTS ingestion_log (
+  id                TEXT PRIMARY KEY,
+  user_id           TEXT,
+  file_hash         TEXT NOT NULL,
+  filename          TEXT NOT NULL,
+  original_filename TEXT NOT NULL,
+  file_size         INTEGER NOT NULL,
+  source_info       TEXT,
+  status            TEXT NOT NULL DEFAULT 'received'
+                    CHECK (status IN ('received', 'processing', 'completed', 'failed')),
+  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+```
+
+- `file_hash`: SHA-256 of bytes — sole content identity authority
+- `original_filename`: raw, untrusted, as-received from browser — never cleaned, never used for dedup
+- `filename`: path-normalized only (strip `../`, backslashes) — UI display, never identity
+- Written BEFORE any processing — immutable audit trail
 
 ### Table: `uploads`
 
 ```sql
 CREATE TABLE IF NOT EXISTS uploads (
   id              TEXT PRIMARY KEY,
+  user_id         TEXT,
   file_hash       TEXT NOT NULL,
   filename        TEXT NOT NULL,
-  entry_mode      TEXT NOT NULL DEFAULT 'next_close',
+  entry_mode      TEXT NOT NULL DEFAULT 'next_close'
+                  CHECK (entry_mode IN ('next_close', 'next_open')),
   signal_count    INTEGER NOT NULL DEFAULT 0,
   trade_count     INTEGER NOT NULL DEFAULT 0,
-  status          TEXT NOT NULL DEFAULT 'pending',
+  status          TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'completed', 'partial', 'failed')),
   error_message   TEXT,
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
-
-CREATE INDEX idx_uploads_file_hash ON uploads(file_hash);
-CREATE INDEX idx_uploads_created_at ON uploads(created_at);
 ```
-
-- `status` values: `pending`, `completed`, `partial`, `failed`
-- `file_hash` = SHA-256 hex string (matching `backend/storage.py` `FileHashCache`)
 
 ### Table: `signal_hashes`
 
@@ -35,7 +95,8 @@ CREATE INDEX idx_uploads_created_at ON uploads(created_at);
 CREATE TABLE IF NOT EXISTS signal_hashes (
   id              TEXT PRIMARY KEY,
   upload_id       TEXT NOT NULL,
-  row_hash        TEXT NOT NULL,
+  user_id         TEXT,
+  row_hash        TEXT NOT NULL UNIQUE,
   symbol          TEXT NOT NULL,
   signal_date     TEXT NOT NULL,
   entry_date      TEXT,
@@ -44,16 +105,14 @@ CREATE TABLE IF NOT EXISTS signal_hashes (
   status          TEXT NOT NULL,
   results_json    TEXT,
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
+  FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
-
-CREATE UNIQUE INDEX idx_signal_hashes_row_hash ON signal_hashes(row_hash);
-CREATE INDEX idx_signal_hashes_upload_id ON signal_hashes(upload_id);
 ```
 
-- `row_hash` = `SHA256(symbol + "|" + signal_date + "|" + entry_mode)`
-- `results_json` = JSON blob containing all horizon data (see §2)
-- `INSERT OR IGNORE` used for row_hash dedup
+- `row_hash` = `SHA256(symbol + "|" + signal_date + "|" + entry_mode)` — input-derived, no yfinance
+- `results_json` = JSON blob containing all 6 horizons + max_high/low (see §2)
+- `INSERT OR IGNORE` used for dedup
 
 ### Table: `quota`
 
@@ -68,9 +127,8 @@ CREATE TABLE IF NOT EXISTS quota (
 INSERT OR IGNORE INTO quota (id, total_writes, write_limit) VALUES (1, 0, 1000000);
 ```
 
-- Singleton row (`id = 1`). Incremented atomically on every write.
-- Pre-write check: `SELECT total_writes FROM quota WHERE total_writes + ? > write_limit * 0.95`
-- If true → return 429, do not write
+- Singleton row. Incremented atomically on every D1 write.
+- Pre-write check: `total_writes + batch_size > write_limit * 0.95` → return 429.
 
 ---
 
@@ -98,122 +156,76 @@ INSERT OR IGNORE INTO quota (id, total_writes, write_limit) VALUES (1, 0, 100000
 }
 ```
 
-- All values are `float` or `null`. All dates are `YYYY-MM-DD`.
+- All values `float` or `null`. Dates `YYYY-MM-DD`.
 - Horizon set: `[7, 14, 30, 45, 60, 90]`
-- Empty horizons (symbol delisted before horizon date) → `null`
+- Compact JSON (no whitespace) — `json.dumps(data, separators=(",", ":"))`
 
 ---
 
-## 3. Cloudflare Worker API Contract
+## 3. Cloudflare Worker API Contract (15 Endpoints)
 
-### `POST /api/uploads`
+### Health
 
-Create an upload record.
+| Method | Path | Response |
+|---|---|---|
+| GET | `/api/health` | `{"status":"ok","database":"backtestbaba","version":"1.0.0","tables":6}` |
 
-**Request:**
-```json
-{
-  "file_hash": "a1b2c3d4e5f6...",
-  "filename": "my_signals.csv",
-  "entry_mode": "next_close",
-  "signal_count": 200
-}
-```
+### Auth (Pillar 2)
 
-**Response (201):**
-```json
-{
-  "id": "uuid-string",
-  "status": "pending",
-  "write_quota_remaining": 950000
-}
-```
+| Method | Path | Request Body | Response |
+|---|---|---|---|
+| POST | `/api/auth/signup` | `{email, password, name?}` | `{user, token}` (201) |
+| POST | `/api/auth/login` | `{email, password}` | `{user, token}` |
+| GET | `/api/auth/validate?token=xxx` | — | `{user}` or 401 |
 
-**Errors:** `429 Quota Exceeded`, `400 Bad Request`
+- Password hashing: SHA-256 + PASSWORD_SALT
+- Token: `crypto.randomUUID()`, 7-day expiry
+- Errors: `400` (missing fields), `401` (invalid/expired), `409` (email taken)
 
-### `POST /api/signals`
+### Ingestion (Pillar 3)
 
-Batch-insert signal_hashes rows.
+| Method | Path | Request Body | Response |
+|---|---|---|---|
+| POST | `/api/ingestion` | `{file_hash, filename, original_filename, file_size, source_info?}` | `{id}` (201) |
+| PATCH | `/api/ingestion` | `{id, status}` | `{ok: true}` |
 
-**Request:**
-```json
-{
-  "upload_id": "uuid-string",
-  "signals": [
-    {
-      "row_hash": "abc123...",
-      "symbol": "RELIANCE.NS",
-      "signal_date": "2026-01-15",
-      "entry_date": "2026-01-16",
-      "entry_price": 2450.50,
-      "entry_mode": "next_close",
-      "status": "Success",
-      "results_json": "{...}"
-    }
-  ]
-}
-```
+- Written BEFORE FileHashCache check
+- `file_hash` is the identity authority, not `filename`
 
-**Response (201):**
-```json
-{
-  "inserted": 198,
-  "skipped": 2,
-  "write_quota_remaining": 949802
-}
-```
+### Uploads
 
-- `skipped` = count of `INSERT OR IGNORE` collisions (duplicate row_hash)
-- Batch size limit: 5000 rows per call
+| Method | Path | Request Body / Params | Response |
+|---|---|---|---|
+| POST | `/api/uploads` | `{file_hash, filename, entry_mode, signal_count, user_id?}` | `{id, status, write_quota_remaining}` (201) |
+| GET | `/api/uploads` | `?user_id=&limit=20&offset=0` | `{results, total}` |
 
-### `GET /api/uploads`
+### Signals (Pillar 4 — Dual-Stage)
 
-List uploads with pagination.
+| Method | Path | Request Body | Response |
+|---|---|---|---|
+| POST | `/api/signals` | `{upload_id, signals: [...]}` | `{inserted, skipped, write_quota_remaining}` (201) |
+| POST | `/api/signals/lookup` | `{row_hashes: [...], user_id?}` | `{existing: ["hash1", "hash2"]}` |
 
-**Query params:** `?limit=20&offset=0`
+- `/api/signals`: batch INSERT OR IGNORE, quota 429 check, updates upload trade_count + quota
+- `/api/signals/lookup`: bulk SELECT for dual-stage pre-filter. Multi-tenant: `WHERE user_id = ?` if provided
 
-**Response (200):**
-```json
-{
-  "results": [
-    {
-      "id": "uuid",
-      "filename": "my_signals.csv",
-      "entry_mode": "next_close",
-      "signal_count": 200,
-      "trade_count": 198,
-      "status": "completed",
-      "created_at": "2026-07-12T12:00:00Z"
-    }
-  ],
-  "total": 42
-}
-```
+### Quota
 
-### `GET /api/quota`
+| Method | Path | Response |
+|---|---|---|
+| GET | `/api/quota` | `{total_writes, write_limit, percent_used, soft_blocked}` |
 
-**Response (200):**
-```json
-{
-  "total_writes": 42000,
-  "write_limit": 1000000,
-  "percent_used": 4.2,
-  "soft_blocked": false
-}
-```
+### Admin (Pillar 2)
 
-`soft_blocked` = `total_writes >= write_limit * 0.95`
+| Method | Path | Request Body | Response |
+|---|---|---|---|
+| GET | `/api/admin/users` | — | `{results: [...]}` |
+| POST | `/api/admin/users/plan` | `{user_id, plan}` | `{ok: true}` |
+| POST | `/api/admin/sessions/revoke` | `{user_id}` | `{ok: true}` |
 
-### `GET /api/health`
-
-**Response (200):**
-```json
-{
-  "status": "ok",
-  "database": "backtestbaba",
-  "version": "1.0.0"
-}
-```
+- Admin operations require session token with `is_admin=1`
+- Plan limits: `free` → 100 signals / 2MB. `priority` → 5000 signals / 10MB
+- Revoke sets `sessions.revoked=1` for all user sessions
 
 ---
 
@@ -221,227 +233,65 @@ List uploads with pagination.
 
 ### `backend/persistence.py`
 
-```python
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, asdict
-from typing import Optional, Any
-import hashlib
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class UploadRecord:
-    file_hash: str
-    filename: str
-    entry_mode: str
-    signal_count: int
-
-
-@dataclass
-class TradeRecord:
-    row_hash: str
-    symbol: str
-    signal_date: str
-    entry_date: Optional[str]
-    entry_price: Optional[float]
-    entry_mode: str
-    status: str
-    results_json: Optional[str]
-
-
-def compute_row_hash(symbol: str, signal_date: str, entry_mode: str) -> str:
-    raw = f"{symbol}|{signal_date}|{entry_mode}"
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-
-class PersistenceBackend(ABC):
-    @abstractmethod
-    async def save_upload(self, record: UploadRecord) -> Optional[str]:
-        ...
-
-    @abstractmethod
-    async def save_signals(
-        self, upload_id: str, trades: list[TradeRecord]
-    ) -> Optional[dict[str, Any]]:
-        ...
-
-    @abstractmethod
-    async def list_uploads(
-        self, limit: int = 20, offset: int = 0
-    ) -> list[dict[str, Any]]:
-        ...
-
-    @abstractmethod
-    async def get_quota(self) -> dict[str, Any]:
-        ...
-
-    @abstractmethod
-    async def healthcheck(self) -> bool:
-        ...
-
-
-class NullBackend(PersistenceBackend):
-    async def save_upload(self, record: UploadRecord) -> Optional[str]:
-        return None
-
-    async def save_signals(
-        self, upload_id: str, trades: list[TradeRecord]
-    ) -> Optional[dict[str, Any]]:
-        return None
-
-    async def list_uploads(
-        self, limit: int = 20, offset: int = 0
-    ) -> list[dict[str, Any]]:
-        return []
-
-    async def get_quota(self) -> dict[str, Any]:
-        return {
-            "total_writes": 0,
-            "write_limit": 0,
-            "percent_used": 0.0,
-            "soft_blocked": False,
-        }
-
-    async def healthcheck(self) -> bool:
-        return False
-
-
-class D1WorkerBackend(PersistenceBackend):
-    def __init__(self, worker_url: str, timeout: float = 3.0):
-        import httpx
-
-        self._base_url = worker_url.rstrip("/") + "/api"
-        self._timeout = timeout
-        self._client = httpx.AsyncClient(timeout=httpx.Timeout(timeout))
-
-    async def _post(
-        self, path: str, payload: dict
-    ) -> Optional[dict]:
-        try:
-            resp = await self._client.post(
-                f"{self._base_url}{path}", json=payload
-            )
-            if resp.status_code == 429:
-                logger.warning(
-                    "D1 quota exceeded: %s", resp.json().get("error", "")
-                )
-                return None
-            resp.raise_for_status()
-            return resp.json()
-        except Exception:
-            logger.warning("D1 request failed: POST %s", path)
-            return None
-
-    async def _get(self, path: str) -> Optional[dict]:
-        try:
-            resp = await self._client.get(f"{self._base_url}{path}")
-            resp.raise_for_status()
-            return resp.json()
-        except Exception:
-            logger.warning("D1 request failed: GET %s", path)
-            return None
-
-    async def save_upload(self, record: UploadRecord) -> Optional[str]:
-        result = await self._post("/uploads", asdict(record))
-        if result and "id" in result:
-            return result["id"]
-        return None
-
-    async def save_signals(
-        self, upload_id: str, trades: list[TradeRecord]
-    ) -> Optional[dict[str, Any]]:
-        payload = {
-            "upload_id": upload_id,
-            "signals": [asdict(t) for t in trades],
-        }
-        result = await self._post("/signals", payload)
-        if result and "inserted" in result:
-            return result
-        return None
-
-    async def list_uploads(
-        self, limit: int = 20, offset: int = 0
-    ) -> list[dict[str, Any]]:
-        result = await self._get(f"/uploads?limit={limit}&offset={offset}")
-        if result and "results" in result:
-            return result["results"]
-        return []
-
-    async def get_quota(self) -> dict[str, Any]:
-        result = await self._get("/quota")
-        if result:
-            return result
-        return {
-            "total_writes": 0,
-            "write_limit": 0,
-            "percent_used": 0.0,
-            "soft_blocked": False,
-        }
-
-    async def healthcheck(self) -> bool:
-        result = await self._get("/health")
-        return result is not None and result.get("status") == "ok"
-```
+Committed (updated in Phase B). Contains:
+- `compute_row_hash()` / `_build_results_json()` helpers (+`_is_nan()` NaN guard)
+- `UploadRecord`, `TradeRecord` dataclasses
+- `PersistenceBackend` ABC (9 methods: save_upload, save_signals, list_uploads, get_quota, healthcheck, log_ingestion, update_ingestion_status, lookup_signals, close)
+- `NullBackend` (all methods return None/False/[])
+- `D1WorkerBackend` (HTTP to Worker, 3s timeout, +_patch for PATCH)
 
 ### Integration in `main.py`
 
+**At module level** (new imports):
 ```python
-# After report generation and caching (WS or HTTP path):
-if config.PERSISTENCE_ENABLED and persistence_backend:
-    record = UploadRecord(
+from backend.config import PERSISTENCE_ENABLED, WORKER_URL, PERSISTENCE_TIMEOUT
+from backend.persistence import (
+    D1WorkerBackend, NullBackend, PersistenceBackend,
+    UploadRecord, TradeRecord, compute_row_hash, _build_results_json,
+)
+```
+
+**At startup** (after Paths.ensure_dirs — validated, logs which backend is active):
+```python
+persistence_backend: PersistenceBackend = NullBackend()
+if PERSISTENCE_ENABLED:
+    if not WORKER_URL:
+        logger.warning("PERSISTENCE_ENABLED=True but WORKER_URL is not set. Falling back to NullBackend.")
+    elif not WORKER_URL.startswith("https://"):
+        logger.warning("WORKER_URL (%s) does not start with https://. Falling back to NullBackend.", WORKER_URL)
+    else:
+        persistence_backend = D1WorkerBackend(WORKER_URL, PERSISTENCE_TIMEOUT)
+```
+
+**In `_handle_backtest`** — ingestion log AFTER cache check (cache hits skip ingestion log entirely):
+```python
+file_hash = compute_file_hash(data)
+cached = FileHashCache.get(file_hash, entry_mode)
+if cached is not None:
+    return cached report  # no ingestion log for cache hits
+
+signals = parse_upload_data(data)
+
+ingestion_id = None
+if PERSISTENCE_ENABLED:
+    ingestion_id = await persistence_backend.log_ingestion(
         file_hash=file_hash,
-        filename=getattr(file, "filename", "upload.csv"),
-        entry_mode=entry_mode,
-        signal_count=len(report.trades),
+        filename=filename,
+        original_filename=filename,
+        file_size=len(data),
     )
-    asyncio.create_task(_persist_upload(record, report.trades))
+```
 
-def _build_results_json(trade) -> str:
-    """Convert a SignalResult trade into the results_json blob string."""
-    import json
-    data = {}
-    for horizon in (7, 14, 30, 45, 60, 90):
-        ret = getattr(trade, f"return_{horizon}d", None)
-        exit_price = getattr(trade, f"exit_price_{horizon}d", None)
-        if ret is not None:
-            data[f"return_{horizon}d"] = round(float(ret), 4)
-        if exit_price is not None:
-            data[f"exit_price_{horizon}d"] = round(float(exit_price), 2)
-    for attr in ("max_high_90d", "max_low_90d"):
-        val = getattr(trade, attr, None)
-        if val is not None:
-            data[attr] = round(float(val), 2)
-    for attr in ("max_high_date", "max_low_date", "signal_close_price"):
-        val = getattr(trade, attr, None)
-        if val is not None:
-            if attr == "signal_close_price":
-                data[attr] = round(float(val), 2)
-            else:
-                data[attr] = str(val)
-    return json.dumps(data, separators=(",", ":"))
+**In `_handle_backtest`** — after FileHashCache.set, synchronous persist (NOT fire-and-forget):
+```python
+report_dict = report.dict()
+FileHashCache.set(file_hash, entry_mode, report_dict)
+job_store.cleanup()
 
+if PERSISTENCE_ENABLED and ingestion_id:
+    await _persist_upload(file_hash, filename, entry_mode, report, ingestion_id)
 
-async def _persist_upload(record: UploadRecord, trades: list):
-    upload_id = await persistence_backend.save_upload(record)
-    if upload_id:
-        trade_records = [
-            TradeRecord(
-                row_hash=compute_row_hash(
-                    t.symbol, t.signal_date, record.entry_mode
-                ),
-                symbol=t.symbol,
-                signal_date=t.signal_date,
-                entry_date=t.entry_date,
-                entry_price=t.entry_price,
-                entry_mode=record.entry_mode,
-                status=t.status,
-                results_json=_build_results_json(t),
-            )
-            for t in trades
-        ]
-        await persistence_backend.save_signals(upload_id, trade_records)
+return report
 ```
 
 ---
@@ -451,9 +301,7 @@ async def _persist_upload(record: UploadRecord, trades: list):
 ### `backend/config.py` additions
 
 ```python
-PERSISTENCE_ENABLED: bool = (
-    os.getenv("PERSISTENCE_ENABLED", "false").lower() == "true"
-)
+PERSISTENCE_ENABLED: bool = os.getenv("PERSISTENCE_ENABLED", "false").lower() == "true"
 WORKER_URL: Optional[str] = os.getenv("WORKER_URL")
 PERSISTENCE_TIMEOUT: int = int(os.getenv("PERSISTENCE_TIMEOUT", "3"))
 ```
@@ -472,8 +320,6 @@ PERSISTENCE_TIMEOUT=3
 
 ## 6. Dependencies
 
-### `backend/requirements.txt`
-
 `httpx` is already present in `requirements.txt` (line 17: `httpx==0.28.1`). No new dependency required.
 
 ---
@@ -483,9 +329,11 @@ PERSISTENCE_TIMEOUT=3
 | Concern | Mitigation |
 |---|---|
 | Existing tests break | `persistence.py` is a new file. No existing test imports it. `NullBackend` is the default. |
-| Backtester changes | `backtester.py` is untouched. Zero lines changed. |
-| WS delivery delayed | `asyncio.create_task` is called AFTER `await websocket.send(...)` completes. |
-| HTTP response slow | `POST /api/backtest` does NOT use persistence. No latency change. |
-| Memory leak | `asyncio.create_task` is created once per upload. Tasks complete in <5s. |
-| Import cycle | `persistence.py` imports only `abc`, `dataclasses`, `typing`, `httpx`, `hashlib`, `logging`. Does not import `main.py`, `backtester.py`, or `schemas.py`. |
-| Log noise | Worker failures log at WARNING level, not ERROR. |
+| Backtester math | Phase E dual-stage only reduces yfinance calls, never changes return calculation. Falls back to full fetch if D1 lookup fails. |
+| WS delivery delayed | Persistence runs synchronously BEFORE `await websocket.send_json(complete)` — adds ~300-500ms. User sees report AFTER persistence finishes. |
+| HTTP response slow | `POST /api/backtest` runs persistence synchronously. Adds ~300-500ms to response time. |
+| No fire-and-forget tasks | Persistence is synchronous inside `_handle_backtest`. Zero background tasks. Zero task proliferation risk. |
+| Import cycle | `persistence.py` imports only `abc`, `dataclasses`, `typing`, `httpx`, `hashlib`, `logging`. |
+| Log noise | Worker failures log at WARNING, not ERROR. |
+| Auth added | Auth is additive. Unauthenticated flows work until `AUTH_REQUIRED=True` flag. |
+| Dual-stage failure | If `POST /signals/lookup` fails, backtest falls back to full yfinance fetch — identical to today's behavior. |

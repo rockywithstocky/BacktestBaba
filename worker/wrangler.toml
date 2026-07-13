@@ -5,7 +5,7 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "backtestbaba"
-database_id = ""
+database_id = "fd299fbe-a610-4354-a475-e0c947566abf"
 
 [vars]
 PASSWORD_SALT = "backtestbaba-salt-2026"

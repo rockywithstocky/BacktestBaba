@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from typing import Any, Optional
@@ -13,22 +14,26 @@ def compute_row_hash(symbol: str, signal_date: str, entry_mode: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+def _is_nan(value) -> bool:
+    return isinstance(value, float) and math.isnan(value)
+
+
 def _build_results_json(trade) -> str:
     data = {}
     for horizon in (7, 14, 30, 45, 60, 90):
         ret = getattr(trade, f"return_{horizon}d", None)
         exit_price = getattr(trade, f"exit_price_{horizon}d", None)
-        if ret is not None:
+        if ret is not None and not _is_nan(ret):
             data[f"return_{horizon}d"] = round(float(ret), 4)
-        if exit_price is not None:
+        if exit_price is not None and not _is_nan(exit_price):
             data[f"exit_price_{horizon}d"] = round(float(exit_price), 2)
     for attr in ("max_high_90d", "max_low_90d"):
         val = getattr(trade, attr, None)
-        if val is not None:
+        if val is not None and not _is_nan(val):
             data[attr] = round(float(val), 2)
     for attr in ("max_high_date", "max_low_date", "signal_close_price"):
         val = getattr(trade, attr, None)
-        if val is not None:
+        if val is not None and not _is_nan(val):
             if attr == "signal_close_price":
                 data[attr] = round(float(val), 2)
             else:
@@ -81,6 +86,31 @@ class PersistenceBackend(ABC):
     async def healthcheck(self) -> bool:
         ...
 
+    @abstractmethod
+    async def log_ingestion(
+        self,
+        file_hash: str,
+        filename: str,
+        original_filename: str,
+        file_size: int,
+        source_info: Optional[str] = None,
+    ) -> Optional[str]:
+        ...
+
+    @abstractmethod
+    async def update_ingestion_status(self, id: str, status: str) -> bool:
+        ...
+
+    @abstractmethod
+    async def lookup_signals(
+        self, row_hashes: list[str], user_id: Optional[str] = None
+    ) -> list[str]:
+        ...
+
+    @abstractmethod
+    async def close(self) -> None:
+        ...
+
 
 class NullBackend(PersistenceBackend):
     async def save_upload(self, record: UploadRecord) -> Optional[str]:
@@ -106,6 +136,27 @@ class NullBackend(PersistenceBackend):
 
     async def healthcheck(self) -> bool:
         return False
+
+    async def log_ingestion(
+        self,
+        file_hash: str,
+        filename: str,
+        original_filename: str,
+        file_size: int,
+        source_info: Optional[str] = None,
+    ) -> Optional[str]:
+        return None
+
+    async def update_ingestion_status(self, id: str, status: str) -> bool:
+        return False
+
+    async def lookup_signals(
+        self, row_hashes: list[str], user_id: Optional[str] = None
+    ) -> list[str]:
+        return []
+
+    async def close(self) -> None:
+        pass
 
 
 class D1WorkerBackend(PersistenceBackend):
@@ -136,6 +187,15 @@ class D1WorkerBackend(PersistenceBackend):
             return resp.json()
         except Exception:
             logger.warning("D1 request failed: GET %s", path)
+            return None
+
+    async def _patch(self, path: str, payload: dict) -> Optional[dict]:
+        try:
+            resp = await self._client.patch(f"{self._base_url}{path}", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception:
+            logger.warning("D1 request failed: PATCH %s", path)
             return None
 
     async def save_upload(self, record: UploadRecord) -> Optional[str]:
@@ -175,3 +235,43 @@ class D1WorkerBackend(PersistenceBackend):
     async def healthcheck(self) -> bool:
         result = await self._get("/health")
         return result is not None and result.get("status") == "ok"
+
+    async def log_ingestion(
+        self,
+        file_hash: str,
+        filename: str,
+        original_filename: str,
+        file_size: int,
+        source_info: Optional[str] = None,
+    ) -> Optional[str]:
+        result = await self._post("/ingestion", {
+            "file_hash": file_hash,
+            "filename": filename,
+            "original_filename": original_filename,
+            "file_size": file_size,
+            "source_info": source_info,
+        })
+        if result and "id" in result:
+            return result["id"]
+        return None
+
+    async def update_ingestion_status(self, id: str, status: str) -> bool:
+        result = await self._patch("/ingestion", {"id": id, "status": status})
+        return result is not None
+
+    async def lookup_signals(
+        self, row_hashes: list[str], user_id: Optional[str] = None
+    ) -> list[str]:
+        payload: dict[str, Any] = {"row_hashes": row_hashes}
+        if user_id:
+            payload["user_id"] = user_id
+        result = await self._post("/signals/lookup", payload)
+        if result and "existing" in result:
+            return result["existing"]
+        return []
+
+    async def close(self) -> None:
+        try:
+            await self._client.aclose()
+        except Exception:
+            pass

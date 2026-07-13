@@ -1,7 +1,6 @@
 // backtestbaba-d1-proxy — D1 Persistence Microservice
 // Endpoints: health, auth, uploads, signals, quota, admin
-
-import { v4 as uuidv4 } from 'uuid';
+// No external deps — all IDs via crypto.randomUUID()
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -9,7 +8,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const PASSWORD_SALT = PASSWORD_SALT || 'backtestbaba-salt-2026';
+const SALT = typeof PASSWORD_SALT !== 'undefined' ? PASSWORD_SALT : 'backtestbaba-salt-2026';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -24,7 +23,7 @@ function error(msg, status = 400) {
 
 async function hashPassword(password) {
   const encoder = new TextEncoder();
-  const data = encoder.encode(password + PASSWORD_SALT);
+  const data = encoder.encode(password + SALT);
   const hash = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -84,14 +83,14 @@ async function route(method, path, request, DB, url) {
     const existing = await DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
     if (existing) return error('email already registered', 409);
 
-    const id = uuidv4();
+    const id = crypto.randomUUID();
     const passwordHash = await hashPassword(password);
     await DB.prepare(
       'INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)'
     ).bind(id, email, passwordHash, name || '').run();
 
     const token = generateToken();
-    const sessionId = uuidv4();
+    const sessionId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
     await DB.prepare(
       'INSERT INTO sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)'
@@ -112,7 +111,7 @@ async function route(method, path, request, DB, url) {
     if (user.password_hash !== passwordHash) return error('invalid credentials', 401);
 
     const token = generateToken();
-    const sessionId = uuidv4();
+    const sessionId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
     await DB.prepare(
       'INSERT INTO sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)'
@@ -153,7 +152,7 @@ async function route(method, path, request, DB, url) {
   // ── Ingestion Log: Create (Pillar 3 — immediate write) ──
   if (method === 'POST' && path === '/api/ingestion') {
     const body = await request.json();
-    const id = uuidv4();
+    const id = crypto.randomUUID();
     await DB.prepare(
       `INSERT INTO ingestion_log (id, user_id, file_hash, filename, original_filename, file_size, source_info, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'received')`
@@ -175,7 +174,7 @@ async function route(method, path, request, DB, url) {
   // ── Uploads: Create ────────────────────────────────────
   if (method === 'POST' && path === '/api/uploads') {
     const body = await request.json();
-    const id = uuidv4();
+    const id = crypto.randomUUID();
     await DB.prepare(
       `INSERT INTO uploads (id, user_id, file_hash, filename, entry_mode, signal_count, status)
        VALUES (?, ?, ?, ?, ?, ?, 'completed')`
@@ -208,21 +207,24 @@ async function route(method, path, request, DB, url) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
-    const batch = signals.map((s) =>
-      stmt.bind(
-        uuidv4(), upload_id, s.user_id || null,
-        s.row_hash, s.symbol, s.signal_date,
-        s.entry_date || null, s.entry_price ?? null,
-        s.entry_mode, s.status, s.results_json || null
-      )
-    );
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < signals.length; i += CHUNK_SIZE) {
+      const chunk = signals.slice(i, i + CHUNK_SIZE);
+      const batch = chunk.map((s) =>
+        stmt.bind(
+          crypto.randomUUID(), upload_id, s.user_id || null,
+          s.row_hash, s.symbol, s.signal_date,
+          s.entry_date || null, s.entry_price ?? null,
+          s.entry_mode, s.status, s.results_json || null
+        )
+      );
 
-    // D1 batch returns array of {success, results}
-    const results = await DB.batch(batch);
-    for (const r of results) {
-      if (r.success && r.meta?.changes !== undefined) {
-        if (r.meta.changes > 0) inserted++;
-        else skipped++;
+      const results = await DB.batch(batch);
+      for (const r of results) {
+        if (r.success && r.meta?.changes !== undefined) {
+          if (r.meta.changes > 0) inserted++;
+          else skipped++;
+        }
       }
     }
 

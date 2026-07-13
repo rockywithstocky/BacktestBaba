@@ -104,6 +104,19 @@ class TestBuildResultsJson:
         assert ", " not in raw
         assert ": " not in raw
 
+    def test_nan_values_omitted(self):
+        t = make_trade(return_7d=float("nan"), exit_price_7d=float("nan"))
+        data = json.loads(_build_results_json(t))
+        assert "return_7d" not in data
+        assert "exit_price_7d" not in data
+        assert "return_14d" in data
+
+    def test_nan_max_high_omitted(self):
+        t = make_trade(max_high_90d=float("nan"), max_low_90d=float("nan"))
+        data = json.loads(_build_results_json(t))
+        assert "max_high_90d" not in data
+        assert "max_low_90d" not in data
+
 
 # ---------------------------------------------------------------------------
 # NullBackend
@@ -141,6 +154,25 @@ class TestNullBackend:
 
     def test_is_instance(self, backend):
         assert isinstance(backend, PersistenceBackend)
+
+    @pytest.mark.asyncio
+    async def test_log_ingestion_returns_none(self, backend):
+        result = await backend.log_ingestion("h", "f.csv", "f.csv", 100)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_update_ingestion_status_returns_false(self, backend):
+        result = await backend.update_ingestion_status("id", "completed")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_lookup_signals_returns_empty(self, backend):
+        result = await backend.lookup_signals(["hash1", "hash2"])
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_close_does_not_raise(self, backend):
+        await backend.close()
 
 
 # ---------------------------------------------------------------------------
@@ -242,3 +274,66 @@ class TestD1WorkerBackend:
     def test_base_url_no_trailing_slash(self):
         backend = D1WorkerBackend("https://example.com", timeout=1.0)
         assert backend._base_url == "https://example.com/api"
+
+    @pytest.mark.asyncio
+    async def test_log_ingestion_success(self, backend):
+        backend._post = AsyncMock(return_value={"id": "ing-123"})
+        result = await backend.log_ingestion("h", "f.csv", "f.csv", 100)
+        assert result == "ing-123"
+
+    @pytest.mark.asyncio
+    async def test_log_ingestion_missing_id(self, backend):
+        backend._post = AsyncMock(return_value={"status": "received"})
+        result = await backend.log_ingestion("h", "f.csv", "f.csv", 100)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_log_ingestion_returns_none_on_failure(self, backend):
+        backend._post = AsyncMock(return_value=None)
+        result = await backend.log_ingestion("h", "f.csv", "f.csv", 100)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_update_ingestion_status_success(self, backend):
+        backend._patch = AsyncMock(return_value={"ok": True})
+        result = await backend.update_ingestion_status("ing-123", "completed")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_update_ingestion_status_failure(self, backend):
+        backend._patch = AsyncMock(return_value=None)
+        result = await backend.update_ingestion_status("ing-123", "completed")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_lookup_signals_success(self, backend):
+        backend._post = AsyncMock(return_value={"existing": ["hash1"]})
+        result = await backend.lookup_signals(["hash1", "hash2"])
+        assert result == ["hash1"]
+
+    @pytest.mark.asyncio
+    async def test_lookup_signals_none(self, backend):
+        backend._post = AsyncMock(return_value={"existing": []})
+        result = await backend.lookup_signals(["new_hash"])
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_lookup_signals_failure(self, backend):
+        backend._post = AsyncMock(return_value=None)
+        result = await backend.lookup_signals(["hash1"])
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_lookup_signals_with_user_id(self, backend):
+        backend._post = AsyncMock(return_value={"existing": []})
+        await backend.lookup_signals(["hash1"], user_id="user-1")
+        backend._post.assert_awaited_once_with("/signals/lookup", {"row_hashes": ["hash1"], "user_id": "user-1"})
+
+    @pytest.mark.asyncio
+    async def test_close_does_not_raise(self, backend):
+        await backend.close()
+
+    @pytest.mark.asyncio
+    async def test_close_called_twice(self, backend):
+        await backend.close()
+        await backend.close()  # should not raise

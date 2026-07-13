@@ -63,3 +63,8 @@ class Paths:
     def ensure_dirs(cls):
         for d in (cls.CACHE_DIR, cls.JOBS_DIR, cls.TEMP_DIR):
             Path(d).mkdir(parents=True, exist_ok=True)
+
+
+PERSISTENCE_ENABLED: bool = os.getenv("PERSISTENCE_ENABLED", "false").lower() == "true"
+WORKER_URL: Optional[str] = os.getenv("WORKER_URL")
+PERSISTENCE_TIMEOUT: int = int(os.getenv("PERSISTENCE_TIMEOUT", "3"))

@@ -2,8 +2,5 @@
   "name": "backtestbaba-d1-proxy",
   "version": "1.0.0",
   "main": "src/index.js",
-  "private": true,
-  "dependencies": {
-    "uuid": "^9.0.0"
-  }
+  "private": true
 }
