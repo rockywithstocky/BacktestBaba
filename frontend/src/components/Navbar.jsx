@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, Menu, X, LogOut, User } from 'lucide-react';
+import { TrendingUp, Menu, X, LogOut, User, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
@@ -8,10 +8,15 @@ const Navbar = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    // Mock auth state - in real app this would come from context/store
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    const isAdmin = (() => {
+        try { const u = JSON.parse(localStorage.getItem('auth_user')); return u?.is_admin === 1 || u?.is_admin === true; }
+        catch { return false; }
+    })();
 
     const handleLogout = () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
         localStorage.removeItem('isLoggedIn');
         navigate('/login');
     };
@@ -63,6 +68,15 @@ const Navbar = () => {
                                 >
                                     Hub
                                 </Link>
+                                {isAdmin && (
+                                    <Link
+                                        to="/dashboard/admin"
+                                        className={`flex items-center gap-1.5 text-sm font-semibold transition-colors ${location.pathname === '/dashboard/admin' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}
+                                    >
+                                        <Shield size={14} />
+                                        Admin
+                                    </Link>
+                                )}
                                 <div className="h-5 w-px bg-white/10"></div>
                                 <div className="flex items-center gap-4">
                                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
@@ -132,6 +146,15 @@ const Navbar = () => {
                                     >
                                         Dashboard Hub
                                     </Link>
+                                    {isAdmin && (
+                                        <Link
+                                            to="/dashboard/admin"
+                                            className="text-amber-400 hover:text-amber-300 py-3 px-4 rounded-xl hover:bg-white/5 transition-all font-medium flex items-center gap-2"
+                                            onClick={() => setIsOpen(false)}
+                                        >
+                                            <Shield size={16} /> Admin Panel
+                                        </Link>
+                                    )}
                                     <button
                                         onClick={() => { handleLogout(); setIsOpen(false); }}
                                         className="text-left text-red-400 hover:text-red-300 py-3 px-4 flex items-center gap-2 rounded-xl hover:bg-red-500/10 transition-all font-medium"

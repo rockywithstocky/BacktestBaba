@@ -1,30 +1,34 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { signup } from '../services/auth';
 
 const SignupPage = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
     const navigate = useNavigate();
 
-    const handleSignup = (e) => {
+    const handleSignup = async (e) => {
         e.preventDefault();
+        setError('');
         setIsLoading(true);
-
-        // Mock API call
-        setTimeout(() => {
-            localStorage.setItem('isLoggedIn', 'true');
-            setIsLoading(false);
+        try {
+            await signup(name, email, password);
             navigate('/dashboard');
-        }, 1500);
+        } catch (err) {
+            const msg = err.response?.data?.detail || err.response?.data?.error || err.message || 'Signup failed';
+            setError(msg);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Gradients */}
             <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[100px]" />
             <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[100px]" />
 
@@ -37,6 +41,17 @@ const SignupPage = () => {
                     <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
                     <p className="text-gray-400">Start your journey to better trading</p>
                 </div>
+
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3"
+                    >
+                        <AlertCircle size={20} className="text-red-400 shrink-0 mt-0.5" />
+                        <p className="text-red-300 text-sm">{error}</p>
+                    </motion.div>
+                )}
 
                 <form onSubmit={handleSignup} className="space-y-5">
                     <div className="space-y-2">

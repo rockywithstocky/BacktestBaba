@@ -448,6 +448,18 @@ async def auth_me(authorization: str = Header(None)):
     return {"user": user}
 
 
+# ── Quota Endpoint ─────────────────────────────────────────
+
+@app.get("/api/quota")
+async def get_quota():
+    if not isinstance(persistence_backend, D1WorkerBackend):
+        raise HTTPException(status_code=501, detail="Persistence service unavailable")
+    result = await persistence_backend._get("/quota")
+    if result is None:
+        raise HTTPException(status_code=502, detail="Quota service unavailable")
+    return result
+
+
 # ── Admin Endpoints ─────────────────────────────────────────────────────────
 
 @app.get("/api/admin/users")

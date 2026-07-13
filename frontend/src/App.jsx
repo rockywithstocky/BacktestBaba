@@ -8,6 +8,7 @@ import Footer from './components/Footer';
 import DashboardHub from './pages/DashboardHub';
 import BacktesterPage from './pages/BacktesterPage';
 import FundamentalAnalysis from './pages/FundamentalAnalysis';
+import AdminPage from './pages/AdminPage';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -54,6 +55,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <FundamentalAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/admin"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
               </ProtectedRoute>
             }
           />
