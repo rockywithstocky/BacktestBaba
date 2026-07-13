@@ -3,6 +3,19 @@ from pathlib import Path
 
 BACKEND_DIR = Path(__file__).parent
 
+# Load .env.local if present (lightweight, no external dep)
+_env_local = BACKEND_DIR / ".env.local"
+if _env_local.exists():
+    for line in _env_local.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip()
+        if key and not os.environ.get(key):
+            os.environ[key] = val
+
 
 def is_render() -> bool:
     return os.getenv("RENDER", "").lower() in ("true", "1")

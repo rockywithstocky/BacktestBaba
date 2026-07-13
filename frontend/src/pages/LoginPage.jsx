@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
-import { login } from '../services/auth';
+import { login, logout } from '../services/auth';
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -11,15 +11,25 @@ const LoginPage = () => {
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
+    useEffect(() => {
+        logout();
+    }, []);
+
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
         try {
-            await login(email, password);
-            navigate('/dashboard');
+            const result = await login(email, password);
+            if (result?.token && result?.user) {
+                navigate('/dashboard');
+            } else {
+                setError('Login failed — unexpected server response');
+            }
         } catch (err) {
-            const msg = err.response?.data?.detail || err.response?.data?.error || err.message || 'Login failed';
+            const body = err.response?.data;
+            const msg = body?.detail || body?.error || err.message || 'Login failed';
+            console.error('[Login] Error:', err.response?.status, body);
             setError(msg);
         } finally {
             setIsLoading(false);
