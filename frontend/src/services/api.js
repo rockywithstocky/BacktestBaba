@@ -198,3 +198,13 @@ export const fetchSymbolPrices = async (symbol, start, end, signal) => {
     });
     return data.prices;
 };
+
+export const fetchUploads = async () => {
+    const token = (await import('./auth')).getToken();
+    if (!token) return { results: [], total: 0 };
+    const { data } = await axios.get(`${API_URL}/uploads`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+    });
+    return data;
+};

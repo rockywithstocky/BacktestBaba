@@ -460,6 +460,28 @@ async def get_quota():
     return result
 
 
+# ── Uploads History ───────────────────────────────────────
+
+@app.get("/api/uploads")
+async def get_uploads(authorization: str = Header(None)):
+    if not PERSISTENCE_ENABLED:
+        raise HTTPException(status_code=501, detail="Persistence not configured")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing auth header")
+
+    token = authorization.removeprefix("Bearer ")
+    user = await _validate_token(token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+    if not isinstance(persistence_backend, D1WorkerBackend):
+        raise HTTPException(status_code=501, detail="Uploads service unavailable")
+    result = await persistence_backend._get(f"/uploads?user_id={user['id']}")
+    if result is None:
+        raise HTTPException(status_code=502, detail="Uploads service unavailable")
+    return result
+
+
 # ── Admin Endpoints ─────────────────────────────────────────────────────────
 
 @app.get("/api/admin/users")

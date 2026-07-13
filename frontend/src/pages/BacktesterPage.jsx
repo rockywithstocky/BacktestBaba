@@ -3,7 +3,8 @@ import UploadCard from '../components/UploadCard';
 import Dashboard from '../components/Dashboard';
 import { runBacktestWS } from '../services/api';
 import { getReport, listReports, deleteReport, saveReport } from '../services/db';
-import { Activity, ArrowLeft, Clock, TrendingUp, Trash2, AlertTriangle } from 'lucide-react';
+import { fetchUploads } from '../services/api';
+import { Activity, ArrowLeft, Clock, TrendingUp, Trash2, AlertTriangle, Cloud } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -70,7 +71,20 @@ const BacktesterPage = () => {
     const isReportSaved = report && savedReports.some(r => r.id === report.run_id);
 
     const refreshReports = useCallback(() => {
-        listReports().then(setSavedReports).catch(() => {});
+        Promise.all([
+            listReports().catch(() => []),
+            fetchUploads().then(r => r.results || []).catch(() => []),
+        ]).then(([local, server]) => {
+            const localIds = new Set(local.map(r => r.id));
+            const merged = [
+                ...local,
+                ...server
+                    .filter(s => !localIds.has(s.id))
+                    .map(s => ({ ...s, source: 'server', total_signals: s.signal_count })),
+            ];
+            merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            setSavedReports(merged);
+        });
     }, []);
 
     useEffect(() => {
@@ -189,23 +203,41 @@ const BacktesterPage = () => {
                                     <Clock size={20} className="text-blue-400" /> Previous Reports
                                 </h2>
                                 <div className="grid gap-3">
-                                    {savedReports.map(r => (
-                                        <div key={r.id} className="bg-gray-800/30 border border-white/5 rounded-xl p-4 flex items-center justify-between hover:border-blue-500/30 transition-colors">
-                                            <button onClick={() => handleLoadReport(r.id)} className="flex-1 text-left">
-                                                <div className="text-sm text-gray-400">{new Date(r.created_at).toLocaleDateString()} {new Date(r.created_at).toLocaleTimeString()}</div>
-                                                <div className="text-white font-medium mt-1">
-                                                    {r.total_signals} signals · {r.successful_signals} wins · {r.failed_signals} losses
+                                    {savedReports.map(r => {
+                                        const isLocal = !r.source || r.source === 'local';
+                                        return (
+                                        <div key={r.id} className={`bg-gray-800/30 border rounded-xl p-4 flex items-center justify-between transition-colors ${isLocal ? 'border-white/5 hover:border-blue-500/30' : 'border-white/5 opacity-70'}`}>
+                                            {isLocal ? (
+                                                <button onClick={() => handleLoadReport(r.id)} className="flex-1 text-left">
+                                                    <div className="text-sm text-gray-400">{new Date(r.created_at).toLocaleDateString()} {new Date(r.created_at).toLocaleTimeString()}</div>
+                                                    <div className="text-white font-medium mt-1">
+                                                        {r.total_signals} signals · {r.successful_signals} wins · {r.failed_signals} losses
+                                                    </div>
+                                                    <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                                                        {r.win_rate_7d != null && <span>Win Rate: {(r.win_rate_7d * 100).toFixed(1)}%</span>}
+                                                        {r.avg_return_7d != null && <span>Avg Return: {(r.avg_return_7d * 100).toFixed(2)}%</span>}
+                                                    </div>
+                                                </button>
+                                            ) : (
+                                                <div className="flex-1 text-left">
+                                                    <div className="flex items-center gap-2 text-sm text-gray-400">
+                                                        <Cloud size={14} className="text-blue-400" />
+                                                        {new Date(r.created_at).toLocaleDateString()} {new Date(r.created_at).toLocaleTimeString()}
+                                                    </div>
+                                                    <div className="text-white font-medium mt-1">
+                                                        {r.total_signals} signals · {r.filename || 'Backup'}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 mt-1">{r.entry_mode === 'next_open' ? 'Next Open' : 'Next Close'}</div>
                                                 </div>
-                                                <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                                                    {r.win_rate_7d != null && <span>Win Rate: {(r.win_rate_7d * 100).toFixed(1)}%</span>}
-                                                    {r.avg_return_7d != null && <span>Avg Return: {(r.avg_return_7d * 100).toFixed(2)}%</span>}
-                                                </div>
-                                            </button>
-                                            <button onClick={() => handleDeleteReport(r.id)} className="p-2 text-gray-500 hover:text-red-400 transition-colors">
-                                                <Trash2 size={16} />
-                                            </button>
+                                            )}
+                                            {isLocal && (
+                                                <button onClick={() => handleDeleteReport(r.id)} className="p-2 text-gray-500 hover:text-red-400 transition-colors">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
