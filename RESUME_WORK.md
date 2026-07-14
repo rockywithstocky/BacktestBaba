@@ -1,6 +1,6 @@
 **Project:** BacktestBaba (ChartChampion)
-**Branch:** `feat/d1-persistence`
-**Status:** Phase D (local persistence + sync) + Phase E (row_hash cache) complete
+**Branch:** `feat/d1-persistence` → `feat/pg-persistence` (new)
+**Status:** Planning complete for Phase 1 — PostgreSQL persistence. See `docs/ai/PHASE1_PLAN.md`.
 
 Production URLs:
 - Frontend: https://chartchampion.vercel.app
@@ -22,67 +22,68 @@ npm run dev
 
 ## 2. Completed Work
 
-### Phase A: Persistence ABC (merged to main)
-- `persistence.py` ABC 5→9 methods + NaN guard + 46 tests
-- `NullBackend` (no-op) + `D1WorkerBackend` (HTTP to Worker)
+### Previously done (Phases A-E)
+- Phase A: Persistence ABC (5→9 methods) + NullBackend + D1WorkerBackend
+- Phase B: Backend integration (config, main.py wiring, auth, admin, ingestion)
+- Phase C: Frontend auth + admin (login, signup, admin, Navbar)
+- Phase D: IndexedDB + client-side report sync
+- Phase E: Row-hash cache (diskcache per-signal dedup)
+- All 53+ tests pass.
 
-### Phase B: Backend integration (merged to main)
-- `config.py` (+6 module-level vars: PERSISTENCE_ENABLED, WORKER_URL, etc.)
-- `main.py` (+192 lines: validated init, synchronous persist, auth, admin, ingestion after cache check)
-- D1 Worker deployed — 15 endpoints, 6 D1 tables, batch chunked at 100
+### Current session (Jul 14, 2026)
+- Analyzed existing caching architecture (3 layers: FileHashCache, diskcache per-symbol, row-hash)
+- Identified FileHashCache limitation: 30d TTL, no smart refresh on re-upload
+- Designed gapfill architecture for Phase 2 (bulk yfinance + append to diskcache)
+- Fixed ABC return type for `list_uploads`: `list[dict]` → `dict` with `{results, total}`
+- Identified 7 `isinstance` guards in `main.py` needing polymorphic replacement
+- Documented full Phase 1 plan: 10 tasks with verification steps
+- **No code developed** — planning only
 
-### Phase C: Frontend auth + admin (merged to main)
-- `services/auth.js` — login/signup/validate/logout/isAdmin with token persistence
-- `services/admin.js` — listUsers, setPlan, revokeSessions, getQuota
-- `LoginPage.jsx`, `SignupPage.jsx`, `AdminPage.jsx` — real API, error display
-- `App.jsx` — `/dashboard/admin` route, `ProtectedRoute`
-- `Navbar.jsx` — admin shield link, proper logout
-- `backend/main.py` — `/api/quota` proxy, auth endpoints, admin proxies
+## 3. Active Plan: Phase 1 — PostgreSQL Persistence
 
-### Phase D: IndexedDB + client sync (current branch)
-- `services/db.js` — IndexedDB wrapper: saveReport, getReport, listReports, deleteReport
-- `services/sync.js` — IndexedDB save (D1 sync removed — backend already persists server-side)
-- `api.js` — wires syncReport after WS complete + HTTP fallback
-- `BacktesterPage.jsx` — Previous Reports list, confirm on back, refresh on backtest complete
-- **Bugfix**: no auto-load report on nav (always shows upload page first)
-- **Bugfix**: confirm dialog only for fresh runs (skipped for already-saved reports)
+See [`docs/ai/PHASE1_PLAN.md`](docs/ai/PHASE1_PLAN.md) for full task list with verification steps.
 
-### Phase E: Row-hash cache (current branch)
-- `backend/config.py` — `ROW_HASH_TTL = 2592000` (30d)
-- `backend/core/data_provider.py` — `get_cached_result()` / `set_cached_result()` via diskcache
-- `backend/core/backtester.py` — Phase C checks SHA256(symbol|date|entry_mode|duration) before yfinance call; caches result dict after computation. Re-running same CSV = instant.
-- All 53 tests pass.
+**Summary (10 tasks):**
 
-## 3. Files Changed (this branch)
+| # | Task | Verification |
+|---|------|-------------|
+| 1 | Commit 4 Docker fixes | `docker compose up --build` starts clean |
+| 2 | Fix ABC return types (`list_uploads`) | All pytest pass |
+| 3 | Add 6 auth/admin ABC methods | New NullBackend tests pass |
+| 4 | Replace 7 `isinstance` guards with polymorphic calls | Auth + admin endpoints work |
+| 5 | Create `backend/schema.sql` (PG port of D1 schema) | SQL parses in psql |
+| 6 | Add `DATABASE_URL` + `is_render()` selection logic | Correct backend selected per env |
+| 7 | Create `PostgresBackend` class with all 17 methods | All persistence tests pass |
+| 8 | Add PostgreSQL service to Docker Compose | `pg_isready` returns OK |
+| 9 | Update `.env.local` | Backend logs "PostgreSQL initialized" |
+| 10 | Verify end-to-end (pytest + Docker smoke test + upload history + auth) | Full integration green |
 
-| File | Change |
-|------|--------|
-| `.gitignore` | +Data/ChartInk/*.csv, +worker/node_modules/ |
-| `backend/config.py:67` | +`ROW_HASH_TTL` |
-| `backend/core/data_provider.py:182-188` | +get_cached_result / set_cached_result |
-| `backend/core/backtester.py:4,304-420` | +row_hash check in Phase C |
-| `frontend/src/services/db.js` | NEW — IndexedDB wrapper |
-| `frontend/src/services/sync.js` | NEW — IndexedDB save (no D1 proxy) |
-| `frontend/src/services/api.js` | +syncReport import + calls |
-| `frontend/src/services/auth.js` | Better login error handling |
-| `frontend/src/pages/BacktesterPage.jsx` | Previous Reports list, confirm dialog, refresh on complete |
+**Phase 2 (deferred):** Smart refresh — kill cross-session FileHashCache, add `bulk_gapfill` to DataProvider, add `get_report_by_hash`/`update_signal` to persistence.
 
-## 4. Next Steps
-1. Deploy branch to Vercel + Render for live testing
-2. Phase F: Dual-stage row_hash for resolution phase (skip SymbolResolver for cached signals)
-3. Phase G: Admin dashboard — signal usage stats, per-user quota management
+## 4. How to Check Work Status
+Ask: "check workstatus" → I'll show the task table above with completion status.
 
-## 5. Testing
+## 5. Architecture Decisions (Recorded)
+
+| Decision | Detail |
+|----------|--------|
+| Gapfill lives in DataProvider | Not a separate file — 2 new static methods, ~50 LOC |
+| `is_render()` is the switch | `True` → D1WorkerBackend (Render), `False` → PostgresBackend (local Docker) |
+| No `version: '3.8'` in compose | Already removed; schema version implicit in Compose v2+ |
+| FileHashCache stays in Phase 1 | Smart refresh is Phase 2 work |
+| Auth cache stays in-memory | 60s TTL dict in `main.py`; uses `auth_validate` ABC call |
+
+## 6. Testing
 ```powershell
 cd "D:\AI\Stock Market\ChartInk\BacktestBaba\backend"
 .\venv\Scripts\Activate.ps1
-pytest tests/ -v --asyncio-mode=auto          # 53/53 pass
+pytest tests/ -v --asyncio-mode=auto
 
 cd "D:\AI\Stock Market\ChartInk\BacktestBaba\frontend"
-npm run build                                  # Compiles clean
+npm run build
 ```
 
-## 6. Pre-existing Issues
+## 7. Pre-existing Issues
 - `verify_regression.py` has 0.01 floating-point noise between bulk/sequential modes
 - `test_integration.py` calls non-existent `Backtester.run_backtest` (should be `run_backtest_async`)
 - Pydantic v2 `.dict()` deprecation warnings (pre-existing)

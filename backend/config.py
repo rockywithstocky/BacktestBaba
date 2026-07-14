@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 BACKEND_DIR = Path(__file__).parent
 
