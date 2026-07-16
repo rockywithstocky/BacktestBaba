@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, File, Form, Header, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 import pandas as pd
 import io
@@ -16,10 +17,10 @@ from backend.logging_config import setup_logging
 from backend.core.backtester import Backtester
 from backend.core.data_provider import DataProvider
 from backend.models.schemas import BacktestReport
-from backend.config import Limits, Paths, is_render, PERSISTENCE_ENABLED, WORKER_URL, PERSISTENCE_TIMEOUT
+from backend.config import Limits, Paths, is_render, PERSISTENCE_ENABLED, WORKER_URL, DATABASE_URL, PERSISTENCE_TIMEOUT
 from backend.storage import FileHashCache, JobStorage, compute_file_hash, generate_run_id
 from backend.persistence import (
-    D1WorkerBackend, NullBackend, PersistenceBackend,
+    D1WorkerBackend, PostgresBackend, NullBackend, PersistenceBackend,
     UploadRecord, TradeRecord, compute_row_hash, _build_results_json,
 )
 
@@ -28,8 +29,29 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await _init_backend()
     yield
     await persistence_backend.close()
+
+
+async def _init_backend():
+    global persistence_backend
+    if not PERSISTENCE_ENABLED:
+        logger.info("Persistence disabled. Using NullBackend.")
+    elif is_render():
+        if WORKER_URL and WORKER_URL.startswith("https://"):
+            persistence_backend = D1WorkerBackend(WORKER_URL, PERSISTENCE_TIMEOUT)
+            logger.info("D1 persistence backend initialized (Worker: %s, timeout: %ss)", WORKER_URL, PERSISTENCE_TIMEOUT)
+        else:
+            logger.warning("is_render()=True but WORKER_URL is invalid. Falling back to NullBackend.")
+    elif DATABASE_URL:
+        try:
+            persistence_backend = await PostgresBackend.create(DATABASE_URL)
+            logger.info("PostgreSQL persistence backend initialized")
+        except Exception:
+            logger.exception("PostgresBackend init failed. Falling back to NullBackend.")
+    else:
+        logger.warning("PERSISTENCE_ENABLED=True but no backend configured. Falling back to NullBackend.")
 
 app = FastAPI(title="Stock Screener Backtester Pro", lifespan=lifespan)
 
@@ -45,20 +67,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 Paths.ensure_dirs()
 
 persistence_backend: PersistenceBackend = NullBackend()
-if PERSISTENCE_ENABLED:
-    if not WORKER_URL:
-        logger.warning("PERSISTENCE_ENABLED=True but WORKER_URL is not set. Falling back to NullBackend.")
-    elif not WORKER_URL.startswith("https://"):
-        logger.warning("WORKER_URL (%s) does not start with https://. Falling back to NullBackend.", WORKER_URL)
-    else:
-        persistence_backend = D1WorkerBackend(WORKER_URL, PERSISTENCE_TIMEOUT)
-        logger.info("D1 persistence backend initialized (Worker: %s, timeout: %ss)", WORKER_URL, PERSISTENCE_TIMEOUT)
-else:
-    logger.info("Persistence disabled. Using NullBackend.")
 
 
 def _check_file_size(data: bytes):
@@ -381,10 +394,10 @@ async def _validate_token(token: str) -> Optional[dict]:
             return user
         del _auth_cache[token]
 
-    if not isinstance(persistence_backend, D1WorkerBackend):
+    if not PERSISTENCE_ENABLED:
         return None
 
-    result = await persistence_backend._get(f"/auth/validate?token={token}")
+    result = await persistence_backend.auth_validate(token)
     if result is None:
         return None
 
@@ -414,9 +427,11 @@ async def get_admin_user(authorization: str = Header(None)):
 async def auth_signup(body: dict):
     if not PERSISTENCE_ENABLED:
         raise HTTPException(status_code=501, detail="Auth not configured")
-    if not isinstance(persistence_backend, D1WorkerBackend):
-        raise HTTPException(status_code=501, detail="Auth service unavailable")
-    result = await persistence_backend._post("/auth/signup", body)
+    result = await persistence_backend.auth_signup(
+        email=body.get("email", ""),
+        password=body.get("password", ""),
+        name=body.get("name", ""),
+    )
     if result is None:
         raise HTTPException(status_code=502, detail="Auth service unavailable")
     return JSONResponse(content=result, status_code=result.get("_status", 201))
@@ -426,9 +441,10 @@ async def auth_signup(body: dict):
 async def auth_login(body: dict):
     if not PERSISTENCE_ENABLED:
         raise HTTPException(status_code=501, detail="Auth not configured")
-    if not isinstance(persistence_backend, D1WorkerBackend):
-        raise HTTPException(status_code=501, detail="Auth service unavailable")
-    result = await persistence_backend._post("/auth/login", body)
+    result = await persistence_backend.auth_login(
+        email=body.get("email", ""),
+        password=body.get("password", ""),
+    )
     if result is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return result
@@ -452,9 +468,9 @@ async def auth_me(authorization: str = Header(None)):
 
 @app.get("/api/quota")
 async def get_quota():
-    if not isinstance(persistence_backend, D1WorkerBackend):
-        raise HTTPException(status_code=501, detail="Persistence service unavailable")
-    result = await persistence_backend._get("/quota")
+    if not PERSISTENCE_ENABLED:
+        raise HTTPException(status_code=501, detail="Persistence not configured")
+    result = await persistence_backend.get_quota()
     if result is None:
         raise HTTPException(status_code=502, detail="Quota service unavailable")
     return result
@@ -474,9 +490,7 @@ async def get_uploads(authorization: str = Header(None)):
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 
-    if not isinstance(persistence_backend, D1WorkerBackend):
-        raise HTTPException(status_code=501, detail="Uploads service unavailable")
-    result = await persistence_backend._get(f"/uploads?user_id={user['id']}")
+    result = await persistence_backend.list_uploads(user_id=user["id"])
     if result is None:
         raise HTTPException(status_code=502, detail="Uploads service unavailable")
     return result
@@ -486,9 +500,7 @@ async def get_uploads(authorization: str = Header(None)):
 
 @app.get("/api/admin/users")
 async def admin_list_users(admin=Depends(get_admin_user)):
-    if not isinstance(persistence_backend, D1WorkerBackend):
-        raise HTTPException(status_code=501, detail="Admin service unavailable")
-    result = await persistence_backend._get("/admin/users")
+    result = await persistence_backend.admin_list_users()
     if result is None:
         raise HTTPException(status_code=502, detail="Admin service unavailable")
     return result
@@ -496,9 +508,10 @@ async def admin_list_users(admin=Depends(get_admin_user)):
 
 @app.post("/api/admin/users/plan")
 async def admin_set_plan(body: dict, admin=Depends(get_admin_user)):
-    if not isinstance(persistence_backend, D1WorkerBackend):
-        raise HTTPException(status_code=501, detail="Admin service unavailable")
-    result = await persistence_backend._post("/admin/users/plan", body)
+    result = await persistence_backend.admin_set_plan(
+        user_id=body.get("user_id", ""),
+        plan=body.get("plan", ""),
+    )
     if result is None:
         raise HTTPException(status_code=502, detail="Admin service unavailable")
     return result
@@ -506,9 +519,9 @@ async def admin_set_plan(body: dict, admin=Depends(get_admin_user)):
 
 @app.post("/api/admin/sessions/revoke")
 async def admin_revoke_sessions(body: dict, admin=Depends(get_admin_user)):
-    if not isinstance(persistence_backend, D1WorkerBackend):
-        raise HTTPException(status_code=501, detail="Admin service unavailable")
-    result = await persistence_backend._post("/admin/sessions/revoke", body)
+    result = await persistence_backend.admin_revoke_sessions(
+        user_id=body.get("user_id", ""),
+    )
     if result is None:
         raise HTTPException(status_code=502, detail="Admin service unavailable")
     return result

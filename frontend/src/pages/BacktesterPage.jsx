@@ -214,8 +214,8 @@ const BacktesterPage = () => {
                                                         {r.total_signals} signals · {r.successful_signals} wins · {r.failed_signals} losses
                                                     </div>
                                                     <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                                                        {r.win_rate_7d != null && <span>Win Rate: {(r.win_rate_7d * 100).toFixed(1)}%</span>}
-                                                        {r.avg_return_7d != null && <span>Avg Return: {(r.avg_return_7d * 100).toFixed(2)}%</span>}
+                                                        {r.win_rate_7d != null && <span>Win Rate: {r.win_rate_7d.toFixed(1)}%</span>}
+                                                        {r.avg_return_7d != null && <span>Avg Return: {r.avg_return_7d.toFixed(2)}%</span>}
                                                     </div>
                                                 </button>
                                             ) : (

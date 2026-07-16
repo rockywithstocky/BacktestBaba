@@ -113,6 +113,21 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
 
     const ws = new WebSocket(`${WS_URL}/backtest?entry_mode=${entryMode}`);
     let settled = false;
+    let watchdogTimer = null;
+
+    const WATCHDOG_INTERVAL = 60000;
+
+    const startWatchdog = () => {
+        if (watchdogTimer) clearTimeout(watchdogTimer);
+        watchdogTimer = setTimeout(() => {
+            if (!settled) {
+                settled = true;
+                ws.close();
+                onProgress({ current: 0, total: 100, symbol: 'Connection lost, falling back to HTTP...' });
+                runBacktestHTTPFallback(file, onProgress, onComplete, onError, entryMode);
+            }
+        }, WATCHDOG_INTERVAL);
+    };
 
     const wsTimeout = setTimeout(() => {
         if (!settled) {
@@ -125,11 +140,10 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
 
     ws.onopen = () => {
         clearTimeout(wsTimeout);
+        startWatchdog();
         if (settled) return;
-        console.log('[WS] Connected, sending file...');
         const reader = new FileReader();
         reader.onload = (e) => {
-            console.log('[WS] File read, sending...');
             ws.send(e.target.result);
         };
         reader.onerror = () => {
@@ -151,6 +165,7 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
         }
 
         if (data.type === 'progress') {
+            startWatchdog();
             onProgress(data);
         } else if (data.type === 'trade_batch') {
             trades = trades.concat(data.batch);
@@ -164,12 +179,14 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
             // Server keepalive — ignore
         } else if (data.type === 'complete') {
             settled = true;
+            clearTimeout(watchdogTimer);
             const report = { ...data.report, trades };
             onComplete(report);
             ws.close();
             syncReport(data.report, trades);
         } else if (data.type === 'error') {
             settled = true;
+            clearTimeout(watchdogTimer);
             onError(data.message);
             ws.close();
         }
@@ -179,6 +196,7 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
         if (!settled) {
             settled = true;
             clearTimeout(wsTimeout);
+            clearTimeout(watchdogTimer);
             runBacktestHTTPFallback(file, onProgress, onComplete, onError, entryMode);
         }
     };

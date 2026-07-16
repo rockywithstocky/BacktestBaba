@@ -1,5 +1,24 @@
 services:
-  # Backend Application (FastAPI)
+  postgres:
+    image: postgres:16-alpine
+    container_name: backtestbaba-db
+    environment:
+      POSTGRES_USER: backtest
+      POSTGRES_PASSWORD: backtest
+      POSTGRES_DB: backtestbaba
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backtest -d backtestbaba"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backtestbaba-network
+
   backend:
     build:
       context: .
@@ -10,18 +29,30 @@ services:
     environment:
       - CORS_ORIGINS=http://localhost:5174,http://frontend:5174
       - PORT=8000
+      - DATABASE_URL=postgresql://backtest:backtest@postgres:5432/backtestbaba
+      - PERSISTENCE_ENABLED=true
     networks:
       - backtestbaba-network
     depends_on:
-      - cache
-    healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/')"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+      postgres:
+        condition: service_healthy
 
-  # Frontend Application (React/Vite)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: backtestbaba-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@backtestbaba.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - backtestbaba-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   frontend:
     build:
       context: .
@@ -39,35 +70,13 @@ services:
       - backtestbaba-network
     depends_on:
       - backend
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5174/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
-  # Cache Infrastructure (Redis-compatible for potential future use, or just disk-based)
-  cache:
-    image: redis:7-alpine
-    container_name: backtestbaba-cache
-    ports:
-      - "6379:6379"
-    networks:
-      - backtestbaba-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    volumes:
-      - cache-data:/data
-
-# Networks
 networks:
   backtestbaba-network:
     driver: bridge
 
-# Volumes
 volumes:
-  cache-data:
+  pg_data:
+    driver: local
+  pgadmin_data:
     driver: local

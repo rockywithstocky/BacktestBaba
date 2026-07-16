@@ -1,3 +1,4 @@
+import argparse
 import csv
 import os
 import re
@@ -190,7 +191,129 @@ def merge_screener(screener, files, output_name):
     return file_stats, total_read, total_kept, total_skipped
 
 
+def normalize_screener_name(name):
+    """Normalize a screener name by lowercasing and collapsing separators."""
+    return re.sub(r'[-_\s]+', ' ', name.strip().lower())
+
+
+def derive_screener_name(master_fname):
+    """Extract screener name from a master_*.csv filename."""
+    name = master_fname
+    if name.lower().startswith('master_'):
+        name = name[7:]
+    if name.lower().endswith('.csv'):
+        name = name[:-4]
+    return name
+
+
+def source_matches_master(source_fname, master_screener):
+    """Check if a source CSV belongs to the same screener as the master."""
+    source_name = source_fname
+    if '.' in source_name:
+        source_name = source_name.rsplit('.', 1)[0]
+    source_normalized = normalize_screener_name(source_name)
+    master_normalized = normalize_screener_name(master_screener)
+    return master_normalized in source_normalized
+
+
+def update_master_mode():
+    """Non-interactive mode: append new (date, symbol) rows from source CSVs into existing master."""
+    print('=' * 60)
+    print('  ChartInk Master Update Mode')
+    print('=' * 60)
+
+    all_csvs = [f for f in os.listdir(SCRIPT_DIR) if f.lower().endswith('.csv')]
+
+    # Find all master files
+    master_files = [f for f in all_csvs if f.lower().startswith('master_')]
+    if not master_files:
+        print('\n  No master files found to update.')
+        sys.exit(0)
+
+    any_updated = False
+    for master_fname in sorted(master_files):
+        master_path = os.path.join(SCRIPT_DIR, master_fname)
+
+        # Derive screener name from master filename
+        screener = derive_screener_name(master_fname)
+
+        # Find matching source CSVs (non-master, same screener name)
+        source_files = []
+        for f in all_csvs:
+            if f.lower().startswith('master_') or f == os.path.basename(__file__):
+                continue
+            if source_matches_master(f, screener):
+                source_files.append(f)
+
+        if not source_files:
+            print(f'\n  Skipping "{master_fname}" — no source files found for screener "{screener}".')
+            continue
+
+        # Read master rows + build seen set
+        seen = set()
+        master_rows = []
+        cols = None
+        try:
+            with open(master_path, 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                cols = reader.fieldnames
+                for row in reader:
+                    key = (row.get('Date', '').strip(), row.get('Symbol', '').strip().upper())
+                    seen.add(key)
+                    master_rows.append(row)
+        except Exception as e:
+            print(f'\n  [!] Error reading master {master_fname}: {e}')
+            continue
+
+        master_count = len(master_rows)
+
+        # Collect new rows from source files
+        new_rows = []
+        total_skipped = 0
+        for fname in source_files:
+            filepath = os.path.join(SCRIPT_DIR, fname)
+            try:
+                with open(filepath, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        key = (row.get('Date', '').strip(), row.get('Symbol', '').strip().upper())
+                        if key in seen:
+                            total_skipped += 1
+                            continue
+                        seen.add(key)
+                        new_rows.append(row)
+            except Exception as e:
+                print(f'  [!] Error reading {fname}: {e}')
+
+        # Write merged result
+        with open(master_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=cols)
+            writer.writeheader()
+            for row in master_rows:
+                writer.writerow(row)
+            for row in new_rows:
+                writer.writerow(row)
+
+        print(f'\n  "{master_fname}": {master_count} existing + {len(new_rows)} new appended '
+              f'({total_skipped} duplicates skipped)')
+        any_updated = True
+
+    if not any_updated:
+        print('\n  No masters were updated.')
+    else:
+        print('\n  ** Done ** All masters updated.')
+
+
 def main():
+    parser = argparse.ArgumentParser(description='ChartInk CSV Merger')
+    parser.add_argument('--update-master', '-u', action='store_true',
+                        help='Update existing master CSV with new rows from source CSVs (non-interactive)')
+    args = parser.parse_args()
+
+    if args.update_master:
+        update_master_mode()
+        return
+
     print('=' * 60)
     print('  ChartInk CSV Merger')
     print('=' * 60)

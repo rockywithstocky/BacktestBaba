@@ -48,3 +48,4 @@ websockets==15.0.1
 yfinance==0.2.66
 
 pytest-asyncio>=0.25.0
+asyncpg>=0.29.0

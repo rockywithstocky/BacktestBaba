@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -5,7 +6,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from backend.core.backtester import Backtester
 from datetime import datetime, timedelta
 
-def test_real_data():
+async def test_real_data():
     print("Running integration test with REAL data...")
     
     # Use a date from a few months ago to ensure we have 90d of data
@@ -15,7 +16,7 @@ def test_real_data():
     ]
     
     try:
-        report = Backtester.run_backtest(signals)
+        report = await Backtester.run_backtest_async(signals)
         
         print(f"Total Signals: {report.total_signals}")
         print(f"Successful: {report.successful_signals}")
@@ -45,4 +46,5 @@ def test_real_data():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    test_real_data()
+    asyncio.run(test_real_data())
+

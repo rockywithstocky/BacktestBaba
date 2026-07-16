@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, ComposedChart, Scatter
@@ -17,7 +17,16 @@ const Dashboard = ({ report, onBack }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'signal_date', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(25);
-    const [capital, setCapital] = useState(100000);
+    const capitalRef = useRef(null);
+    const [capital, setCapital] = useState(() => {
+        return localStorage.getItem('backtest_capital') || '';
+    });
+    useEffect(() => {
+        if (capitalRef.current) capitalRef.current.value = capital;
+    }, []);
+    useEffect(() => {
+        localStorage.setItem('backtest_capital', capital === '' || capital === '0' ? '' : capital);
+    }, [capital]);
     const [selectedStock, setSelectedStock] = useState(null);
     const [selectedPeriod, setSelectedPeriod] = useState(null);
 
@@ -60,7 +69,7 @@ const Dashboard = ({ report, onBack }) => {
                 negativeMedian: negSorted.length > 0 ? negSorted[Math.floor(negSorted.length / 2)] : 0,
                 negativeAvg: negAvg,
                 profitFactor,
-                capitalReturn: capital * (avg / 100)
+                capitalReturn: (Number(capital) || 0) * (avg / 100)
             };
         };
         return {
@@ -159,7 +168,7 @@ const Dashboard = ({ report, onBack }) => {
     const totalPages = Math.ceil(sortedTrades.length / itemsPerPage);
 
     const formatPercent = (val) => val !== null && val !== undefined ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%` : 'N/A';
-    const formatCurrency = (val) => val ? `₹${val.toFixed(2)}` : 'N/A';
+    const formatCurrency = (val) => val !== null && val !== undefined && val !== '' ? `₹${Number(val).toFixed(2)}` : 'N/A';
     const getColorClass = (val) => val > 0 ? 'positive' : val < 0 ? 'negative' : 'neutral';
 
     const getEntryDate = (trade) => trade.entry_date || trade.signal_date;
@@ -207,14 +216,20 @@ const Dashboard = ({ report, onBack }) => {
                     <div className="capital-input-group">
                         <span className="currency-symbol">₹</span>
                         <input
-                            type="number"
-                            value={capital}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setCapital(val === '' ? '' : Number(val));
+                            ref={capitalRef}
+                            type="text"
+                            inputMode="numeric"
+                            defaultValue={capital || ''}
+                            onInput={(e) => {
+                                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                                setCapital(e.target.value);
                             }}
-                            onBlur={() => {
-                                if (capital === '' || capital === 0) setCapital(100000);
+                            onBlur={(e) => {
+                                const v = e.target.value;
+                                if (v === '' || v === '0') {
+                                    e.target.value = '100000';
+                                    setCapital('100000');
+                                }
                             }}
                             className="capital-input"
                             placeholder="Capital"

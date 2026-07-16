@@ -4,13 +4,23 @@
 
 ## Quick Start
 
+### Docker (recommended — 4 containers)
+```bash
+cd "D:\AI\Stock Market\ChartInk\BacktestBaba"
+docker compose up -d --build
+# Frontend: http://localhost:5174
+# Backend API: http://localhost:8000
+# Swagger: http://localhost:8000/docs
+# pgAdmin DB GUI: http://localhost:8080 (admin@backtestbaba.com / admin)
+```
+
+### Native (no Docker)
 **Backend** (FastAPI on port 8000):
 ```bash
 cd backend
-python -m venv venv; venv\Scripts\activate  # Windows: source venv/bin/activate on Mac/Linux
+python -m venv venv; venv\Scripts\activate
 pip install -r requirements.txt
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
-# Swagger docs: http://localhost:8000/docs
 ```
 
 **Frontend** (Vite on port 5174):
@@ -23,21 +33,20 @@ npm run dev
 ## Testing
 
 ```bash
-# All tests (asyncio mode auto)
-pytest backend/tests/ -v --asyncio-mode=auto
+# All tests inside Docker
+docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
 
 # Single file / function
-pytest backend/tests/test_backtester.py -v
-pytest backend/tests/test_backtester.py::test_valid_signals -v
+docker compose exec backend pytest backend/tests/test_backtester.py -v
 
-# Bulk fetch ≈ sequential fallback regression check
+# Bulk fetch regression check
 python backend/tests/verify_regression.py
 
 # Horizons output verification (fetches real data)
 python backend/verify_horizons.py
 
-# Frontend lint only (no test runner configured)
-cd frontend && npm run lint
+# Frontend build check
+npm run build
 ```
 
 ## Architecture (3-Phase Backtester)
@@ -46,20 +55,42 @@ cd frontend && npm run lint
 2. **Bulk Fetch** (50% mark): Single `yf.download(group_by='ticker')` → MultiIndex DataFrame (24h diskcache). Sequential fallback per symbol if bulk fetch fails
 3. **Computation** (50-100%): Per-symbol slicing → return calc for 6 horizons (7/14/30/45/60/90d) → metadata enrichment (sector, marketCap, 7-day cache, Semaphore(10))
 
+## Docker Infrastructure
+
+| Service | Image | Port | Purpose |
+|---------|-------|------|---------|
+| postgres | postgres:16-alpine | 5432 | Database (6 tables) |
+| backend | Dockerfile.backend | 8000 | FastAPI app |
+| frontend | Dockerfile.frontend | 5174 | Vite React SPA |
+| pgadmin | dpage/pgadmin4:latest | 8080 | PostgreSQL GUI |
+
+**pgAdmin login**: `admin@backtestbaba.com` / `admin` → Add Server → host=`postgres`, port=`5432`, user=`backtest`, password=`backtest`, db=`backtestbaba`.
+
+**Promote user to admin**:
+```bash
+docker compose exec postgres psql -U backtest -d backtestbaba -c "UPDATE users SET is_admin=TRUE, plan='priority', max_signals=5000, max_file_size_mb=10 WHERE email='user@email.com';"
+```
+
 ## Key Files
 
 | File | Role |
 |------|------|
 | `backend/core/backtester.py` | Orchestrates all 3 phases; async I/O via `asyncio.to_thread` |
 | `backend/core/data_provider.py` | Bulk/fallback ticker fetch, metadata, latest price; diskcache-based |
-| `backend/core/symbol_resolver.py` | Resolves → `.NS` / `.BO`; in-memory cache per request |
+| `backend/core/symbol_resolver.py` | Resolves → `.NS` / `.BO`; in-memory + diskcache. **Notable bug fixed**: `batch_resolve` now handles pre-suffixed symbols (`.NS`/`.BO`) as-is instead of double-suffixing. |
+| `backend/persistence.py` | **ABC** (17 methods) + `NullBackend` + `D1WorkerBackend` + `PostgresBackend` (asyncpg, circuit breaker, `statement_timeout=3000`) |
+| `backend/schema.sql` | PostgreSQL schema: 6 tables (`users`, `sessions`, `ingestion_log`, `uploads`, `signal_hashes`, `quota`) |
 | `backend/models/schemas.py` | `SignalResult` + `BacktestReport` Pydantic models |
-| `backend/main.py` | FastAPI: `POST /api/backtest` (REST), `WS /ws/backtest` (WebSocket + progress), `GET /api/prices/{symbol}` (OHLCV data) |
+| `backend/main.py` | FastAPI: `POST /api/backtest` (REST), `WS /ws/backtest` (WebSocket + progress), auth/admin endpoints, GZip middleware |
+| `backend/config.py` | `DATABASE_URL`, `PERSISTENCE_ENABLED`, `is_render()` selection logic |
 | `backend/utils/date_utils.py` | `parse_date()` (7 formats), `get_next_trading_day()`, `get_future_trading_day()` |
 | `frontend/src/services/api.js` | `runBacktestWS()` — WS with 10s timeout → HTTP fallback |
 | `frontend/src/pages/BacktesterPage.jsx` | Orchestrates UploadCard + Dashboard; entry mode toggle |
-| `frontend/src/components/Dashboard.jsx` | Charts, stats, paginated trade table (~525 lines) |
+| `frontend/src/components/Dashboard.jsx` | Charts, stats, paginated trade table (~530 lines). Capital input: localStorage-persisted, NaN-guarded. |
 | `frontend/src/components/StockChartModal.jsx` | Area/Line/Bar/Candlestick chart modal per trade; candlestick uses lazy-loaded lightweight-charts |
+| `frontend/src/services/auth.js` | Login/signup/logout with localStorage session |
+| `frontend/src/services/admin.js` | Admin API calls (listUsers, setPlan, revokeSessions, getQuota) |
+| `docker-compose.yml` | 4 services + 2 volumes (pg_data, pgadmin_data) |
 
 ## Frontend Routing (react-router-dom v7)
 
@@ -69,9 +100,10 @@ cd frontend && npm run lint
 | `/login`, `/signup` | LoginPage, SignupPage | Public |
 | `/dashboard` | DashboardHub | Protected |
 | `/dashboard/backtester` | BacktesterPage | Protected |
+| `/dashboard/admin` | AdminPage | Protected + `isAdmin()` guard |
 | `/dashboard/fundamental/:symbol` | FundamentalAnalysis | Protected |
 
-Auth is localStorage-based (`isLoggedIn === 'true'`), implemented via `ProtectedRoute` wrapper in `App.jsx`.
+Auth is localStorage-based (`isLoggedIn === 'true'`), implemented via `ProtectedRoute` wrapper in `App.jsx`. Admin check via `user?.is_admin === 1 || true`.
 
 ## Critical Pitfalls
 

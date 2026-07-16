@@ -82,4 +82,5 @@ class Paths:
 
 PERSISTENCE_ENABLED: bool = os.getenv("PERSISTENCE_ENABLED", "false").lower() == "true"
 WORKER_URL: Optional[str] = os.getenv("WORKER_URL")
+DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
 PERSISTENCE_TIMEOUT: int = int(os.getenv("PERSISTENCE_TIMEOUT", "3"))

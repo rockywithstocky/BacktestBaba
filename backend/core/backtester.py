@@ -1,5 +1,4 @@
 import asyncio
-import gc
 import hashlib
 import logging
 import time
@@ -94,7 +93,7 @@ class Backtester:
             raw_symbol = signal.get("symbol") or signal.get("Symbol")
             date_str = signal.get("date") or signal.get("Date")
 
-            if progress_callback:
+            if progress_callback and (i % Limits.PROGRESS_THROTTLE_EVERY_N == 0 or i == len(signals) - 1):
                 await progress_callback(i + 1, total_steps, f"Processing: {raw_symbol}")
 
             if not raw_symbol or not date_str:
@@ -208,7 +207,6 @@ class Backtester:
                                          chunk_idx + 1, sym, exc_info=True)
 
                 del chunk_df
-                gc.collect()
 
         phase_b_time = time.monotonic() - phase_start
         logger.info("Phase B — Chunked fetch completed (%d/%d chunks with data), elapsed=%.2fs",
@@ -239,7 +237,15 @@ class Backtester:
 
             async def fetch_meta(sym):
                 async with sem:
-                    return sym, await asyncio.to_thread(DataProvider.get_ticker_info, sym)
+                    try:
+                        result = await asyncio.wait_for(
+                            asyncio.to_thread(DataProvider.get_ticker_info, sym),
+                            timeout=10
+                        )
+                        return sym, result
+                    except asyncio.TimeoutError:
+                        logger.warning("Metadata timeout for %s", sym)
+                        return sym, {"sector": None, "marketCap": None}
 
             meta_results = await asyncio.gather(*(fetch_meta(s) for s in symbols_needing_api))
             for sym, meta in meta_results:
@@ -280,7 +286,7 @@ class Backtester:
             batch_results = []
 
         for i, p_sig in enumerate(parsed_signals):
-            if progress_callback:
+            if progress_callback and (i % Limits.PROGRESS_THROTTLE_EVERY_N == 0 or i == len(parsed_signals) - 1):
                 await progress_callback(total + num_chunks + i + 1, total_steps,
                                         f"Computing: {p_sig.get('raw') or 'Unknown'}")
 
@@ -308,6 +314,8 @@ class Backtester:
             row_hash = hashlib.sha256(row_hash_input.encode()).hexdigest()
             cached_result = DataProvider.get_cached_result(row_hash)
             horizons = sorted(list(set([7, 14, 30, 45, 60, 90, duration])))
+            horizon_deltas = {h: timedelta(days=h) for h in horizons}
+            duration_delta = timedelta(days=duration)
 
             if cached_result is not None:
                 res = SignalResult(**cached_result)
@@ -377,7 +385,7 @@ class Backtester:
                 for h in horizons:
                     if h > duration: continue
 
-                    target_date = entry_date + timedelta(days=h)
+                    target_date = entry_date + horizon_deltas[h]
                     exit_date = get_next_trading_day(target_date, df)
 
                     if exit_date:
@@ -394,7 +402,7 @@ class Backtester:
                                     agg[h]["wins"] += 1
 
                 # Max High/Low in Duration
-                window_end = entry_date + timedelta(days=duration)
+                window_end = entry_date + duration_delta
                 window_df = df[entry_date:window_end]
 
                 if not window_df.empty:
@@ -473,3 +481,10 @@ class Backtester:
         )
 
         return report
+
+
+
+
+
+
+

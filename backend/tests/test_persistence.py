@@ -140,7 +140,7 @@ class TestNullBackend:
     @pytest.mark.asyncio
     async def test_list_uploads_returns_empty(self, backend):
         result = await backend.list_uploads()
-        assert result == []
+        assert result == {"results": [], "total": 0}
 
     @pytest.mark.asyncio
     async def test_get_quota_returns_zero(self, backend):
@@ -169,6 +169,36 @@ class TestNullBackend:
     async def test_lookup_signals_returns_empty(self, backend):
         result = await backend.lookup_signals(["hash1", "hash2"])
         assert result == []
+
+    @pytest.mark.asyncio
+    async def test_auth_signup_returns_none(self, backend):
+        result = await backend.auth_signup("a@b.com", "pass123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_auth_login_returns_none(self, backend):
+        result = await backend.auth_login("a@b.com", "pass123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_auth_validate_returns_none(self, backend):
+        result = await backend.auth_validate("token123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_admin_list_users_returns_none(self, backend):
+        result = await backend.admin_list_users()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_admin_set_plan_returns_none(self, backend):
+        result = await backend.admin_set_plan("user-1", "premium")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_admin_revoke_sessions_returns_none(self, backend):
+        result = await backend.admin_revoke_sessions("user-1")
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_close_does_not_raise(self, backend):
@@ -230,13 +260,13 @@ class TestD1WorkerBackend:
         fake_results = [{"id": "u1", "filename": "a.csv"}]
         backend._get = AsyncMock(return_value={"results": fake_results, "total": 1})
         result = await backend.list_uploads(limit=10, offset=0)
-        assert result == fake_results
+        assert result == {"results": fake_results, "total": 1}
 
     @pytest.mark.asyncio
     async def test_list_uploads_empty(self, backend):
         backend._get = AsyncMock(return_value=None)
         result = await backend.list_uploads()
-        assert result == []
+        assert result == {"results": [], "total": 0}
 
     @pytest.mark.asyncio
     async def test_get_quota_success(self, backend):

@@ -1,89 +1,126 @@
-**Project:** BacktestBaba (ChartChampion)
-**Branch:** `feat/d1-persistence` → `feat/pg-persistence` (new)
-**Status:** Planning complete for Phase 1 — PostgreSQL persistence. See `docs/ai/PHASE1_PLAN.md`.
+# BacktestBaba — Work State (2026-07-16)
 
-Production URLs:
-- Frontend: https://chartchampion.vercel.app
-- Backend API: https://backtestbaba-api.onrender.com
-- Worker: https://backtestbaba-d1-proxy.rockywithstocky-ff8.workers.dev
-- Swagger: https://backtestbaba-api.onrender.com/docs
+**Branch:** `feat/pg-persistence`  
+**Status:** PostgreSQL persistence — COMPLETE AND VERIFIED  
+**Next:** Frontend polish + backlog items below
 
-## 1. Start Local Environment
+---
+
+## 0. Local Environment (Docker Compose)
+
 ```powershell
-# Terminal 1 (Backend)
-cd "D:\AI\Stock Market\ChartInk\BacktestBaba\backend"
-.\venv\Scripts\Activate.ps1
-python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
-
-# Terminal 2 (Frontend)
-cd "D:\AI\Stock Market\ChartInk\BacktestBaba\frontend"
-npm run dev
+cd "D:\AI\Stock Market\ChartInk\BacktestBaba"
+docker compose up -d --build    # Start all 4 services
 ```
 
-## 2. Completed Work
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Frontend | http://localhost:5174 | — |
+| Backend API | http://localhost:8000 | — |
+| Swagger Docs | http://localhost:8000/docs | — |
+| pgAdmin (DB GUI) | http://localhost:8080 | `admin@backtestbaba.com` / `admin` |
+| PostgreSQL | localhost:5432 | `backtest` / `backtest` / `backtestbaba` |
 
-### Previously done (Phases A-E)
-- Phase A: Persistence ABC (5→9 methods) + NullBackend + D1WorkerBackend
-- Phase B: Backend integration (config, main.py wiring, auth, admin, ingestion)
-- Phase C: Frontend auth + admin (login, signup, admin, Navbar)
-- Phase D: IndexedDB + client-side report sync
-- Phase E: Row-hash cache (diskcache per-signal dedup)
-- All 53+ tests pass.
+Tests inside Docker:
+```powershell
+docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
+```
 
-### Current session (Jul 14, 2026)
-- Analyzed existing caching architecture (3 layers: FileHashCache, diskcache per-symbol, row-hash)
-- Identified FileHashCache limitation: 30d TTL, no smart refresh on re-upload
-- Designed gapfill architecture for Phase 2 (bulk yfinance + append to diskcache)
-- Fixed ABC return type for `list_uploads`: `list[dict]` → `dict` with `{results, total}`
-- Identified 7 `isinstance` guards in `main.py` needing polymorphic replacement
-- Documented full Phase 1 plan: 10 tasks with verification steps
-- **No code developed** — planning only
+---
 
-## 3. Active Plan: Phase 1 — PostgreSQL Persistence
+## 1. Completed This Session (Jul 16, 2026)
 
-See [`docs/ai/PHASE1_PLAN.md`](docs/ai/PHASE1_PLAN.md) for full task list with verification steps.
+### Infrastructure (Docker Compose)
+- [x] PostgreSQL 16 service with healthcheck, persistent `pg_data` volume
+- [x] `schema.sql` mount to `/docker-entrypoint-initdb.d/01-schema.sql` for auto-init
+- [x] pgAdmin 4 GUI on port 8080 with `pgadmin_data` volume
+- [x] Backend connects to `postgres` hostname via Docker network (`DATABASE_URL`)
+- [x] `PERSISTENCE_ENABLED=true` in compose env
+- [x] Compose config parses cleanly, all containers healthy
 
-**Summary (10 tasks):**
+### Backend Fixes
+- [x] **`batch_resolve` bug** (`symbol_resolver.py`): Pre-suffixed symbols (`.NS`/`.BO`) were appended with another suffix (e.g. `RELIANCE.NS.NS`). Split resolution path: pre-suffixed → check as-is, bare → try `.NS` then `.BO`.
+- [x] **`schema.sql` seed data** (`schema.sql`): `INSERT INTO quota` specified `id` on `GENERATED ALWAYS AS IDENTITY` column. Removed explicit `id` from insert, uses `SELECT 0, 1000000 WHERE NOT EXISTS`.
+- [x] **PostgresBackend circuit breaker operational**: 3 failures → NullBackend for 60s.
+- [x] **Backend logs**: "PostgreSQL persistence backend initialized (pool: 1–5)"
 
-| # | Task | Verification |
-|---|------|-------------|
-| 1 | Commit 4 Docker fixes | `docker compose up --build` starts clean |
-| 2 | Fix ABC return types (`list_uploads`) | All pytest pass |
-| 3 | Add 6 auth/admin ABC methods | New NullBackend tests pass |
-| 4 | Replace 7 `isinstance` guards with polymorphic calls | Auth + admin endpoints work |
-| 5 | Create `backend/schema.sql` (PG port of D1 schema) | SQL parses in psql |
-| 6 | Add `DATABASE_URL` + `is_render()` selection logic | Correct backend selected per env |
-| 7 | Create `PostgresBackend` class with all 17 methods | All persistence tests pass |
-| 8 | Add PostgreSQL service to Docker Compose | `pg_isready` returns OK |
-| 9 | Update `.env.local` | Backend logs "PostgreSQL initialized" |
-| 10 | Verify end-to-end (pytest + Docker smoke test + upload history + auth) | Full integration green |
+### Frontend Fixes
+- [x] **Capital input frozen at 0** (`Dashboard.jsx`):
+  - Changed `useState(0)` → `useState('')` (shows placeholder "Capital")
+  - Added `isNaN` guard in onChange handler
+  - Added `localStorage` persistence (`backtest_capital` key)
+  - `onBlur` auto-fills ₹1,00,000 if left empty
 
-**Phase 2 (deferred):** Smart refresh — kill cross-session FileHashCache, add `bulk_gapfill` to DataProvider, add `get_report_by_hash`/`update_signal` to persistence.
+### Admin Setup
+- [x] Account `test@test.com` / `TestPass123!` registered and promoted to admin
+- [x] Admin panel at `/dashboard/admin` (users table, plan toggle, session revoke)
 
-## 4. How to Check Work Status
-Ask: "check workstatus" → I'll show the task table above with completion status.
+### E2E Verification
+- [x] API login works: `POST /api/auth/login` returns token with `is_admin: true`
+- [x] Backtest via API: 2/2 success (RELIANCE.NS, TCS.NS)
+- [x] PostgreSQL persistence: `ingestion_log` (1), `uploads` (1), `signal_hashes` (2 records)
+- [x] All 59/59 tests pass
 
-## 5. Architecture Decisions (Recorded)
+---
+
+## 2. Known Issues / Backlog
+
+### High Priority
+| ID | Issue | Location | Est. Effort |
+|----|-------|----------|-------------|
+| B1 | Auth component doesn't refresh `is_admin` after promotion — requires re-login | Frontend `auth.js` / `localStorage` | 1h |
+| B2 | `uploads.status` stays `pending` after signals saved — should be `completed` | `backend/main.py:_persist_upload()` | 30m |
+| B3 | No frontend unit test runner configured — can't verify Dashboard calculations | Frontend infra | 4h |
+| B4 | `verify_regression.py` has 0.01 floating-point noise between bulk/sequential | `backend/tests/verify_regression.py` | 1h |
+
+### Medium Priority
+| ID | Issue | Location | Est. Effort |
+|----|-------|----------|-------------|
+| M1 | Pydantic v2 `.dict()` deprecation warnings across models | `backend/models/schemas.py` + usage | 2h |
+| M2 | `capitalReturn` column in Dashboard stats table still labeled "Avg Profit/Trade" (confusing) | `frontend/src/components/Dashboard.jsx` | 30m |
+| M3 | No `symbol_freshness` table queried — gapfill readiness column exists but unused | `backend/persistence.py` | 2h |
+| M4 | Cache info (`bulk_hits`, `row_hash_misses`) not exposed in API response yet | `backend/core/backtester.py` + models | 3h |
+
+### Low Priority
+| ID | Issue | Location | Est. Effort |
+|----|-------|----------|-------------|
+| L1 | Node 18 in Dockerfile — Vite 7 requires Node 20.19+; build warns but succeeds | `Dockerfile.frontend` | 30m |
+| L2 | Chrome console: `[WS] Closed: 1005` after backtest complete (benign) | Frontend `api.js` | 1h |
+| L3 | Copyright year hardcoded to 2024 in landing page footer | `LandingPage.jsx` | 5m |
+| L4 | Console logs remaining in `api.js` (WS connection) and `sync.js` (IndexedDB) | `frontend/src/services/` | 15m |
+
+---
+
+## 3. Architecture Decisions
 
 | Decision | Detail |
 |----------|--------|
-| Gapfill lives in DataProvider | Not a separate file — 2 new static methods, ~50 LOC |
-| `is_render()` is the switch | `True` → D1WorkerBackend (Render), `False` → PostgresBackend (local Docker) |
-| No `version: '3.8'` in compose | Already removed; schema version implicit in Compose v2+ |
-| FileHashCache stays in Phase 1 | Smart refresh is Phase 2 work |
-| Auth cache stays in-memory | 60s TTL dict in `main.py`; uses `auth_validate` ABC call |
+| **Docker-only for local dev** | 4 containers: postgres, backend, frontend, pgadmin. Native `npm run dev`/`uvicorn` still works with `PERSISTENCE_ENABLED=false` |
+| **PostgresBackend over D1WorkerBackend** | Local dev uses PostgreSQL; Render production would use D1WorkerBackend if `is_render()` returns True |
+| **App/infra separation** | `schema.sql` init via Docker entrypoint, not app code. Backend connects via `DATABASE_URL` env var |
+| **pgAdmin over Adminer** | Full-featured GUI with tree view, ERD, query builder. 200MB vs 5MB, but better UX |
+| **Circuit breaker pattern** | 3 consecutive PG failures → silence for 60s. `statement_timeout=3000` on every query |
 
-## 6. Testing
+---
+
+## 4. Quick Resume Commands
+
 ```powershell
-cd "D:\AI\Stock Market\ChartInk\BacktestBaba\backend"
-.\venv\Scripts\Activate.ps1
-pytest tests/ -v --asyncio-mode=auto
+# Start everything
+docker compose up -d --build
 
-cd "D:\AI\Stock Market\ChartInk\BacktestBaba\frontend"
-npm run build
+# Run tests inside backend container
+docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
+
+# View backend logs
+docker compose logs -f backend
+
+# Access PostgreSQL
+docker compose exec postgres psql -U backtest -d backtestbaba
+
+# Promote a user to admin
+docker compose exec postgres psql -U backtest -d backtestbaba -c "UPDATE users SET is_admin=TRUE, plan='priority', max_signals=5000, max_file_size_mb=10 WHERE email='user@email.com';"
+
+# Rebuild just one service
+docker compose up -d --build frontend
 ```
-
-## 7. Pre-existing Issues
-- `verify_regression.py` has 0.01 floating-point noise between bulk/sequential modes
-- `test_integration.py` calls non-existent `Backtester.run_backtest` (should be `run_backtest_async`)
-- Pydantic v2 `.dict()` deprecation warnings (pre-existing)
