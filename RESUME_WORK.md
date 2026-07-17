@@ -1,8 +1,9 @@
-# BacktestBaba — Work State (2026-07-16)
+# BacktestBaba — Work State (2026-07-17)
 
-**Branch:** `feat/pg-persistence`  
-**Status:** PostgreSQL persistence — COMPLETE AND VERIFIED  
-**Next:** Frontend polish + backlog items below
+**Branch:** `feat/pg-persistence`
+**Status:** Latest Return (Phase 1) — COMPLETE AND VERIFIED
+**Next:** Master Storage (Phase 2) — schema + cache orchestration ready, WS auth plumbed
+**Test Count:** Backend 77/77, Frontend 16/16, verify_regression SUCCESS, Build OK
 
 ---
 
@@ -10,7 +11,7 @@
 
 ```powershell
 cd "D:\AI\Stock Market\ChartInk\BacktestBaba"
-docker compose up -d --build    # Start all 4 services
+docker compose up -d --build    # Start all 4 services (rebuild after code changes)
 ```
 
 | Service | URL | Credentials |
@@ -28,99 +29,143 @@ docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
 
 ---
 
-## 1. Completed This Session (Jul 16, 2026)
+## 1. Completed This Session (Jul 17, 2026)
 
-### Infrastructure (Docker Compose)
-- [x] PostgreSQL 16 service with healthcheck, persistent `pg_data` volume
-- [x] `schema.sql` mount to `/docker-entrypoint-initdb.d/01-schema.sql` for auto-init
-- [x] pgAdmin 4 GUI on port 8080 with `pgadmin_data` volume
-- [x] Backend connects to `postgres` hostname via Docker network (`DATABASE_URL`)
-- [x] `PERSISTENCE_ENABLED=true` in compose env
-- [x] Compose config parses cleanly, all containers healthy
+### 🔴 Phase 1: Latest Return Column (P0 — Shipped)
 
-### Backend Fixes
-- [x] **`batch_resolve` bug** (`symbol_resolver.py`): Pre-suffixed symbols (`.NS`/`.BO`) were appended with another suffix (e.g. `RELIANCE.NS.NS`). Split resolution path: pre-suffixed → check as-is, bare → try `.NS` then `.BO`.
-- [x] **`schema.sql` seed data** (`schema.sql`): `INSERT INTO quota` specified `id` on `GENERATED ALWAYS AS IDENTITY` column. Removed explicit `id` from insert, uses `SELECT 0, 1000000 WHERE NOT EXISTS`.
-- [x] **PostgresBackend circuit breaker operational**: 3 failures → NullBackend for 60s.
-- [x] **Backend logs**: "PostgreSQL persistence backend initialized (pool: 1–5)"
+**Backend (`backend/`)**
 
-### Frontend Fixes
-- [x] **Capital input frozen at 0** (`Dashboard.jsx`):
-  - Changed `useState(0)` → `useState('')` (shows placeholder "Capital")
-  - Added `isNaN` guard in onChange handler
-  - Added `localStorage` persistence (`backtest_capital` key)
-  - `onBlur` auto-fills ₹1,00,000 if left empty
+| What | Files Changed | Detail |
+|------|--------------|--------|
+| `latest_price`, `latest_price_date`, `latest_price_return` on SignalResult | `models/schemas.py` | 3 new Optional[float/str] fields |
+| `latest_price_date`, `cache_source` on BacktestReport | `models/schemas.py` | Report-level date aggregation + cache source tracking |
+| `get_latest_prices_batch(symbols)` | `core/data_provider.py` | Bulk yf.download(period="5d") + per-symbol fallback + 5min diskcache |
+| `check_and_set_refresh(symbol)` | `core/data_provider.py` | Diskcache-level thundering herd guard |
+| Latest price integration after Phase C | `core/backtester.py` | Computes latest_price_return with `entry_price > 0` guard |
+| L1 freshness check on cache hit | `main.py` | Background refresh if `latest_price_date < today` |
+| `cache_source` tracking (`l1_diskcache` / `l2_db` / `l3_compute`) | `main.py` | Set at end of each cache path |
+| `FileHashCache.delete()` | `storage.py` | New method for L2→L1 cache invalidation |
 
-### Admin Setup
-- [x] Account `test@test.com` / `TestPass123!` registered and promoted to admin
-- [x] Admin panel at `/dashboard/admin` (users table, plan toggle, session revoke)
+**Frontend (`frontend/src/`)**
 
-### E2E Verification
-- [x] API login works: `POST /api/auth/login` returns token with `is_admin: true`
-- [x] Backtest via API: 2/2 success (RELIANCE.NS, TCS.NS)
-- [x] PostgreSQL persistence: `ingestion_log` (1), `uploads` (1), `signal_hashes` (2 records)
-- [x] All 59/59 tests pass
+| What | Files Changed | Detail |
+|------|--------------|--------|
+| "Latest Return" sortable column | `components/Dashboard.jsx` | After 3 Month Return, uses `getColorClass` + `formatPercent` |
+| Removed "Mode" column | `components/Dashboard.jsx` | Header + body cell deleted |
+| Clean "Trade Log" header | `components/Dashboard.jsx` | Removed hint text span |
+| Stale price disclaimer | `components/Dashboard.jsx` | "Prices may be delayed" below pagination |
+| WS token plumbing (`?token=xxx`) | `services/api.js` | getToken() added to WS URL, HTTP, mobile fallback |
 
----
+**Master Storage Schema (Phase 2 ready)**
 
-## 2. Known Issues / Backlog
+| What | Files Changed | Detail |
+|------|--------------|--------|
+| 4 new tables + 3 indexes | `schema.sql` | `resolved_symbols`, `symbol_data_freshness` (with `idx_sdf_refresh`), `file_upload_map`, `signal_results` |
+| 9 new ABC methods | `persistence.py` | All 4 backends: `get_upload_by_user_and_hash`, `get_signals_for_upload`, `batch_upsert_signals` (multi-row INSERT, 30s timeout), `get_resolved_symbols`, `set_resolved_symbols`, `get_symbol_freshness_batch`, `batch_update_latest_prices`, `get_upload_status`, `set_ingestion_user` |
 
-### High Priority
-| ID | Issue | Location | Est. Effort |
-|----|-------|----------|-------------|
-| B1 | Auth component doesn't refresh `is_admin` after promotion — requires re-login | Frontend `auth.js` / `localStorage` | 1h |
-| B2 | `uploads.status` stays `pending` after signals saved — should be `completed` | `backend/main.py:_persist_upload()` | 30m |
-| B3 | No frontend unit test runner configured — can't verify Dashboard calculations | Frontend infra | 4h |
-| B4 | `verify_regression.py` has 0.01 floating-point noise between bulk/sequential | `backend/tests/verify_regression.py` | 1h |
+**Auth & User Plumbing**
 
-### Medium Priority
-| ID | Issue | Location | Est. Effort |
-|----|-------|----------|-------------|
-| M1 | Pydantic v2 `.dict()` deprecation warnings across models | `backend/models/schemas.py` + usage | 2h |
-| M2 | `capitalReturn` column in Dashboard stats table still labeled "Avg Profit/Trade" (confusing) | `frontend/src/components/Dashboard.jsx` | 30m |
-| M3 | No `symbol_freshness` table queried — gapfill readiness column exists but unused | `backend/persistence.py` | 2h |
-| M4 | Cache info (`bulk_hits`, `row_hash_misses`) not exposed in API response yet | `backend/core/backtester.py` + models | 3h |
+| What | Detail |
+|------|--------|
+| WS token validation | `?token=` query param → `_validate_token()` → user.id → 4001 on invalid |
+| HTTP token validation | `Authorization: Bearer` header → optional, falls back to anonymous |
+| Anonymous guest mode | No token → `user_id = "anonymous"` → L3-only access |
+| user_id threading | Through `_handle_backtest()` + `_persist_upload()` + dual-write to `signal_results` |
 
-### Low Priority
-| ID | Issue | Location | Est. Effort |
-|----|-------|----------|-------------|
-| L1 | Node 18 in Dockerfile — Vite 7 requires Node 20.19+; build warns but succeeds | `Dockerfile.frontend` | 30m |
-| L2 | Chrome console: `[WS] Closed: 1005` after backtest complete (benign) | Frontend `api.js` | 1h |
-| L3 | Copyright year hardcoded to 2024 in landing page footer | `LandingPage.jsx` | 5m |
-| L4 | Console logs remaining in `api.js` (WS connection) and `sync.js` (IndexedDB) | `frontend/src/services/` | 15m |
+### Agent Delegation Log
+- Agent A (Backend Core): schemas.py, data_provider.py, backtester.py, storage.py ✅
+- Agent B (Frontend Dashboard): Dashboard.jsx ✅
+- Agent C (Storage Schema): schema.sql, persistence.py ✅
+- Agent D (Frontend Auth): api.js ✅
+- Agent E (main.py orchestration): WS/HTTP auth, L1/L2/L3 cache, lifespan migration ✅
+- Agent F (Test files): test_latest_price.py, test_master_storage.py, test_latest_return.test.js ✅
 
----
+### Test Results
+| Suite | Count | Status |
+|-------|-------|--------|
+| Backend pytest | 77/77 passed | ✅ |
+| Frontend vitest | 16/16 passed (7 Dashboard + 9 Latest Return) | ✅ |
+| Frontend build | `npm run build` succeeds | ✅ |
+| verify_regression | "SUCCESS: Both methods produced exactly identical reports!" | ✅ |
 
-## 3. Architecture Decisions
-
-| Decision | Detail |
-|----------|--------|
-| **Docker-only for local dev** | 4 containers: postgres, backend, frontend, pgadmin. Native `npm run dev`/`uvicorn` still works with `PERSISTENCE_ENABLED=false` |
-| **PostgresBackend over D1WorkerBackend** | Local dev uses PostgreSQL; Render production would use D1WorkerBackend if `is_render()` returns True |
-| **App/infra separation** | `schema.sql` init via Docker entrypoint, not app code. Backend connects via `DATABASE_URL` env var |
-| **pgAdmin over Adminer** | Full-featured GUI with tree view, ERD, query builder. 200MB vs 5MB, but better UX |
-| **Circuit breaker pattern** | 3 consecutive PG failures → silence for 60s. `statement_timeout=3000` on every query |
+### Spec Documents (Amended)
+- `docs/decisions/ADR-002-master-storage.md` — V2: Phase 1/Phase 2 split, mid-day handling, review findings
+- `docs/specs/SPEC_MASTER_STORAGE.md` — V2: Latest Return #1, mid-day edge case table, chronological ordering
+- `docs/specs/TASK_MASTER_STORAGE.md` — V2: 3-phase Kaizen, 29h total, independent ship gates
+- `docs/specs/VERIFICATION_MASTER_STORAGE.md` — V2: Scenario 2 (mid-day), Scenario 3 (yfinance failure)
 
 ---
 
-## 4. Quick Resume Commands
+## 2. Requirement Traceability Matrix
+
+| Spec Requirement | Status | Code Location | Test |
+|-----------------|--------|-------------|------|
+| Latest Return column in TradeLog | ✅ | `Dashboard.jsx:475-477, 516-521` | `test_latest_return.test.js` |
+| `latest_price_return = ((price - entry) / entry) * 100` | ✅ | `backtester.py:503-523` | `test_latest_price.py:test_latest_price_return_*` |
+| Mid-day handling: last COMPLETE daily bar | ✅ | `data_provider.py:get_latest_prices_batch()` | `test_latest_price.py:test_mid_day_date_not_future` |
+| yfinance failure → None (no crash) | ✅ | `data_provider.py:get_latest_prices_batch()` try/except | `test_latest_price.py:test_get_latest_prices_batch_nonexistent` |
+| `entry_price=0` → no div by zero | ✅ | `backtester.py:latest_price_return` guard | `test_latest_price.py:test_latest_price_return_zero_entry` |
+| `latest_price_date` on report + per-trade | ✅ | `schemas.py:46-48, 81-82` | `test_latest_price.py:test_report_latest_price_date` |
+| `cache_source` tracking | ✅ | `main.py:_handle_backtest` all 3 paths | `test_latest_price.py:test_cache_source_field` |
+| Remove Mode column | ✅ | `Dashboard.jsx:465-467, 493-497 deleted` | Visual |
+| Clean "Trade Log" header | ✅ | `Dashboard.jsx:423` | Visual |
+| Stale price disclaimer | ✅ | `Dashboard.jsx:541-545` | Visual |
+| WS token auth | ✅ | `main.py:websocket_endpoint` | Manual: invalid token → 4001 |
+| HTTP token auth | ✅ | `main.py:run_backtest_endpoint` | Manual |
+| Anonymous guest mode | ✅ | `main.py:websocket_endpoint` user_id="anonymous" | Manual |
+| 4 new DB tables | ✅ | `schema.sql:106-166` | N/A (schema) |
+| 9 new persistence methods | ✅ | `persistence.py` all 4 classes | `test_master_storage.py` |
+| `batch_upsert_signals` multi-row INSERT | ✅ | `persistence.py:PostgresBackend` | `test_master_storage.py` |
+| `next_refresh_at` initialized to NOW()-1 day | ✅ | `schema.sql:121` | N/A (schema) |
+| `idx_sdf_refresh` index | ✅ | `schema.sql:128` | N/A (schema) |
+| `ingestion_log.user_id` linkage | ✅ | `persistence.py:set_ingestion_user` | `test_master_storage.py` |
+| `FileHashCache.delete()` method | ✅ | `storage.py:49-55` | N/A (used by main.py) |
+| `deepdiff` dependency | ✅ | `requirements.txt:52` | `verify_regression.py` |
+
+---
+
+## 3. Known Issues / Backlog (Remaining)
+
+| ID | Issue | Location | Priority |
+|----|-------|----------|----------|
+| L3 | Copyright year hardcoded to 2024 in landing page footer | `LandingPage.jsx` | Low |
+| P1 | Account deletion API (pre-mortem item) | Not implemented | Tracked |
+| R5 | D1WorkerBackend stubs for 9 new methods | `persistence.py` | Must implement before Render deploy |
+
+---
+
+## 4. Next Steps (Phase 2 — Master Storage)
+
+| Step | What | Est. |
+|------|------|------|
+| 1 | Deploy Phase 1 (Latest Return) to production | — |
+| 2 | Implement L2 cache orchestration in `_handle_backtest` | Already wired (test with PG) |
+| 3 | Implement L3 partial cache (resolved_symbols + symbol_data_freshness) | Already wired (test with PG) |
+| 4 | Thundering herd E2E test via concurrent requests | 2h |
+| 5 | Dual-write migration test (signal_hashes == signal_results) | 1h |
+| 6 | Implement D1WorkerBackend real endpoints for 9 new methods | 4h |
+| 7 | Pre-mortem closure (Scenario F concurrent, Scenario G partial crash) | 3h |
+
+---
+
+## 5. Quick Resume Commands
 
 ```powershell
-# Start everything
+# Rebuild + start (after code changes)
 docker compose up -d --build
 
-# Run tests inside backend container
+# Run all tests
 docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
+
+# Run frontend tests + build
+cd frontend; npm run test; npm run build
+
+# Verify regression
+docker compose exec backend python backend/tests/verify_regression.py
 
 # View backend logs
 docker compose logs -f backend
 
 # Access PostgreSQL
 docker compose exec postgres psql -U backtest -d backtestbaba
-
-# Promote a user to admin
-docker compose exec postgres psql -U backtest -d backtestbaba -c "UPDATE users SET is_admin=TRUE, plan='priority', max_signals=5000, max_file_size_mb=10 WHERE email='user@email.com';"
-
-# Rebuild just one service
-docker compose up -d --build frontend
 ```

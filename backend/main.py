@@ -3,7 +3,10 @@ import logging
 import os
 import math
 import time
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File, Form, Header, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +33,20 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await _init_backend()
+    # Run schema migrations for new tables (idempotent)
+    try:
+        if PERSISTENCE_ENABLED and not is_render() and DATABASE_URL:
+            from backend.persistence import PostgresBackend
+            if isinstance(persistence_backend, PostgresBackend):
+                import asyncpg
+                dsn = DATABASE_URL
+                conn = await asyncpg.connect(dsn)
+                schema_path = Path(__file__).parent / "schema.sql"
+                await conn.execute(schema_path.read_text())
+                await conn.close()
+                logger.info("Schema migration executed (new tables created if not exist)")
+    except Exception:
+        logger.warning("Schema migration failed (non-blocking, tables may already exist)")
     yield
     await persistence_backend.close()
 
@@ -54,6 +71,16 @@ async def _init_backend():
         logger.warning("PERSISTENCE_ENABLED=True but no backend configured. Falling back to NullBackend.")
 
 app = FastAPI(title="Stock Screener Backtester Pro", lifespan=lifespan)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc: Exception):
+    logger.exception("Unhandled exception in %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Please try again later."}
+    )
+
 
 cors_origins = os.environ.get(
     "CORS_ORIGINS",
@@ -170,7 +197,7 @@ async def get_symbol_prices(symbol: str, start: str = None, end: str = None):
         candidates = [f"{symbol}.NS", f"{symbol}.BO"]
 
     for s in candidates:
-        df = await asyncio.to_thread(DataProvider.get_ticker_data, s, start, end)
+        df = await asyncio.wait_for(asyncio.to_thread(DataProvider.get_ticker_data, s, start, end), timeout=30)
         if df is not None and not df.empty:
             prices = []
             for idx, row in df.iterrows():
@@ -203,18 +230,26 @@ async def _persist_upload(
     entry_mode: str,
     report: BacktestReport,
     ingestion_id: str,
+    user_id: Optional[str] = None,
+    duration: int = 90,
 ) -> None:
     try:
-        record = UploadRecord(file_hash, filename, entry_mode, len(report.trades))
+        record = UploadRecord(file_hash, filename, entry_mode, len(report.trades), user_id=user_id or "")
         upload_id = await persistence_backend.save_upload(record)
         if not upload_id:
             await persistence_backend.update_ingestion_status(ingestion_id, "failed")
             return
 
+        if user_id and user_id != "anonymous":
+            try:
+                await persistence_backend.set_file_upload_map(user_id, file_hash, entry_mode, upload_id)
+            except Exception:
+                logger.exception("file_upload_map insert failed (non-blocking)")
+
         trade_records = []
         for t in report.trades:
             trade_records.append(TradeRecord(
-                row_hash=compute_row_hash(t.symbol, t.signal_date, entry_mode),
+                row_hash=compute_row_hash(t.symbol, t.signal_date, entry_mode, duration),
                 symbol=t.symbol,
                 signal_date=t.signal_date,
                 entry_date=t.entry_date,
@@ -224,8 +259,40 @@ async def _persist_upload(
                 results_json=_build_results_json(t),
             ))
 
-        result = await persistence_backend.save_signals(upload_id, trade_records)
+        result = await persistence_backend.save_signals(upload_id, trade_records, user_id=user_id)
+        if result:
+            await persistence_backend.set_upload_status(upload_id, "completed")
         status = "completed" if result else "failed"
+
+        # Also write to signal_results (new table) for Phase 2 L2 reads
+        if result and user_id and user_id != "anonymous":
+            try:
+                signal_data = []
+                for t in report.trades:
+                    signal_data.append({
+                        "id": str(uuid.uuid4()),
+                        "user_id": user_id,
+                        "row_hash": compute_row_hash(t.symbol, t.signal_date, entry_mode, duration),
+                        "upload_id": upload_id,
+                        "symbol": t.symbol,
+                        "signal_date": t.signal_date,
+                        "entry_date": t.entry_date,
+                        "entry_price": t.entry_price,
+                        "entry_mode": entry_mode,
+                        "duration": duration,
+                        "results_json": _build_results_json(t),
+                        "max_high_90d": t.max_high_90d,
+                        "max_low_90d": t.max_low_90d,
+                        "sector": t.sector,
+                        "market_cap": t.market_cap,
+                        "status": t.status,
+                        "latest_price": t.latest_price,
+                        "latest_price_date": t.latest_price_date,
+                    })
+                await persistence_backend.batch_upsert_signals(user_id, signal_data)
+            except Exception:
+                logger.exception("signal_results dual-write failed (non-blocking)")
+
     except Exception:
         logger.exception("Persistence failed after backtest (non-blocking)")
         status = "failed"
@@ -241,6 +308,7 @@ async def _handle_backtest(
     entry_mode: str,
     progress_callback=None,
     filename: str = "upload",
+    user_id: Optional[str] = None,
 ):
     """Shared backtest logic for WS and HTTP endpoints."""
     _check_file_size(data)
@@ -250,6 +318,34 @@ async def _handle_backtest(
     cached = FileHashCache.get(file_hash, entry_mode)
     if cached is not None:
         logger.info("Returning cached report for file_hash=%s", file_hash[:12])
+
+        # ── L1 freshness check: refresh latest prices if stale ──
+        try:
+            from backend.core.data_provider import DataProvider
+            cached_latest_date = cached.get("latest_price_date")
+            if cached_latest_date and cached_latest_date < datetime.now().strftime("%Y-%m-%d"):
+                logger.info("L1 cache stale — refreshing latest prices")
+                all_symbols = list(set(t.get("symbol") for t in cached.get("trades", []) if t.get("status") == "Success"))
+                if all_symbols:
+                    fresh_prices = await asyncio.to_thread(DataProvider.get_latest_prices_batch, all_symbols)
+                    latest_dates = []
+                    for t in cached.get("trades", []):
+                        if t.get("status") == "Success" and t.get("symbol") in fresh_prices:
+                            price, date_str = fresh_prices[t["symbol"]]
+                            if price is not None:
+                                t["latest_price"] = price
+                                t["latest_price_date"] = date_str
+                                if t.get("entry_price") and t["entry_price"] > 0:
+                                    t["latest_price_return"] = round(((price - t["entry_price"]) / t["entry_price"]) * 100, 2)
+                                latest_dates.append(date_str)
+                    if latest_dates:
+                        cached["latest_price_date"] = max(latest_dates)
+                    cached["cache_source"] = "l1_diskcache"
+                    FileHashCache.set(file_hash, entry_mode, cached)
+        except Exception:
+            logger.exception("L1 freshness check failed (non-blocking)")
+        cached["cache_source"] = cached.get("cache_source", "l1_diskcache")
+
         if progress_callback is not None:
             trades = cached.get("trades", [])
             batch_size = Limits.BATCH_SIZE
@@ -262,6 +358,115 @@ async def _handle_backtest(
                 )
         return BacktestReport(**cached) if progress_callback is not None else cached
 
+    # ── L2 cache check (DB) ─────────────────────────────────
+    if PERSISTENCE_ENABLED and user_id and user_id != "anonymous":
+        try:
+            upload_data = await persistence_backend.get_upload_by_user_and_hash(user_id, file_hash, entry_mode)
+            if upload_data and upload_data.get("status") == "completed":
+                upload_id = upload_data["id"]
+                logger.info("L2 cache HIT for file_hash=%s user=%s", file_hash[:12], user_id[:8])
+
+                signals_data = await persistence_backend.get_signals_for_upload(upload_id)
+                if signals_data:
+                    # Reconstruct BacktestReport from stored signal_results
+                    trades = []
+                    for sd in signals_data:
+                        results = {}
+                        try:
+                            import json
+                            results = json.loads(sd.get("results_json", "{}"))
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                        trade = {
+                            "symbol": sd.get("symbol", ""),
+                            "signal_date": sd.get("signal_date", ""),
+                            "entry_date": sd.get("entry_date"),
+                            "entry_price": sd.get("entry_price") or 0.0,
+                            "entry_mode": sd.get("entry_mode", entry_mode),
+                            "status": sd.get("status", "Success"),
+                            "sector": sd.get("sector"),
+                            "market_cap": sd.get("market_cap"),
+                            "max_high_90d": sd.get("max_high_90d"),
+                            "max_low_90d": sd.get("max_low_90d"),
+                            "latest_price": sd.get("latest_price"),
+                            "latest_price_date": str(sd.get("latest_price_date") or "")[:10] if sd.get("latest_price_date") else None,
+                            "latest_price_return": None,
+                        }
+                        # Set horizon returns from results_json
+                        for h in (7, 14, 30, 45, 60, 90):
+                            ret_key = f"return_{h}d"
+                            exit_key = f"exit_price_{h}d"
+                            if ret_key in results:
+                                trade[ret_key] = results[ret_key]
+                            if exit_key in results:
+                                trade[exit_key] = results[exit_key]
+                        # Extract additional stored fields
+                        for field in ("signal_close_price", "max_high_date", "max_low_date"):
+                            if field in results:
+                                trade[field] = results[field]
+                        trades.append(trade)
+
+                    # Refresh latest prices
+                    from backend.core.data_provider import DataProvider
+                    all_symbols = list(set(t["symbol"] for t in trades if t["status"] == "Success"))
+                    if all_symbols:
+                        fresh_prices = await asyncio.to_thread(DataProvider.get_latest_prices_batch, all_symbols)
+                        latest_dates = []
+                        for t in trades:
+                            if t["status"] == "Success" and t["symbol"] in fresh_prices:
+                                price, date_str = fresh_prices[t["symbol"]]
+                                if price is not None:
+                                    t["latest_price"] = price
+                                    t["latest_price_date"] = date_str
+                                    if t.get("entry_price") and t["entry_price"] > 0:
+                                        t["latest_price_return"] = round(((price - t["entry_price"]) / t["entry_price"]) * 100, 2)
+                                    latest_dates.append(date_str)
+
+                    # Compute stats
+                    successful_trades = [t for t in trades if t["status"] == "Success"]
+                    total_signals = len(trades)
+                    successful_count = len(successful_trades)
+                    failed_count = total_signals - successful_count
+
+                    # Build SignalResult objects with proper error handling
+                    report_trades = []
+                    for t in trades:
+                        try:
+                            from backend.models.schemas import SignalResult
+                            report_trades.append(SignalResult(**t))
+                        except Exception as e:
+                            logger.warning("Trade %s failed validation in L2 reconstruction: %s", t.get("symbol", "?"), e)
+
+                    report = BacktestReport(
+                        total_signals=total_signals,
+                        successful_signals=successful_count,
+                        failed_signals=failed_count,
+                        entry_mode=entry_mode,
+                        trades=report_trades,
+                        latest_price_date=max(latest_dates) if latest_dates else None,
+                        cache_source="l2_db",
+                        cache_stats=DataProvider.get_cache_stats(),
+                    )
+
+                    # Invalidate + rewrite L1 cache
+                    FileHashCache.delete(file_hash, entry_mode)
+                    FileHashCache.set(file_hash, entry_mode, report.model_dump())
+
+                    if progress_callback is not None:
+                        batch_size = Limits.BATCH_SIZE
+                        for i in range(0, len(trades), batch_size):
+                            batch_trades = trades[i:i + batch_size]
+                            await progress_callback(
+                                i, len(trades),
+                                f"Loading {i + len(batch_trades)}/{len(trades)} trades from cache...",
+                                trades=batch_trades
+                            )
+
+                    return report
+        except Exception:
+            logger.exception("L2 cache check failed (non-blocking, falling back to L3)")
+
+    # ── L3: Full backtest computation ────────────────────────
     signals = parse_upload_data(data)
 
     ingestion_id = None
@@ -273,6 +478,12 @@ async def _handle_backtest(
                 original_filename=filename,
                 file_size=len(data),
             )
+            # Link ingestion to user
+            if ingestion_id and user_id and user_id != "anonymous":
+                try:
+                    await persistence_backend.set_ingestion_user(ingestion_id, user_id)
+                except Exception:
+                    pass
         except Exception:
             logger.warning("Ingestion log write failed (non-blocking)")
 
@@ -290,15 +501,17 @@ async def _handle_backtest(
         entry_mode=entry_mode,
         run_id=run_id,
         job_store=job_store,
+        persistence_backend=persistence_backend if PERSISTENCE_ENABLED else None,
     )
 
-    report_dict = report.dict()
+    report_dict = report.model_dump()
+    report.cache_source = "l3_compute"
     FileHashCache.set(file_hash, entry_mode, report_dict)
     job_store.cleanup()
 
     if PERSISTENCE_ENABLED and ingestion_id:
         try:
-            await _persist_upload(file_hash, filename, entry_mode, report, ingestion_id)
+            await _persist_upload(file_hash, filename, entry_mode, report, ingestion_id, user_id=user_id)
         except Exception:
             logger.exception("Persistence failed after backtest (non-blocking)")
 
@@ -309,6 +522,16 @@ async def _handle_backtest(
 async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close"):
     await websocket.accept()
     stop_event = asyncio.Event()
+
+    # ── Token validation ────────────────────────────────────
+    user_id = "anonymous"
+    token = websocket.query_params.get("token")
+    if token:
+        user = await _validate_token(token)
+        if user is None:
+            await websocket.close(code=4001, reason="Invalid or expired token")
+            return
+        user_id = user.get("id", "anonymous")
 
     async def keepalive():
         while not stop_event.is_set():
@@ -345,8 +568,8 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
                 pass
 
         try:
-            report = await _handle_backtest(data, entry_mode, progress_callback=on_progress, filename="websocket_upload")
-            report_dict = report.dict()
+            report = await _handle_backtest(data, entry_mode, progress_callback=on_progress, filename="websocket_upload", user_id=user_id)
+            report_dict = report.model_dump()
             report_dict.pop("trades", None)
             await websocket.send_json(_clean_nan({
                 "type": "complete",
@@ -369,17 +592,41 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
 
 
 @app.post("/api/backtest", response_model=BacktestReport)
-async def run_backtest_endpoint(file: UploadFile = File(...), entry_mode: str = Form("next_close")):
+async def run_backtest_endpoint(file: UploadFile = File(...), entry_mode: str = Form("next_close"), authorization: str = Header(None)):
     """REST endpoint for backtest — no progress updates, returns full report."""
     try:
         contents = await file.read()
-        report = await _handle_backtest(contents, entry_mode, filename=file.filename or "upload")
+        # Optional auth
+        user_id = "anonymous"
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.removeprefix("Bearer ")
+            user = await _validate_token(token)
+            if user is not None:
+                user_id = user.get("id", "anonymous")
+        report = await _handle_backtest(contents, entry_mode, filename=file.filename or "upload", user_id=user_id)
         return report
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Unhandled error in REST endpoint")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/backtest/sync")
+async def sync_backtest_report(body: dict, authorization: str = Header(None)):
+    """Receives synced backtest report from the frontend for persistence."""
+    if not PERSISTENCE_ENABLED:
+        return {"id": None, "synced": False}
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing auth header")
+    token = authorization.removeprefix("Bearer ")
+    user = await _validate_token(token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    local_id = body.get("localId")
+    if local_id:
+        logger.info("Backtest report sync received: localId=%s user=%s", local_id, user.get("id", "")[:8])
+    return {"id": local_id, "synced": True}
 
 
 # ── Auth Cache ──────────────────────────────────────────────────────────────

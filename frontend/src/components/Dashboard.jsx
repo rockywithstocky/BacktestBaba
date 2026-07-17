@@ -389,7 +389,7 @@ const Dashboard = ({ report, onBack }) => {
                                 <th>Neg. Count</th>
                                 <th>Neg. Median</th>
                                 <th>Neg. Avg</th>
-                                <th>Avg Profit/Trade</th>
+                                 <th>Capital Return</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -420,7 +420,7 @@ const Dashboard = ({ report, onBack }) => {
 
             <div className="trade-log-card">
                 <div className="trade-log-header">
-                    <h3 className="section-title">Trade Log <span className="hint-text">(Hover for date/price, Click to view chart)</span></h3>
+                    <h3 className="section-title">Trade Log</h3>
                     <div className="trade-log-controls">
                         <div className="search-box">
                             <Search size={18} />
@@ -462,9 +462,7 @@ const Dashboard = ({ report, onBack }) => {
                                 <th onClick={() => handleSort('entry_price')}>
                                     Entry {sortConfig.key === 'entry_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th>
-                                    Mode
-                                </th>
+
                                 <th onClick={() => handleSort('return_7d')}>
                                     1 Week Return {sortConfig.key === 'return_7d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
@@ -473,6 +471,9 @@ const Dashboard = ({ report, onBack }) => {
                                 </th>
                                 <th onClick={() => handleSort('return_90d')}>
                                     3 Month Return {sortConfig.key === 'return_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                </th>
+                                <th onClick={() => handleSort('latest_price_return')}>
+                                    Latest Return {sortConfig.key === 'latest_price_return' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
                                 <th onClick={() => handleSort('max_high_90d')}>
                                     Max High {sortConfig.key === 'max_high_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
@@ -490,11 +491,7 @@ const Dashboard = ({ report, onBack }) => {
                                     <td>{trade.signal_close_price ? formatCurrency(trade.signal_close_price) : '-'}</td>
                                     <td>{getEntryDate(trade)}</td>
                                     <td>{formatCurrency(trade.entry_price)}</td>
-                                    <td>
-                                        <span className={`mode-badge ${trade.entry_mode === 'next_open' ? 'open' : 'close'}`}>
-                                            {trade.entry_mode === 'next_open' ? 'Open' : 'Close'}
-                                        </span>
-                                    </td>
+
                                     <td
                                         className={`clickable-cell ${getColorClass(trade.return_7d)}`}
                                         onClick={() => handleCellClick(trade, '7d')}
@@ -516,6 +513,12 @@ const Dashboard = ({ report, onBack }) => {
                                     >
                                         {formatPercent(trade.return_90d)}
                                     </td>
+                                    <td
+                                        className={`clickable-cell ${getColorClass(trade.latest_price_return)}`}
+                                        title={trade.latest_price_date ? `Latest vs Entry: ${formatPercent(trade.latest_price_return)} (as of ${trade.latest_price_date})` : 'Latest return: N/A'}
+                                    >
+                                        {formatPercent(trade.latest_price_return)}
+                                    </td>
                                     <td className="positive" title={`Max High Date: ${trade.max_high_date || 'N/A'}`}>{formatCurrency(trade.max_high_90d)}</td>
                                     <td className="negative" title={`Max Low Date: ${trade.max_low_date || 'N/A'}`}>{formatCurrency(trade.max_low_90d)}</td>
                                 </tr>
@@ -535,6 +538,11 @@ const Dashboard = ({ report, onBack }) => {
                         <ChevronRight size={20} />
                     </button>
                 </div>
+                {report.latest_price_date && (
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                        Latest returns based on close price as of {report.latest_price_date}. Prices may be delayed.
+                    </p>
+                )}
             </div>
         </motion.div>
     );

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { syncReport } from './sync';
+import { getToken } from './auth';
 
 const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : 'https://backtestbaba-api.onrender.com/api');
 const WS_URL = import.meta.env.VITE_WS_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'ws://localhost:8000/ws' : 'wss://backtestbaba-api.onrender.com/ws');
@@ -60,8 +61,11 @@ const runBacktestMobile = async (file, onProgress, onComplete, onError, entryMod
         formData.append('file', file);
         formData.append('entry_mode', entryMode);
 
+        const token = getToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const response = await axios.post(`${API_URL}/backtest`, formData, {
             timeout: HTTP_TIMEOUT,
+            headers,
         });
 
         clearInterval(progressTimer);
@@ -94,8 +98,11 @@ const runBacktestHTTPFallback = async (file, onProgress, onComplete, onError, en
         formData.append('file', file);
         formData.append('entry_mode', entryMode);
 
+        const token = getToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         await axios.post(`${API_URL}/backtest`, formData, {
             timeout: HTTP_TIMEOUT,
+            headers,
         }).then(response => {
             onComplete(response.data);
         });
@@ -111,7 +118,11 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
         return runBacktestMobile(file, onProgress, onComplete, onError, entryMode);
     }
 
-    const ws = new WebSocket(`${WS_URL}/backtest?entry_mode=${entryMode}`);
+    const token = getToken();
+    const wsUrl = token
+        ? `${WS_URL}/backtest?token=${token}&entry_mode=${entryMode}`
+        : `${WS_URL}/backtest?entry_mode=${entryMode}`;
+    const ws = new WebSocket(wsUrl);
     let settled = false;
     let watchdogTimer = null;
 
@@ -202,7 +213,6 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
     };
 
     ws.onclose = (event) => {
-        console.log('[WS] Closed:', event.code, event.reason);
     };
 
     return ws;

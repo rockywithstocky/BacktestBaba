@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import math
+import random
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -12,8 +13,8 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-def compute_row_hash(symbol: str, signal_date: str, entry_mode: str) -> str:
-    raw = f"{symbol}|{signal_date}|{entry_mode}"
+def compute_row_hash(symbol: str, signal_date: str, entry_mode: str, duration: int = 90) -> str:
+    raw = f"{symbol}|{signal_date}|{entry_mode}|{duration}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -50,6 +51,7 @@ class UploadRecord:
     filename: str
     entry_mode: str
     signal_count: int
+    user_id: str = ""
 
 
 @dataclass
@@ -71,8 +73,12 @@ class PersistenceBackend(ABC):
 
     @abstractmethod
     async def save_signals(
-        self, upload_id: str, trades: list[TradeRecord]
+        self, upload_id: str, trades: list[TradeRecord], user_id: Optional[str] = None
     ) -> Optional[dict[str, Any]]:
+        ...
+
+    @abstractmethod
+    async def set_upload_status(self, upload_id: str, status: str) -> Optional[dict]:
         ...
 
     @abstractmethod
@@ -135,6 +141,50 @@ class PersistenceBackend(ABC):
         ...
 
     @abstractmethod
+    async def upsert_symbol_freshness(self, symbol: str, last_fetched: str, data_recency: str) -> None:
+        ...
+
+    @abstractmethod
+    async def set_file_upload_map(self, user_id: str, file_hash: str, entry_mode: str, upload_id: str) -> bool:
+        ...
+
+    @abstractmethod
+    async def get_upload_by_user_and_hash(self, user_id: str, file_hash: str, entry_mode: str) -> Optional[dict]:
+        ...
+
+    @abstractmethod
+    async def get_signals_for_upload(self, upload_id: str) -> list[dict]:
+        ...
+
+    @abstractmethod
+    async def batch_upsert_signals(self, user_id: str, signals: list[dict]) -> int:
+        ...
+
+    @abstractmethod
+    async def get_resolved_symbols(self, input_symbols: list[str]) -> dict[str, Optional[str]]:
+        ...
+
+    @abstractmethod
+    async def set_resolved_symbols(self, mapping: dict[str, str]) -> int:
+        ...
+
+    @abstractmethod
+    async def get_symbol_freshness_batch(self, symbols: list[str]) -> dict[str, dict]:
+        ...
+
+    @abstractmethod
+    async def batch_update_latest_prices(self, updates: dict[str, tuple[float, str]]) -> int:
+        ...
+
+    @abstractmethod
+    async def get_upload_status(self, upload_id: str) -> Optional[str]:
+        ...
+
+    @abstractmethod
+    async def set_ingestion_user(self, ingestion_id: str, user_id: str) -> bool:
+        ...
+
+    @abstractmethod
     async def close(self) -> None:
         ...
 
@@ -144,8 +194,11 @@ class NullBackend(PersistenceBackend):
         return None
 
     async def save_signals(
-        self, upload_id: str, trades: list[TradeRecord]
+        self, upload_id: str, trades: list[TradeRecord], user_id: Optional[str] = None
     ) -> Optional[dict[str, Any]]:
+        return None
+
+    async def set_upload_status(self, upload_id: str, status: str) -> Optional[dict]:
         return None
 
     async def list_uploads(
@@ -200,6 +253,39 @@ class NullBackend(PersistenceBackend):
     async def admin_revoke_sessions(self, user_id: str) -> Optional[dict]:
         return None
 
+    async def set_file_upload_map(self, user_id: str, file_hash: str, entry_mode: str, upload_id: str) -> bool:
+        return False
+
+    async def upsert_symbol_freshness(self, symbol: str, last_fetched: str, data_recency: str) -> None:
+        pass
+
+    async def get_upload_by_user_and_hash(self, user_id: str, file_hash: str, entry_mode: str) -> Optional[dict]:
+        return None
+
+    async def get_signals_for_upload(self, upload_id: str) -> list[dict]:
+        return []
+
+    async def batch_upsert_signals(self, user_id: str, signals: list[dict]) -> int:
+        return 0
+
+    async def get_resolved_symbols(self, input_symbols: list[str]) -> dict[str, Optional[str]]:
+        return {}
+
+    async def set_resolved_symbols(self, mapping: dict[str, str]) -> int:
+        return 0
+
+    async def get_symbol_freshness_batch(self, symbols: list[str]) -> dict[str, dict]:
+        return {}
+
+    async def batch_update_latest_prices(self, updates: dict[str, tuple[float, str]]) -> int:
+        return 0
+
+    async def get_upload_status(self, upload_id: str) -> Optional[str]:
+        return None
+
+    async def set_ingestion_user(self, ingestion_id: str, user_id: str) -> bool:
+        return False
+
     async def close(self) -> None:
         pass
 
@@ -250,13 +336,18 @@ class D1WorkerBackend(PersistenceBackend):
         return None
 
     async def save_signals(
-        self, upload_id: str, trades: list[TradeRecord]
+        self, upload_id: str, trades: list[TradeRecord], user_id: Optional[str] = None
     ) -> Optional[dict[str, Any]]:
         payload = {"upload_id": upload_id, "signals": [asdict(t) for t in trades]}
+        if user_id:
+            payload["user_id"] = user_id
         result = await self._post("/signals", payload)
         if result and "inserted" in result:
             return result
         return None
+
+    async def set_upload_status(self, upload_id: str, status: str) -> Optional[dict]:
+        return await self._patch(f"/uploads/{upload_id}/status", {"status": status})
 
     async def list_uploads(
         self, user_id: Optional[str] = None, limit: int = 20, offset: int = 0
@@ -336,6 +427,39 @@ class D1WorkerBackend(PersistenceBackend):
     async def admin_revoke_sessions(self, user_id: str) -> Optional[dict]:
         return await self._post("/admin/sessions/revoke", {"user_id": user_id})
 
+    async def set_file_upload_map(self, user_id: str, file_hash: str, entry_mode: str, upload_id: str) -> bool:
+        return False
+
+    async def upsert_symbol_freshness(self, symbol: str, last_fetched: str, data_recency: str) -> None:
+        pass
+
+    async def get_upload_by_user_and_hash(self, user_id: str, file_hash: str, entry_mode: str) -> Optional[dict]:
+        return None
+
+    async def get_signals_for_upload(self, upload_id: str) -> list[dict]:
+        return []
+
+    async def batch_upsert_signals(self, user_id: str, signals: list[dict]) -> int:
+        return 0
+
+    async def get_resolved_symbols(self, input_symbols: list[str]) -> dict[str, Optional[str]]:
+        return {}
+
+    async def set_resolved_symbols(self, mapping: dict[str, str]) -> int:
+        return 0
+
+    async def get_symbol_freshness_batch(self, symbols: list[str]) -> dict[str, dict]:
+        return {}
+
+    async def batch_update_latest_prices(self, updates: dict[str, tuple[float, str]]) -> int:
+        return 0
+
+    async def get_upload_status(self, upload_id: str) -> Optional[str]:
+        return None
+
+    async def set_ingestion_user(self, ingestion_id: str, user_id: str) -> bool:
+        return False
+
     async def close(self) -> None:
         try:
             await self._client.aclose()
@@ -348,29 +472,46 @@ def _hash_password(password: str) -> str:
 
 
 class CircuitBreaker:
-    """Simple circuit breaker: after N failures, trips for `cooldown_sec` seconds."""
-    def __init__(self, threshold: int = 3, cooldown_sec: int = 60):
+    """Circuit breaker with half-open state and exponential backoff with jitter.
+
+    - Trips after `threshold` consecutive failures.
+    - Cooldown doubles on each trip (exponential backoff), capped at `max_cooldown`.
+    - Random jitter (±10%) prevents thundering herd on recovery.
+    - Half-open: after cooldown, the next request is allowed as a probe.
+      If it succeeds, the circuit closes. If it fails, it re-opens for another
+      cooldown cycle.
+    """
+    def __init__(self, threshold: int = 3, base_cooldown: int = 60, max_cooldown: int = 600):
         self._threshold = threshold
-        self._cooldown = cooldown_sec
+        self._base_cooldown = base_cooldown
+        self._max_cooldown = max_cooldown
         self._failures = 0
         self._tripped_at = 0.0
+        self._trip_count = 0
 
     @property
     def is_tripped(self) -> bool:
         if self._failures >= self._threshold:
-            if time.monotonic() - self._tripped_at > self._cooldown:
-                self._failures = 0
-                return False
-            return True
+            elapsed = time.monotonic() - self._tripped_at
+            cooldown = min(self._base_cooldown * (2 ** self._trip_count), self._max_cooldown)
+            jitter = random.uniform(0, cooldown * 0.1)
+            if elapsed < cooldown + jitter:
+                return True
+            # Half-open: allow probe. Reset timer so if probe fails,
+            # we don't immediately re-allow.
+            self._tripped_at = time.monotonic()
+            return False
         return False
 
     def record_failure(self):
         self._failures += 1
         if self._failures >= self._threshold:
             self._tripped_at = time.monotonic()
+            self._trip_count += 1
 
     def record_success(self):
         self._failures = 0
+        self._trip_count = 0
 
 
 class PostgresBackend(PersistenceBackend):
@@ -426,18 +567,19 @@ class PostgresBackend(PersistenceBackend):
     async def save_upload(self, record: UploadRecord) -> Optional[str]:
         uid = str(uuid.uuid4())
         result = await self._execute(
-            "INSERT INTO uploads (id, file_hash, filename, entry_mode, signal_count) VALUES ($1,$2,$3,$4,$5)",
-            uid, record.file_hash, record.filename, record.entry_mode, record.signal_count
+            "INSERT INTO uploads (id, user_id, file_hash, filename, entry_mode, signal_count) VALUES ($1,$2,$3,$4,$5,$6)",
+            uid, record.user_id, record.file_hash, record.filename, record.entry_mode, record.signal_count
         )
         return uid if result else None
 
-    async def save_signals(self, upload_id: str, trades: list[TradeRecord]) -> Optional[dict[str, Any]]:
+    async def save_signals(self, upload_id: str, trades: list[TradeRecord], user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         inserted = 0
+        effective_user = user_id or ""
         for t in trades:
             result = await self._execute(
-                "INSERT INTO signal_hashes (id, upload_id, row_hash, symbol, signal_date, entry_date, entry_price, entry_mode, status, results_json) "
-                "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (row_hash) DO NOTHING",
-                str(uuid.uuid4()), upload_id, t.row_hash, t.symbol, t.signal_date,
+                "INSERT INTO signal_hashes (id, upload_id, user_id, row_hash, symbol, signal_date, entry_date, entry_price, entry_mode, status, results_json) "
+                "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT (user_id, row_hash) DO NOTHING",
+                str(uuid.uuid4()), upload_id, effective_user, t.row_hash, t.symbol, t.signal_date,
                 t.entry_date, t.entry_price, t.entry_mode, t.status, t.results_json
             )
             if result and "INSERT" in result:
@@ -445,6 +587,10 @@ class PostgresBackend(PersistenceBackend):
         if inserted:
             await self._execute("UPDATE uploads SET trade_count = trade_count + $1 WHERE id = $2", inserted, upload_id)
         return {"inserted": inserted, "skipped": len(trades) - inserted}
+
+    async def set_upload_status(self, upload_id: str, status: str) -> Optional[dict]:
+        result = await self._execute("UPDATE uploads SET status=$1, updated_at=NOW() WHERE id=$2", status, upload_id)
+        return {"updated": True} if result else None
 
     async def list_uploads(self, user_id: Optional[str] = None, limit: int = 20, offset: int = 0) -> dict[str, Any]:
         if user_id:
@@ -538,6 +684,213 @@ class PostgresBackend(PersistenceBackend):
     async def admin_revoke_sessions(self, user_id: str) -> Optional[dict]:
         result = await self._execute("UPDATE sessions SET revoked=TRUE WHERE user_id=$1", user_id)
         return {"ok": True} if result else None
+
+    async def upsert_symbol_freshness(self, symbol: str, last_fetched: str, data_recency: str) -> None:
+        await self._execute(
+            "INSERT INTO symbol_freshness (symbol, last_fetched, data_recency) "
+            "VALUES ($1, $2, $3) "
+            "ON CONFLICT (symbol) "
+            "DO UPDATE SET last_fetched = $2, data_recency = $3, updated_at = NOW()",
+            symbol, last_fetched, data_recency
+        )
+
+    async def set_file_upload_map(self, user_id: str, file_hash: str, entry_mode: str, upload_id: str) -> bool:
+        result = await self._execute(
+            "INSERT INTO file_upload_map (user_id, file_hash, entry_mode, upload_id) "
+            "VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+            user_id, file_hash, entry_mode, upload_id
+        )
+        return result is not None
+
+    async def get_upload_by_user_and_hash(self, user_id: str, file_hash: str, entry_mode: str) -> Optional[dict]:
+        row = await self._fetchrow(
+            "SELECT u.id, u.file_hash, u.filename, u.entry_mode, u.signal_count, u.trade_count, u.status, u.created_at "
+            "FROM uploads u "
+            "JOIN file_upload_map f ON f.upload_id = u.id "
+            "WHERE f.user_id = $1 AND f.file_hash = $2 AND f.entry_mode = $3",
+            user_id, file_hash, entry_mode
+        )
+        return dict(row) if row else None
+
+    async def get_signals_for_upload(self, upload_id: str) -> list[dict]:
+        row = await self._fetchrow(
+            "SELECT json_agg(json_build_object("
+            "'id', id, 'user_id', user_id, 'row_hash', row_hash, 'symbol', symbol, "
+            "'signal_date', signal_date, 'entry_date', entry_date, 'entry_price', entry_price, "
+            "'entry_mode', entry_mode, 'duration', duration, 'results_json', results_json, "
+            "'max_high_90d', max_high_90d, 'max_low_90d', max_low_90d, "
+            "'sector', sector, 'market_cap', market_cap, 'status', status, "
+            "'latest_price', latest_price, 'latest_price_date', latest_price_date"
+            ") ORDER BY created_at ASC) AS results "
+            "FROM signal_results WHERE upload_id = $1",
+            upload_id
+        )
+        if row and row.get("results"):
+            return row["results"]
+        return []
+
+    async def batch_upsert_signals(self, user_id: str, signals: list[dict]) -> int:
+        """Multi-row INSERT ON CONFLICT. Uses extended timeout (30s) for large batches."""
+        if not signals:
+            return 0
+        if self._circuit.is_tripped or self._pool is None:
+            return 0
+        try:
+            async with self._pool.acquire() as conn:
+                values = []
+                params = []
+                idx = 1
+                for s in signals:
+                    values.append(
+                        f"(${idx},${idx+1},${idx+2},${idx+3},${idx+4},${idx+5},${idx+6},${idx+7},${idx+8},${idx+9},${idx+10},${idx+11},${idx+12},${idx+13},${idx+14},${idx+15})"
+                    )
+                    params.extend([
+                        s.get("id", str(uuid.uuid4())),
+                        user_id,
+                        s.get("row_hash", ""),
+                        s.get("upload_id", ""),
+                        s.get("symbol", ""),
+                        s.get("signal_date", ""),
+                        s.get("entry_date"),
+                        s.get("entry_price"),
+                        s.get("entry_mode", "next_close"),
+                        s.get("duration", 90),
+                        s.get("results_json", "{}"),
+                        s.get("max_high_90d"),
+                        s.get("max_low_90d"),
+                        s.get("sector"),
+                        s.get("market_cap"),
+                        s.get("status", "Success"),
+                    ])
+                    idx += 16
+                query = (
+                    "INSERT INTO signal_results "
+                    "(id, user_id, row_hash, upload_id, symbol, signal_date, entry_date, entry_price, "
+                    "entry_mode, duration, results_json, max_high_90d, max_low_90d, sector, market_cap, status) "
+                    f"VALUES {','.join(values)} "
+                    "ON CONFLICT (user_id, row_hash, duration) DO UPDATE SET "
+                    "updated_at = NOW(), "
+                    "results_json = EXCLUDED.results_json, "
+                    "status = EXCLUDED.status, "
+                    "entry_price = EXCLUDED.entry_price, "
+                    "max_high_90d = EXCLUDED.max_high_90d, "
+                    "max_low_90d = EXCLUDED.max_low_90d, "
+                    "sector = EXCLUDED.sector, "
+                    "market_cap = EXCLUDED.market_cap, "
+                    "latest_price = EXCLUDED.latest_price, "
+                    "latest_price_date = EXCLUDED.latest_price_date "
+                )
+                result = await conn.execute(query, *params, timeout=30)
+            self._circuit.record_success()
+            if result:
+                import re
+                match = re.search(r'INSERT\s+0\s+(\d+)', result)
+                if match:
+                    return int(match.group(1))
+            return len(signals)
+        except Exception:
+            self._circuit.record_failure()
+            logger.warning("batch_upsert_signals failed for %d signals (failure #%d)", len(signals), self._circuit._failures)
+            return 0
+
+    async def get_resolved_symbols(self, input_symbols: list[str]) -> dict[str, Optional[str]]:
+        if not input_symbols:
+            return {}
+        row = await self._fetchrow(
+            "SELECT json_agg(json_build_object('input_symbol', input_symbol, 'resolved_symbol', resolved_symbol)) AS results "
+            "FROM resolved_symbols WHERE input_symbol = ANY($1)",
+            input_symbols
+        )
+        result = {}
+        if row and row.get("results"):
+            for r in row["results"]:
+                result[r["input_symbol"]] = r["resolved_symbol"]
+        return result
+
+    async def set_resolved_symbols(self, mapping: dict[str, str]) -> int:
+        if not mapping:
+            return 0
+        items = list(mapping.items())
+        values = []
+        params = []
+        idx = 1
+        for inp, resolved in items:
+            values.append(f"(${idx},${idx+1})")
+            params.extend([inp, resolved])
+            idx += 2
+        result = await self._execute(
+            f"INSERT INTO resolved_symbols (input_symbol, resolved_symbol) "
+            f"VALUES {','.join(values)} ON CONFLICT (input_symbol) DO NOTHING",
+            *params
+        )
+        return len(mapping) if result else 0
+
+    async def get_symbol_freshness_batch(self, symbols: list[str]) -> dict[str, dict]:
+        if not symbols:
+            return {}
+        row = await self._fetchrow(
+            "SELECT json_agg(json_build_object("
+            "'symbol', symbol, 'data_start_date', data_start_date, 'data_end_date', data_end_date, "
+            "'latest_price', latest_price, 'latest_price_date', latest_price_date, "
+            "'last_fetched', last_fetched, 'next_refresh_at', next_refresh_at, "
+            "'fetch_count', fetch_count"
+            ")) AS results "
+            "FROM symbol_data_freshness WHERE symbol = ANY($1)",
+            symbols
+        )
+        result = {}
+        if row and row.get("results"):
+            for r in row["results"]:
+                result[r["symbol"]] = r
+        return result
+
+    async def batch_update_latest_prices(self, updates: dict[str, tuple[float, str]]) -> int:
+        """Updates: {symbol: (price, date_str)}. Sets next_refresh_at to NOW()+5min to prevent thundering herd."""
+        if not updates:
+            return 0
+        items = [(sym, price, date_str) for sym, (price, date_str) in updates.items() if price is not None]
+        if not items:
+            return 0
+        if self._circuit.is_tripped or self._pool is None:
+            return 0
+        try:
+            async with self._pool.acquire() as conn:
+                values = []
+                params = []
+                idx = 1
+                for sym, price, date_str in items:
+                    values.append(f"(${idx}::TEXT, ${idx+1}::REAL, ${idx+2}::DATE)")
+                    params.extend([sym, price, date_str])
+                    idx += 3
+                query = (
+                    "UPDATE symbol_data_freshness AS t SET "
+                    "latest_price = v.price, "
+                    "latest_price_date = v.date, "
+                    "next_refresh_at = NOW() + INTERVAL '5 minutes', "
+                    "fetch_count = fetch_count + 1 "
+                    f"FROM (VALUES {','.join(values)}) AS v(symbol, price, date) "
+                    "WHERE t.symbol = v.symbol"
+                )
+                await conn.execute(query, *params, timeout=10)
+            self._circuit.record_success()
+            return len(items)
+        except Exception:
+            self._circuit.record_failure()
+            logger.warning("batch_update_latest_prices failed for %d symbols (failure #%d)", len(items), self._circuit._failures)
+            return 0
+
+    async def get_upload_status(self, upload_id: str) -> Optional[str]:
+        row = await self._fetchrow(
+            "SELECT status FROM uploads WHERE id = $1", upload_id
+        )
+        return row["status"] if row else None
+
+    async def set_ingestion_user(self, ingestion_id: str, user_id: str) -> bool:
+        result = await self._execute(
+            "UPDATE ingestion_log SET user_id = $1 WHERE id = $2",
+            user_id, ingestion_id
+        )
+        return result is not None
 
     async def close(self) -> None:
         if self._pool:

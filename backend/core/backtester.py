@@ -12,6 +12,7 @@ from .symbol_resolver import SymbolResolver
 from ..utils.date_utils import parse_date, get_next_trading_day, get_future_trading_day
 from ..models.schemas import SignalResult, BacktestReport
 from ..config import Limits
+from ..persistence import PersistenceBackend
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class Backtester:
         entry_mode: str = "next_close",
         run_id: Optional[str] = None,
         job_store=None,
+        persistence_backend: Optional[PersistenceBackend] = None,
     ) -> BacktestReport:
         results: List[SignalResult] = []
         total = len(signals)
@@ -74,7 +76,7 @@ class Backtester:
         resolved_map = {}
         for batch_i in range(0, len(unique_raw), Limits.BATCH_RESOLVE_CHUNK):
             batch = unique_raw[batch_i:batch_i + Limits.BATCH_RESOLVE_CHUNK]
-            chunk_result = await asyncio.to_thread(SymbolResolver.batch_resolve, batch)
+            chunk_result = await asyncio.wait_for(asyncio.to_thread(SymbolResolver.batch_resolve, batch), timeout=30)
             resolved_map.update(chunk_result)
             if progress_callback:
                 await progress_callback(
@@ -181,12 +183,12 @@ class Backtester:
                         f"Fetching batch {chunk_idx + 1}/{total_chunks} ({len(chunk)} symbols)..."
                     )
 
-                chunk_df = await asyncio.to_thread(
+                chunk_df = await asyncio.wait_for(asyncio.to_thread(
                     DataProvider.get_bulk_ticker_data,
                     chunk,
                     global_start.strftime("%Y-%m-%d"),
                     global_end.strftime("%Y-%m-%d")
-                )
+                ), timeout=60)
 
                 if chunk_df is not None and not chunk_df.empty:
                     chunks_with_data += 1
@@ -276,13 +278,13 @@ class Backtester:
             if not batch_results:
                 return
             if job_store:
-                dicts = [r.dict() for r in batch_results]
+                dicts = [r.model_dump() for r in batch_results]
                 job_store.save_batch(batch_num, dicts)
                 batch_num += 1
             if progress_callback:
                 await progress_callback(total + num_chunks + batch_num - 1, total_steps,
                                         f"Batch {batch_num}: {len(batch_results)} trades",
-                                        trades=[r.dict() for r in batch_results])
+                                        trades=[r.model_dump() for r in batch_results])
             batch_results = []
 
         for i, p_sig in enumerate(parsed_signals):
@@ -324,12 +326,12 @@ class Backtester:
                 # Data path: Phase B populated per-symbol cache via persist_symbol_data().
                 # get_ticker_data() checks this cache first (0 API cost on cache hit),
                 # falls back to yfinance API only if cache miss or insufficient range.
-                df = await asyncio.to_thread(
+                df = await asyncio.wait_for(asyncio.to_thread(
                     DataProvider.get_ticker_data,
                     resolved_symbol,
                     p_sig["start_date"].strftime("%Y-%m-%d"),
                     p_sig["end_date"].strftime("%Y-%m-%d")
-                )
+                ), timeout=30)
 
                 if df is None or df.empty:
                     results.append(SignalResult(
@@ -339,6 +341,21 @@ class Backtester:
                         status="No Data"
                     ))
                     continue
+
+                if persistence_backend is not None:
+                    try:
+                        last_date = df.index[-1]
+                        if hasattr(last_date, 'strftime'):
+                            data_recency = last_date.strftime("%Y-%m-%d")
+                        else:
+                            data_recency = str(last_date)
+                        await persistence_backend.upsert_symbol_freshness(
+                            symbol=resolved_symbol,
+                            last_fetched=datetime.now().strftime("%Y-%m-%d"),
+                            data_recency=data_recency
+                        )
+                    except Exception as e:
+                        logger.warning("upsert_symbol_freshness failed for %s: %s", resolved_symbol, e)
 
                 # 4. Calculate Returns
                 # Ensure index is datetime
@@ -419,7 +436,7 @@ class Backtester:
                         if pd.notna(max_low_idx):
                             res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
 
-                DataProvider.set_cached_result(row_hash, res.dict())
+                DataProvider.set_cached_result(row_hash, res.model_dump())
 
             # Aggregation for cached results (computed results already updated above)
             if cached_result is not None:
@@ -479,6 +496,31 @@ class Backtester:
             "Backtest complete — total=%d, successful=%d, failed=%d, elapsed=%.2fs | %s",
             total, len(successful), total - len(successful), total_time, status_summary
         )
+
+        report.cache_stats = DataProvider.get_cache_stats()
+        report.cache_source = "l3_compute"
+
+        # ── Latest Price Integration ──────────────────────────────
+        if successful:
+            try:
+                all_symbols = list(set(r.symbol for r in successful))
+                latest_prices = await asyncio.to_thread(DataProvider.get_latest_prices_batch, all_symbols)
+                latest_dates = []
+                for r in results:
+                    if r.status == "Success" and r.symbol in latest_prices:
+                        price, date_str = latest_prices[r.symbol]
+                        r.latest_price = price
+                        r.latest_price_date = date_str
+                        if price is not None and date_str is not None:
+                            latest_dates.append(date_str)
+                            if r.entry_price and r.entry_price > 0:
+                                r.latest_price_return = round(((price - r.entry_price) / r.entry_price) * 100, 2)
+                            else:
+                                r.latest_price_return = None
+                if latest_dates:
+                    report.latest_price_date = max(latest_dates)
+            except Exception:
+                logger.exception("Latest price integration failed (non-blocking)")
 
         return report
 

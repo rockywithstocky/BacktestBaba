@@ -4,7 +4,7 @@ import pandas as pd
 import yfinance as yf
 from diskcache import Cache
 
-from .data_provider import DataProvider
+from .data_provider import DataProvider, _yf_retry
 from ..config import Paths, CacheTTL, Limits
 
 logger = logging.getLogger(__name__)
@@ -70,10 +70,10 @@ class SymbolResolver:
             for i in range(0, len(suffixed), batch_size):
                 chunk = suffixed[i:i + batch_size]
                 try:
-                    data = yf.download(
+                    data = _yf_retry(lambda: yf.download(
                         tickers=chunk, period="1d",
                         group_by='ticker', progress=False, threads=True
-                    )
+                    ))
                     if data is None or data.empty:
                         continue
                     if isinstance(data.columns, pd.MultiIndex):

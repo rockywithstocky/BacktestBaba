@@ -19,7 +19,7 @@ async def main():
     report = await Backtester.run_backtest_async(signals)
     
     # Print the raw JSON payload
-    print(json.dumps(report.dict(), indent=2))
+    print(json.dumps(report.model_dump(), indent=2))
 
 if __name__ == "__main__":
     asyncio.run(main())

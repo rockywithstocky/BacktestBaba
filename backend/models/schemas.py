@@ -43,6 +43,9 @@ class SignalResult(BaseModel):
     sector: Optional[str] = None
     market_cap: Optional[str] = None
     status: str # "Success", "Data Not Found", "Symbol Not Found"
+    latest_price: Optional[float] = None
+    latest_price_date: Optional[str] = None
+    latest_price_return: Optional[float] = None
 
 class BacktestReport(BaseModel):
     total_signals: int
@@ -73,3 +76,7 @@ class BacktestReport(BaseModel):
     worst_performer: Optional[SignalResult] = None
     
     trades: List[SignalResult]
+
+    cache_stats: Optional[dict] = None
+    latest_price_date: Optional[str] = None
+    cache_source: Optional[str] = None

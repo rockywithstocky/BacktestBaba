@@ -45,7 +45,6 @@ class Limits:
         "BULK_FETCH_CHUNK",
         "25" if is_render() else "100"
     ))
-    RATE_LIMIT_BACKOFF_SEC = float(os.getenv("RATE_LIMIT_BACKOFF_SEC", "1.0"))
 
     WS_TIMEOUT_SEC = int(os.getenv("WS_TIMEOUT_SEC", "300"))
     HTTP_TIMEOUT_SEC = int(os.getenv("HTTP_TIMEOUT_SEC", "55" if is_render() else "600"))

@@ -5,7 +5,7 @@ import {
   Shield, Users, HardDrive, RefreshCw, Loader2, AlertCircle,
   CheckCircle, XCircle, UserX, Star, Zap, Search
 } from 'lucide-react';
-import { isAdmin, logout } from '../services/auth';
+import { isAdmin, logout, validate, getUser } from '../services/auth';
 import { listUsers, setPlan, revokeSessions, getQuota } from '../services/admin';
 
 const AdminPage = () => {
@@ -54,6 +54,10 @@ const AdminPage = () => {
           ? { ...u, plan, max_signals: plan === 'priority' ? 5000 : 100, max_file_size_mb: plan === 'priority' ? 10 : 2 }
           : u
       ));
+      const currentUser = getUser();
+      if (currentUser && currentUser.id === userId) {
+        await validate();
+      }
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'Failed to update plan');
     } finally {
