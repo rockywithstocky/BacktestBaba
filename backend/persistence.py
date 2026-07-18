@@ -517,7 +517,7 @@ class CircuitBreaker:
 class PostgresBackend(PersistenceBackend):
     def __init__(self):
         self._pool = None
-        self._circuit = CircuitBreaker(threshold=3, cooldown_sec=60)
+        self._circuit = CircuitBreaker(threshold=3, base_cooldown=60)
 
     @classmethod
     async def create(cls, dsn: str) -> "PostgresBackend":

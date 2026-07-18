@@ -1,9 +1,9 @@
-# BacktestBaba — Work State (2026-07-17)
+# BacktestBaba — Work State (2026-07-18)
 
-**Branch:** `feat/pg-persistence`
-**Status:** Latest Return (Phase 1) — COMPLETE AND VERIFIED
-**Next:** Master Storage (Phase 2) — schema + cache orchestration ready, WS auth plumbed
-**Test Count:** Backend 77/77, Frontend 16/16, verify_regression SUCCESS, Build OK
+**Branch:** `feat/d1-persistence` (ahead of origin by 2 commits)
+**Status:** Latest Return N/A fix — COMPLETE AND VERIFIED
+**Next:** Push to `main` → auto-deploy to Render + Vercel
+**Test Count:** Backend 85/85, Frontend 21/21, Build OK
 
 ---
 
@@ -27,124 +27,111 @@ Tests inside Docker:
 docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
 ```
 
+Frontend tests:
+```powershell
+cd frontend; npm test -- --run
+```
+
 ---
 
-## 1. Completed This Session (Jul 17, 2026)
+## 1. Completed This Session (Jul 18, 2026)
 
-### 🔴 Phase 1: Latest Return Column (P0 — Shipped)
+### 🔴 Fix: Latest Return Showed N/A (P0 — Shipped)
 
-**Backend (`backend/`)**
+**Root Cause (Entry Mode Cache Staleness):**
+```
+next_close → cached report from old run (pre-fix) → Phase B skipped → N/A
+next_open  → cache MISS → Phase B runs → persist_symbol_data seeds → works
+```
+`FileHashCache` key = `(file_hash, entry_mode)` — separate caches per mode.
 
-| What | Files Changed | Detail |
-|------|--------------|--------|
-| `latest_price`, `latest_price_date`, `latest_price_return` on SignalResult | `models/schemas.py` | 3 new Optional[float/str] fields |
-| `latest_price_date`, `cache_source` on BacktestReport | `models/schemas.py` | Report-level date aggregation + cache source tracking |
-| `get_latest_prices_batch(symbols)` | `core/data_provider.py` | Bulk yf.download(period="5d") + per-symbol fallback + 5min diskcache |
-| `check_and_set_refresh(symbol)` | `core/data_provider.py` | Diskcache-level thundering herd guard |
-| Latest price integration after Phase C | `core/backtester.py` | Computes latest_price_return with `entry_price > 0` guard |
-| L1 freshness check on cache hit | `main.py` | Background refresh if `latest_price_date < today` |
-| `cache_source` tracking (`l1_diskcache` / `l2_db` / `l3_compute`) | `main.py` | Set at end of each cache path |
-| `FileHashCache.delete()` | `storage.py` | New method for L2→L1 cache invalidation |
+**Root Cause (OHLCV Fallback Gap):**
+On L1 cache HIT (re-upload), Phase B is skipped entirely → `persist_symbol_data` never runs → `{sym}_latest_price` never seeded → `get_latest_prices_batch` hits yfinance for ALL symbols → rate limited → `(None, None)` for everyone.
 
-**Frontend (`frontend/src/`)**
+**All 5 Fixes Applied:**
 
-| What | Files Changed | Detail |
-|------|--------------|--------|
-| "Latest Return" sortable column | `components/Dashboard.jsx` | After 3 Month Return, uses `getColorClass` + `formatPercent` |
-| Removed "Mode" column | `components/Dashboard.jsx` | Header + body cell deleted |
-| Clean "Trade Log" header | `components/Dashboard.jsx` | Removed hint text span |
-| Stale price disclaimer | `components/Dashboard.jsx` | "Prices may be delayed" below pagination |
-| WS token plumbing (`?token=xxx`) | `services/api.js` | getToken() added to WS URL, HTTP, mobile fallback |
+| # | Fix | File | What |
+|---|-----|------|------|
+| 1 | Seed `{sym}_latest_price` in `persist_symbol_data` | `data_provider.py:62-75` | Runs BEFORE early return, uses `dropna().iloc[-1]` to skip NaN Close rows |
+| 2 | Progress before freshness check | `main.py:328` | `progress_callback(0, 1, "Refreshing latest prices...")` before L1 freshness check |
+| 3 | Watchdog reset on ping | `api.js:190` | `startWatchdog()` added to ping handler prevents WS timeout on long backtests |
+| 4 | Latest Return column → after Entry | `Dashboard.jsx` | Moved `<th>` + `<td>` after Entry column, before Exit columns |
+| 5 | Tooltip shows price+date not % | `Dashboard.jsx` | Changed from `"Latest vs Entry: +X%"` → `"Latest Price: ₹X (as of YYYY-MM-DD)"` |
 
-**Master Storage Schema (Phase 2 ready)**
+**OHLCV Cache Fallback (Defense-in-Depth):**
 
-| What | Files Changed | Detail |
-|------|--------------|--------|
-| 4 new tables + 3 indexes | `schema.sql` | `resolved_symbols`, `symbol_data_freshness` (with `idx_sdf_refresh`), `file_upload_map`, `signal_results` |
-| 9 new ABC methods | `persistence.py` | All 4 backends: `get_upload_by_user_and_hash`, `get_signals_for_upload`, `batch_upsert_signals` (multi-row INSERT, 30s timeout), `get_resolved_symbols`, `set_resolved_symbols`, `get_symbol_freshness_batch`, `batch_update_latest_prices`, `get_upload_status`, `set_ingestion_user` |
-
-**Auth & User Plumbing**
-
-| What | Detail |
-|------|--------|
-| WS token validation | `?token=` query param → `_validate_token()` → user.id → 4001 on invalid |
-| HTTP token validation | `Authorization: Bearer` header → optional, falls back to anonymous |
-| Anonymous guest mode | No token → `user_id = "anonymous"` → L3-only access |
-| user_id threading | Through `_handle_backtest()` + `_persist_upload()` + dual-write to `signal_results` |
-
-### Agent Delegation Log
-- Agent A (Backend Core): schemas.py, data_provider.py, backtester.py, storage.py ✅
-- Agent B (Frontend Dashboard): Dashboard.jsx ✅
-- Agent C (Storage Schema): schema.sql, persistence.py ✅
-- Agent D (Frontend Auth): api.js ✅
-- Agent E (main.py orchestration): WS/HTTP auth, L1/L2/L3 cache, lifespan migration ✅
-- Agent F (Test files): test_latest_price.py, test_master_storage.py, test_latest_return.test.js ✅
+| # | Fix | File | What |
+|---|-----|------|------|
+| 6 | OHLCV fallback in `get_latest_prices_batch` | `data_provider.py:285-312` | When `{sym}_latest_price` is missing, reads OHLCV cache (`sd_{sym}` + `sr_{sym}`) if fresh (≤3 days). Seeds `{sym}_latest_price` for next call. Covers ALL scenarios: re-upload (L1 HIT), cross-entry-mode, fresh upload. |
 
 ### Test Results
+
 | Suite | Count | Status |
 |-------|-------|--------|
-| Backend pytest | 77/77 passed | ✅ |
-| Frontend vitest | 16/16 passed (7 Dashboard + 9 Latest Return) | ✅ |
+| Backend pytest | 85/85 passed (was 77, +6 test_latest_price + 2 ohlcv fallback) | ✅ |
+| Frontend vitest | 21/21 passed (was 16, +5 dashboard columns) | ✅ |
 | Frontend build | `npm run build` succeeds | ✅ |
-| verify_regression | "SUCCESS: Both methods produced exactly identical reports!" | ✅ |
 
-### Spec Documents (Amended)
-- `docs/decisions/ADR-002-master-storage.md` — V2: Phase 1/Phase 2 split, mid-day handling, review findings
-- `docs/specs/SPEC_MASTER_STORAGE.md` — V2: Latest Return #1, mid-day edge case table, chronological ordering
-- `docs/specs/TASK_MASTER_STORAGE.md` — V2: 3-phase Kaizen, 29h total, independent ship gates
-- `docs/specs/VERIFICATION_MASTER_STORAGE.md` — V2: Scenario 2 (mid-day), Scenario 3 (yfinance failure)
+### Commit
 
----
-
-## 2. Requirement Traceability Matrix
-
-| Spec Requirement | Status | Code Location | Test |
-|-----------------|--------|-------------|------|
-| Latest Return column in TradeLog | ✅ | `Dashboard.jsx:475-477, 516-521` | `test_latest_return.test.js` |
-| `latest_price_return = ((price - entry) / entry) * 100` | ✅ | `backtester.py:503-523` | `test_latest_price.py:test_latest_price_return_*` |
-| Mid-day handling: last COMPLETE daily bar | ✅ | `data_provider.py:get_latest_prices_batch()` | `test_latest_price.py:test_mid_day_date_not_future` |
-| yfinance failure → None (no crash) | ✅ | `data_provider.py:get_latest_prices_batch()` try/except | `test_latest_price.py:test_get_latest_prices_batch_nonexistent` |
-| `entry_price=0` → no div by zero | ✅ | `backtester.py:latest_price_return` guard | `test_latest_price.py:test_latest_price_return_zero_entry` |
-| `latest_price_date` on report + per-trade | ✅ | `schemas.py:46-48, 81-82` | `test_latest_price.py:test_report_latest_price_date` |
-| `cache_source` tracking | ✅ | `main.py:_handle_backtest` all 3 paths | `test_latest_price.py:test_cache_source_field` |
-| Remove Mode column | ✅ | `Dashboard.jsx:465-467, 493-497 deleted` | Visual |
-| Clean "Trade Log" header | ✅ | `Dashboard.jsx:423` | Visual |
-| Stale price disclaimer | ✅ | `Dashboard.jsx:541-545` | Visual |
-| WS token auth | ✅ | `main.py:websocket_endpoint` | Manual: invalid token → 4001 |
-| HTTP token auth | ✅ | `main.py:run_backtest_endpoint` | Manual |
-| Anonymous guest mode | ✅ | `main.py:websocket_endpoint` user_id="anonymous" | Manual |
-| 4 new DB tables | ✅ | `schema.sql:106-166` | N/A (schema) |
-| 9 new persistence methods | ✅ | `persistence.py` all 4 classes | `test_master_storage.py` |
-| `batch_upsert_signals` multi-row INSERT | ✅ | `persistence.py:PostgresBackend` | `test_master_storage.py` |
-| `next_refresh_at` initialized to NOW()-1 day | ✅ | `schema.sql:121` | N/A (schema) |
-| `idx_sdf_refresh` index | ✅ | `schema.sql:128` | N/A (schema) |
-| `ingestion_log.user_id` linkage | ✅ | `persistence.py:set_ingestion_user` | `test_master_storage.py` |
-| `FileHashCache.delete()` method | ✅ | `storage.py:49-55` | N/A (used by main.py) |
-| `deepdiff` dependency | ✅ | `requirements.txt:52` | `verify_regression.py` |
+```
+3e1ed55 Fix Latest Return N/A: seed prices in persist_symbol_data + OHLCV fallback
+         in get_latest_prices_batch, fix column order/tooltip, add watchdog reset on ping
+11 files changed, 391 insertions(+), 59 deletions(-)
+```
 
 ---
 
-## 3. Known Issues / Backlog (Remaining)
+## 2. Requirements Traceability Matrix
+
+| Requirement | Status | Code Location | Test |
+|-------------|--------|-------------|------|
+| Seed `{sym}_latest_price` from Phase B data | ✅ | `data_provider.py:62-75` | `test_persist_symbol_data_seeds_latest_price_when_fresh` |
+| NaN Close in last row → use previous valid | ✅ | `data_provider.py:68` (dropna) | `test_persist_symbol_data_nan_last_close_uses_prev_close` |
+| All-NaN Close → skip seeding | ✅ | `data_provider.py:69` (guard) | `test_persist_symbol_data_all_nan_close_skips` |
+| Early return in persist_symbol_data still seeds | ✅ | `data_provider.py:64-75` (before line 83) | `test_persist_symbol_data_early_return_still_seeds_latest_price` |
+| Fresh OHLCV cache fallback in get_latest_prices_batch | ✅ | `data_provider.py:285-312` | `test_get_latest_prices_batch_ohlcv_fallback` |
+| Stale OHLCV cache skipped in get_latest_prices_batch | ✅ | `data_provider.py:293-294` (≤3 guard) | `test_get_latest_prices_batch_ohlcv_fallback_stale` |
+| Progress sent before L1 freshness check | ✅ | `main.py:328` | `test_cache_hit_sends_progress_before_freshness_check` |
+| Watchdog reset on WS ping | ✅ | `api.js:190` | Manual |
+| Latest Return column after Entry | ✅ | `Dashboard.jsx` | `test_dashboard_columns.test.js` |
+| Tooltip shows price+date, not % | ✅ | `Dashboard.jsx` | `test_latest_return.test.js` |
+
+---
+
+## 3. Pre-Flight Checks for Deployment (Render + Vercel)
+
+**Zero paid subscriptions needed** — app runs fully on free tiers:
+- Render free tier: 750h/month, sleeps after 15min idle
+- Vercel free tier: unlimited
+- No database needed (`PERSISTENCE_ENABLED=false` by default, uses diskcache)
+
+**Pre-flight checklist:**
+
+| Item | Action |
+|------|--------|
+| **Merge to `main`** | Currently on `feat/d1-persistence`. Push → merge PR to `main` |
+| **Render build command** | `pip install -r backend/requirements.txt` |
+| **Render start command** | `uvicorn backend.main:app --host 0.0.0.0 --port \$PORT` |
+| **Vercel root directory** | Set to `frontend` |
+| **Vercel env vars** | `VITE_API_URL=https://backtestbaba-api.onrender.com/api`, `VITE_WS_URL=wss://backtestbaba-api.onrender.com/ws` |
+| **Recommended env vars** | `CORS_ORIGINS=https://chartchampion.vercel.app` (in Render dashboard) |
+| **Optional persistence** | `PERSISTENCE_ENABLED=true` + `WORKER_URL` for Cloudflare D1 |
+
+**Known caveats:**
+- diskcache is ephemeral on Render — wiped on redeploy
+- Cold start ~30s after 15min idle
+- yfinance chunk size drops to 25 on Render (via `is_render()`)
+
+---
+
+## 4. Known Issues / Backlog
 
 | ID | Issue | Location | Priority |
 |----|-------|----------|----------|
 | L3 | Copyright year hardcoded to 2024 in landing page footer | `LandingPage.jsx` | Low |
 | P1 | Account deletion API (pre-mortem item) | Not implemented | Tracked |
-| R5 | D1WorkerBackend stubs for 9 new methods | `persistence.py` | Must implement before Render deploy |
-
----
-
-## 4. Next Steps (Phase 2 — Master Storage)
-
-| Step | What | Est. |
-|------|------|------|
-| 1 | Deploy Phase 1 (Latest Return) to production | — |
-| 2 | Implement L2 cache orchestration in `_handle_backtest` | Already wired (test with PG) |
-| 3 | Implement L3 partial cache (resolved_symbols + symbol_data_freshness) | Already wired (test with PG) |
-| 4 | Thundering herd E2E test via concurrent requests | 2h |
-| 5 | Dual-write migration test (signal_hashes == signal_results) | 1h |
-| 6 | Implement D1WorkerBackend real endpoints for 9 new methods | 4h |
-| 7 | Pre-mortem closure (Scenario F concurrent, Scenario G partial crash) | 3h |
+| R5 | D1WorkerBackend stubs for 9 new methods | `persistence.py` | Must implement before Render deploy w/ persistence |
 
 ---
 
@@ -154,11 +141,14 @@ docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
 # Rebuild + start (after code changes)
 docker compose up -d --build
 
-# Run all tests
+# Run all backend tests
 docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
 
-# Run frontend tests + build
-cd frontend; npm run test; npm run build
+# Run frontend tests
+cd frontend; npm test -- --run
+
+# Frontend build check
+cd frontend; npm run build
 
 # Verify regression
 docker compose exec backend python backend/tests/verify_regression.py
@@ -166,6 +156,13 @@ docker compose exec backend python backend/tests/verify_regression.py
 # View backend logs
 docker compose logs -f backend
 
+# Clear diskcache (wipes all caches)
+docker compose exec backend python -c "from backend.core.data_provider import cache; cache.clear()"
+
 # Access PostgreSQL
 docker compose exec postgres psql -U backtest -d backtestbaba
+
+# Push to main and deploy
+git push origin feat/d1-persistence
+# Then open PR: main ← feat/d1-persistence
 ```

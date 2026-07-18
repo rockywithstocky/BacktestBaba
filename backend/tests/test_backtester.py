@@ -219,3 +219,54 @@ async def test_cache_hit_http_path(monkeypatch):
     assert result["total_signals"] == 1
 
 
+@pytest.mark.asyncio
+async def test_cache_hit_sends_progress_before_freshness_check(monkeypatch):
+    """Regression: L1 cache hit with stale latest_price_date must send
+    progress BEFORE the blocking get_latest_prices_batch call.
+    If this fails, the user sees a frozen progress bar on repeat upload."""
+    from backend.main import _handle_backtest
+    from datetime import datetime
+
+    FAKE_TRADES = [
+        {"symbol": "RELIANCE.NS", "signal_date": "2023-01-01",
+         "entry_price": 100.0, "status": "Success",
+         "return_7d": 5.0, "return_30d": 12.0, "return_90d": None,
+         "exit_price_7d": 105.0, "exit_price_14d": 108.0,
+         "max_high_90d": None, "max_low_90d": None,
+         "entry_mode": "next_close", "sector": None, "market_cap": None,
+         "latest_price": None, "latest_price_date": None, "latest_price_return": None},
+    ]
+    CACHED_WITH_STALE_DATE = {
+        "total_signals": 1, "successful_signals": 1, "failed_signals": 0,
+        "entry_mode": "next_close", "trades": FAKE_TRADES,
+        "latest_price_date": "2023-01-01",
+    }
+
+    monkeypatch.setattr("backend.main.FileHashCache.get",
+                        lambda fh, em: CACHED_WITH_STALE_DATE)
+    monkeypatch.setattr("backend.main.compute_file_hash",
+                        lambda data: "stalehash")
+
+    # Prevent actual yfinance — return a fixed price
+    monkeypatch.setattr("backend.core.data_provider.DataProvider.get_latest_prices_batch",
+                        lambda symbols: {s: (150.0, datetime.now().strftime("%Y-%m-%d")) for s in symbols})
+
+    progress_messages = []
+    async def spy_progress(current, total, symbol, **kwargs):
+        progress_messages.append((current, total, symbol))
+
+    report = await _handle_backtest(
+        b"symbol,date\nRELIANCE,2023-01-01\n",
+        "next_close", progress_callback=spy_progress
+    )
+
+    # First progress message must be "Refreshing latest prices..."
+    assert len(progress_messages) > 0
+    first_msg = progress_messages[0]
+    assert first_msg[2] == "Refreshing latest prices...", \
+        f"First progress should be 'Refreshing latest prices...', got '{first_msg[2]}'"
+
+    # Returned report must have latest_price refreshed
+    assert isinstance(report, BacktestReport)
+    assert report.trades[0].latest_price == 150.0
+    assert report.trades[0].latest_price_date == datetime.now().strftime("%Y-%m-%d")

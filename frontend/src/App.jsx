@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
@@ -14,6 +14,14 @@ import AdminPage from './pages/AdminPage';
 const ProtectedRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
   const location = useLocation();
+
+  useEffect(() => {
+    import('./services/auth').then(({ getToken, validate, logout }) => {
+      if (getToken() && isLoggedIn) {
+        validate().catch(() => {});
+      }
+    });
+  }, []);
 
   if (!isLoggedIn) {
     return <Navigate to="/login" state={{ from: location }} replace />;

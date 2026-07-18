@@ -26,6 +26,8 @@ services:
     container_name: backtestbaba-backend
     ports:
       - "8000:8000"
+    volumes:
+      - cache_data:/app/backend/.cache
     environment:
       - CORS_ORIGINS=http://localhost:5174,http://frontend:5174
       - PORT=8000
@@ -79,4 +81,6 @@ volumes:
   pg_data:
     driver: local
   pgadmin_data:
+    driver: local
+  cache_data:
     driver: local

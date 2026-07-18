@@ -58,6 +58,22 @@ class DataProvider:
         existing = cache.get(rkey)
         actual_start = df.index[0]
         actual_end = df.index[-1]
+
+        # Seed latest_price cache if data ends within 3 trading days of now
+        # (covers Friday→Monday gap, avoids yfinance timeout for every symbol)
+        # Must run BEFORE early return so it fires even on range cache hits.
+        # Uses last NON-NaN Close — yfinance may include non-trading days with NaN Close.
+        days_since_last = (datetime.now() - actual_end).days
+        if days_since_last <= 3:
+            valid_closes = df['Close'].dropna()
+            if not valid_closes.empty:
+                last_close = valid_closes.iloc[-1]
+                if last_close > 0:
+                    last_valid_date = valid_closes.index[-1]
+                    date_str = last_valid_date.strftime('%Y-%m-%d') if hasattr(last_valid_date, 'strftime') else str(last_valid_date)[:10]
+                    cache.set(f"{symbol}_latest_price", (float(last_close), date_str),
+                              expire=CacheTTL.LATEST_PRICE)
+
         if existing is not None:
             cached_start, cached_end = existing
             if hasattr(cached_start, 'tz') and cached_start.tz is not None:
@@ -74,6 +90,7 @@ class DataProvider:
         ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
         cache.set(dkey, df, expire=ttl)
         cache.set(rkey, (actual_start, actual_end), expire=ttl)
+
         logger.debug("persist_symbol_data — cached %s [%s to %s] ttl=%ds",
                      symbol, actual_start.date(), actual_end.date(), ttl)
 
@@ -238,12 +255,15 @@ class DataProvider:
         This naturally handles the mid-day edge case — if market is open intraday,
         today's bar is not yet final so yesterday's close is returned.
         
+        Bulk fetch is chunked to avoid yfinance overload (same chunk size as Phase B).
         Falls back to per-symbol yf.Ticker(s).history(period="5d") if bulk fails.
         Updates a 5-min diskcache per symbol for fast repeat access.
         
         Returns {symbol: (close_price, date_str)}.
         On failure for any symbol: (None, None) — never throws.
         """
+        from ..config import Limits
+        
         result: dict[str, tuple[Optional[float], Optional[str]]] = {}
         
         if not symbols:
@@ -262,44 +282,75 @@ class DataProvider:
         if not uncached:
             return result
         
-        # Bulk fetch for uncached symbols
-        try:
-            df = _yf_retry(lambda: yf.download(
-                tickers=uncached,
-                period="5d",
-                auto_adjust=False,
-                group_by='ticker',
-                progress=False,
-                threads=True
-            ))
-            
-            if df is not None and not df.empty:
-                if len(uncached) == 1:
-                    # Single symbol — flat DataFrame
-                    sym = uncached[0]
-                    if not df.empty:
-                        last_row = df.iloc[-1]
-                        price = float(last_row.get('Close', last_row.get('close', 0)))
-                        date_str = df.index[-1].strftime('%Y-%m-%d') if hasattr(df.index[-1], 'strftime') else str(df.index[-1])[:10]
-                        if price and price > 0:
-                            entry = (price, date_str)
-                            result[sym] = entry
-                            cache.set(f"{sym}_latest_price", entry, expire=300)
-                else:
-                    # MultiIndex DataFrame
-                    for sym in uncached:
-                        if sym in df.columns.get_level_values(0):
-                            sym_df = df[sym].dropna(how='all')
-                            if not sym_df.empty:
-                                last_row = sym_df.iloc[-1]
-                                price = float(last_row.get('Close', last_row.get('close', 0)))
-                                date_str = sym_df.index[-1].strftime('%Y-%m-%d') if hasattr(sym_df.index[-1], 'strftime') else str(sym_df.index[-1])[:10]
-                                if price and price > 0:
-                                    entry = (price, date_str)
-                                    result[sym] = entry
-                                    cache.set(f"{sym}_latest_price", entry, expire=300)
-        except Exception:
-            logger.warning("get_latest_prices_batch — bulk yfinance failed for %d symbols", len(uncached), exc_info=True)
+        # OHLCV cache fallback: seed {sym}_latest_price from persist_symbol_data cache
+        # Handles re-upload (L1 HIT where Phase B was skipped) and cross-entry-mode scenarios.
+        still_uncached = []
+        for sym in uncached:
+            rkey = DataProvider._range_key(sym)
+            range_meta = cache.get(rkey)
+            if range_meta is not None:
+                _, cached_end = range_meta
+                days_since = (datetime.now() - cached_end).days
+                if days_since <= 3:
+                    dkey = DataProvider._data_key(sym)
+                    df_cached = cache.get(dkey)
+                    if df_cached is not None and not df_cached.empty and 'Close' in df_cached.columns:
+                        valid_closes = df_cached['Close'].dropna()
+                        if not valid_closes.empty:
+                            price = float(valid_closes.iloc[-1])
+                            last_idx = valid_closes.index[-1]
+                            date_str = last_idx.strftime('%Y-%m-%d') if hasattr(last_idx, 'strftime') else str(last_idx)[:10]
+                            if price and price > 0:
+                                entry = (price, date_str)
+                                result[sym] = entry
+                                cache.set(f"{sym}_latest_price", entry, expire=CacheTTL.LATEST_PRICE)
+                                continue
+            still_uncached.append(sym)
+        
+        uncached = still_uncached
+        if not uncached:
+            return result
+        
+        # Chunked bulk fetch (same chunk size as Phase B)
+        chunk_size = Limits.BULK_FETCH_CHUNK
+        chunks = [uncached[i:i + chunk_size] for i in range(0, len(uncached), chunk_size)]
+        
+        for chunk in chunks:
+            try:
+                df = _yf_retry(lambda: yf.download(
+                    tickers=chunk,
+                    period="5d",
+                    auto_adjust=False,
+                    group_by='ticker',
+                    progress=False,
+                    threads=True
+                ))
+                
+                if df is not None and not df.empty:
+                    if len(chunk) == 1:
+                        sym = chunk[0]
+                        if not df.empty:
+                            last_row = df.iloc[-1]
+                            price = float(last_row.get('Close', last_row.get('close', 0)))
+                            date_str = df.index[-1].strftime('%Y-%m-%d') if hasattr(df.index[-1], 'strftime') else str(df.index[-1])[:10]
+                            if price and price > 0:
+                                entry = (price, date_str)
+                                result[sym] = entry
+                                cache.set(f"{sym}_latest_price", entry, expire=300)
+                    else:
+                        for sym in chunk:
+                            if sym in df.columns.get_level_values(0):
+                                sym_df = df[sym].dropna(how='all')
+                                if not sym_df.empty:
+                                    last_row = sym_df.iloc[-1]
+                                    price = float(last_row.get('Close', last_row.get('close', 0)))
+                                    date_str = sym_df.index[-1].strftime('%Y-%m-%d') if hasattr(sym_df.index[-1], 'strftime') else str(sym_df.index[-1])[:10]
+                                    if price and price > 0:
+                                        entry = (price, date_str)
+                                        result[sym] = entry
+                                        cache.set(f"{sym}_latest_price", entry, expire=300)
+            except Exception:
+                logger.warning("get_latest_prices_batch — bulk yfinance failed for %d symbols in chunk", len(chunk), exc_info=True)
         
         # Per-symbol fallback for symbols still uncached
         still_missing = [s for s in uncached if s not in result or result[s] is None]
@@ -316,7 +367,6 @@ class DataProvider:
                         cache.set(f"{sym}_latest_price", entry, expire=300)
             except Exception:
                 logger.warning("get_latest_prices_batch — fallback failed for %s", sym, exc_info=True)
-                result[sym] = (None, None)  # Graceful degradation
         
         # Ensure every input symbol has an entry
         for sym in symbols:

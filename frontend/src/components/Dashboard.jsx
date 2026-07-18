@@ -462,6 +462,9 @@ const Dashboard = ({ report, onBack }) => {
                                 <th onClick={() => handleSort('entry_price')}>
                                     Entry {sortConfig.key === 'entry_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
+                                <th onClick={() => handleSort('latest_price_return')}>
+                                    Latest Return {sortConfig.key === 'latest_price_return' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                </th>
 
                                 <th onClick={() => handleSort('return_7d')}>
                                     1 Week Return {sortConfig.key === 'return_7d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
@@ -471,9 +474,6 @@ const Dashboard = ({ report, onBack }) => {
                                 </th>
                                 <th onClick={() => handleSort('return_90d')}>
                                     3 Month Return {sortConfig.key === 'return_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
-                                </th>
-                                <th onClick={() => handleSort('latest_price_return')}>
-                                    Latest Return {sortConfig.key === 'latest_price_return' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
                                 <th onClick={() => handleSort('max_high_90d')}>
                                     Max High {sortConfig.key === 'max_high_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
@@ -491,6 +491,12 @@ const Dashboard = ({ report, onBack }) => {
                                     <td>{trade.signal_close_price ? formatCurrency(trade.signal_close_price) : '-'}</td>
                                     <td>{getEntryDate(trade)}</td>
                                     <td>{formatCurrency(trade.entry_price)}</td>
+                                    <td
+                                        className={`clickable-cell ${getColorClass(trade.latest_price_return)}`}
+                                        title={trade.latest_price_date ? `Latest Price: ${formatCurrency(trade.latest_price)} (as of ${trade.latest_price_date})` : 'Latest Price: N/A'}
+                                    >
+                                        {formatPercent(trade.latest_price_return)}
+                                    </td>
 
                                     <td
                                         className={`clickable-cell ${getColorClass(trade.return_7d)}`}
@@ -512,12 +518,6 @@ const Dashboard = ({ report, onBack }) => {
                                         title={getTooltipContent(trade, '90d')}
                                     >
                                         {formatPercent(trade.return_90d)}
-                                    </td>
-                                    <td
-                                        className={`clickable-cell ${getColorClass(trade.latest_price_return)}`}
-                                        title={trade.latest_price_date ? `Latest vs Entry: ${formatPercent(trade.latest_price_return)} (as of ${trade.latest_price_date})` : 'Latest return: N/A'}
-                                    >
-                                        {formatPercent(trade.latest_price_return)}
                                     </td>
                                     <td className="positive" title={`Max High Date: ${trade.max_high_date || 'N/A'}`}>{formatCurrency(trade.max_high_90d)}</td>
                                     <td className="negative" title={`Max Low Date: ${trade.max_low_date || 'N/A'}`}>{formatCurrency(trade.max_low_90d)}</td>

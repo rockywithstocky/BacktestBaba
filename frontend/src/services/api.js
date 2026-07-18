@@ -187,7 +187,7 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
                 symbol: `Loaded ${trades.length} trades...`
             });
         } else if (data.type === 'ping') {
-            // Server keepalive — ignore
+            startWatchdog();
         } else if (data.type === 'complete') {
             settled = true;
             clearTimeout(watchdogTimer);
@@ -213,6 +213,13 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
     };
 
     ws.onclose = (event) => {
+        if (!settled && event.code !== 1000) {
+            settled = true;
+            clearTimeout(wsTimeout);
+            clearTimeout(watchdogTimer);
+            onProgress({ current: 0, total: 100, symbol: 'Connection lost, falling back to HTTP...' });
+            runBacktestHTTPFallback(file, onProgress, onComplete, onError, entryMode);
+        }
     };
 
     return ws;
@@ -228,11 +235,19 @@ export const fetchSymbolPrices = async (symbol, start, end, signal) => {
 };
 
 export const fetchUploads = async () => {
-    const token = (await import('./auth')).getToken();
+    const auth = await import('./auth');
+    const token = auth.getToken();
     if (!token) return { results: [], total: 0 };
-    const { data } = await axios.get(`${API_URL}/uploads`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
-    });
-    return data;
+    try {
+        const { data } = await axios.get(`${API_URL}/uploads`, {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 10000,
+        });
+        return data;
+    } catch (error) {
+        if (error.response?.status === 401) {
+            auth.logout();
+        }
+        return { results: [], total: 0 };
+    }
 };

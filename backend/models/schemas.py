@@ -13,6 +13,7 @@ class SignalResult(BaseModel):
     entry_date: Optional[str] = None
     entry_price: float
     entry_mode: str = "next_close"
+    latest_price_return: Optional[float] = None
     
     # Returns & Prices
     return_7d: Optional[float] = None
@@ -45,7 +46,6 @@ class SignalResult(BaseModel):
     status: str # "Success", "Data Not Found", "Symbol Not Found"
     latest_price: Optional[float] = None
     latest_price_date: Optional[str] = None
-    latest_price_return: Optional[float] = None
 
 class BacktestReport(BaseModel):
     total_signals: int

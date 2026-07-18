@@ -323,6 +323,8 @@ async def _handle_backtest(
         try:
             from backend.core.data_provider import DataProvider
             cached_latest_date = cached.get("latest_price_date")
+            if progress_callback:
+                await progress_callback(0, 1, "Refreshing latest prices...")
             if cached_latest_date and cached_latest_date < datetime.now().strftime("%Y-%m-%d"):
                 logger.info("L1 cache stale — refreshing latest prices")
                 all_symbols = list(set(t.get("symbol") for t in cached.get("trades", []) if t.get("status") == "Success"))

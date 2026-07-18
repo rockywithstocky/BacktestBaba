@@ -47,13 +47,17 @@ python backend/verify_horizons.py
 
 # Frontend build check
 npm run build
+
+# Frontend tests (vitest)
+cd frontend; npm test -- --run
 ```
 
-## Architecture (3-Phase Backtester)
+## Architecture (4-Phase Backtester)
 
 1. **Resolution** (0-50%): Deterministic symbol extraction → NSE/BSE ticker resolution via `SymbolResolver` (in-memory cache per request) → global date bounds
-2. **Bulk Fetch** (50% mark): Single `yf.download(group_by='ticker')` → MultiIndex DataFrame (24h diskcache). Sequential fallback per symbol if bulk fetch fails
+2. **Bulk Fetch** (50% mark): Single `yf.download(group_by='ticker')` → MultiIndex DataFrame. Sequential fallback per symbol if bulk fetch fails. Calls `persist_symbol_data()` per symbol (seeds OHLCV cache + `{sym}_latest_price`)
 3. **Computation** (50-100%): Per-symbol slicing → return calc for 6 horizons (7/14/30/45/60/90d) → metadata enrichment (sector, marketCap, 7-day cache, Semaphore(10))
+4. **Latest Price** (after Phase C): `get_latest_prices_batch()` called once for all successful symbols → populates `latest_price`, `latest_price_date`, `latest_price_return` on each trade
 
 ## Docker Infrastructure
 
@@ -91,6 +95,9 @@ docker compose exec postgres psql -U backtest -d backtestbaba -c "UPDATE users S
 | `frontend/src/services/auth.js` | Login/signup/logout with localStorage session |
 | `frontend/src/services/admin.js` | Admin API calls (listUsers, setPlan, revokeSessions, getQuota) |
 | `docker-compose.yml` | 4 services + 2 volumes (pg_data, pgadmin_data) |
+| `backend/tests/test_latest_price.py` | 16 tests for latest price batch, OHLCV fallback, persist_symbol_data seeding, NaN Close edge cases |
+| `frontend/src/__tests__/test_dashboard_columns.test.js` | 5 tests for column order validation |
+| `frontend/src/__tests__/test_latest_return.test.js` | 9 tests for Latest Return tooltip/display |
 
 ## Frontend Routing (react-router-dom v7)
 
@@ -167,6 +174,34 @@ ws.onmessage = (event) => {
 };
 ```
 
+### Latest return — 3-layer cascade never leaves a gap
+
+```
+Layer 1: persist_symbol_data() seeds {sym}_latest_price from Phase B OHLCV data
+Layer 2: get_latest_prices_batch() reads OHLCV cache if Layer 1 key is missing
+Layer 3: yf.download(period="5d") chunked + per-symbol fallback
+```
+
+**Critical rules:**
+- seed `{sym}_latest_price` **before** the early return in `persist_symbol_data()` (line 64-75)
+- Use `df['Close'].dropna().iloc[-1]` to skip NaN Close rows (non-trading days)
+- `days_since_last ≤ 3` guard prevents seeding stale cached data
+- `FileHashCache` key includes entry_mode — stale caches skip Phase B, so Layer 2 fallback is essential
+- `get_latest_prices_batch()` always returns `(sym → (price, date_str) | (None, None))` — never partial
+
+### Watchdog must reset on ping
+```javascript
+ws.onmessage = (event) => {
+    if (data.type === "ping") { startWatchdog(); }
+};
+```
+
+### Latest Return column order
+`<th>` and `<td>` must appear **after** Entry column, **before** Exit columns. Test validates column positions by index.
+
+### Tooltip shows price not percentage
+The Latest Return cell tooltip shows `"Latest Price: ₹X (as of YYYY-MM-DD)"`.
+
 ### Tailwind CSS v4
 Uses Tailwind v4 with `@tailwindcss/postcss` plugin (not v3 `@tailwind` directives). CSS entry is `@import "tailwindcss"` in `index.css`. PostCSS config at `frontend/postcss.config.js`.
 
@@ -194,4 +229,5 @@ VITE_WS_URL=ws://localhost:8000/ws
 - [implementation_plan.md](implementation_plan.md) — Phased roadmap for known issues (concurrency, O(3n) API calls, persistence)
 - [RESUME_WORK.md](RESUME_WORK.md) — Current session state and next tasks
 - [docs/ai/CURRENT_STATE.md](docs/ai/CURRENT_STATE.md) — Detailed system architecture
+- [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) — High-level project context
 - [DEPLOYMENT.md](DEPLOYMENT.md) — Render (backend) + Vercel (frontend) deployment
