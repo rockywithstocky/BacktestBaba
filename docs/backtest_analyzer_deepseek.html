@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Backtest Analyzer — Retail Decision Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F8F6F0;
+  --surface:#FFFFFF;
+  --text:#1A1C23;
+  --muted:#6B7280;
+  --border:#E3DED7;
+  --accent:#7C3AED;
+  --accent-light:#EDE9FE;
+  --positive:#059669;
+  --positive-light:#ECFDF5;
+  --negative:#DC2626;
+  --negative-light:#FEF2F2;
+  --warning:#D97706;
+  --warning-light:#FFFBEB;
+  --radius:10px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --font:Inter,-apple-system,sans-serif;
+  --mono:JetBrains Mono,SF Mono,monospace;
+}
+*,*:before,*:after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;padding:16px;min-height:100vh}
+input,button,select{font-family:inherit;font-size:inherit}
+h1{font-size:20px;font-weight:700}
+h2{font-size:15px;font-weight:600;margin-bottom:8px;color:var(--text)}
+h3{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+a{color:var(--accent);text-decoration:none}
+.hidden{display:none!important}
+
+/* Drop zone */
+#dropZone{
+  border:2px dashed var(--border);
+  border-radius:var(--radius);
+  padding:48px 24px;
+  text-align:center;
+  cursor:pointer;
+  transition:.2s;
+  background:var(--surface);
+  max-width:500px;margin:40px auto;
+}
+#dropZone:hover,#dropZone.dragover{border-color:var(--accent);background:var(--accent-light)}
+#dropZone p{color:var(--muted);margin-top:8px;font-size:13px}
+#dropZone .icon{font-size:36px;margin-bottom:8px;display:block}
+
+/* Layout */
+#app{max-width:960px;margin:0 auto;display:none}
+
+/* Header bar */
+.header{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.header h1{font-size:16px;display:flex;align-items:center;gap:8px}
+.header .meta{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.header .meta span{white-space:nowrap}
+.header .badge{display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600}
+
+/* Capital bar */
+.capital-bar{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 18px;margin-bottom:12px;display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.capital-bar label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+.capital-bar input[type=text]{width:130px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;text-align:right;font-family:var(--mono);font-size:14px}
+.capital-bar input[type=text]:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.capital-bar .note{font-size:12px;color:var(--warning);margin-left:4px}
+.capital-bar .tier-tag{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:var(--accent-light);color:var(--accent);margin-left:auto}
+
+/* Tabs */
+.tab-bar{display:flex;gap:4px;margin-bottom:12px;background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:4px;flex-wrap:wrap}
+.tab-btn{padding:8px 18px;border:none;border-radius:6px;background:transparent;cursor:pointer;font-weight:500;color:var(--muted);transition:.15s;font-size:13px}
+.tab-btn:hover{background:var(--bg)}
+.tab-btn.active{background:var(--accent);color:#fff}
+
+/* Cards */
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;margin-bottom:12px}
+.card-sm{padding:12px 16px}
+
+/* Decision card */
+.decision-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700}
+.decision-badge.insufficient{background:#F3F4F6;color:#6B7280}
+.decision-badge.limited{background:var(--warning-light);color:var(--warning)}
+.decision-badge.moderate{background:#FEF3C7;color:#92400E}
+.decision-badge.tested{background:var(--positive-light);color:var(--positive)}
+
+.symbol-header{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.symbol-header h2{font-family:var(--mono);font-size:18px;margin:0}
+.symbol-header .n-signals{font-size:13px;color:var(--muted)}
+
+.stat-row{display:flex;flex-wrap:wrap;gap:8px 20px;margin:8px 0;font-size:13px}
+.stat-row .label{color:var(--muted);font-size:12px}
+.stat-row .value{font-weight:600;font-family:var(--mono)}
+.pos{color:var(--positive)}
+.neg{color:var(--negative)}
+
+.flag-box{padding:8px 12px;border-radius:6px;font-size:12px;margin:8px 0;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+.flag-box.warn{background:var(--warning-light);border-left:3px solid var(--warning)}
+.flag-box.error{background:var(--negative-light);border-left:3px solid var(--negative)}
+.flag-box.info{background:var(--accent-light);border-left:3px solid var(--accent)}
+
+/* Stats tables */
+.stats-table{width:100%;border-collapse:collapse;font-size:13px}
+.stats-table th,.stats-table td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.stats-table th{text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:var(--surface)}
+.stats-table td:first-child,.stats-table th:first-child{text-align:left}
+.stats-table tr:hover{background:var(--bg)}
+.stats-table .mono{font-family:var(--mono)}
+
+/* Bar chart */
+.bar-chart{margin:8px 0}
+.bar-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.bar-row .bar-label{width:50px;text-align:right;flex-shrink:0;font-family:var(--mono);font-weight:500}
+.bar-row .bar-fill{height:18px;border-radius:4px;background:var(--accent);min-width:2px;transition:width .3s}
+.bar-row .bar-val{font-family:var(--mono);font-size:12px;color:var(--muted);width:50px}
+
+/* Cost strip */
+.cost-strip{display:flex;height:24px;border-radius:6px;overflow:hidden;margin:8px 0;font-size:10px;font-weight:600;cursor:help}
+.cost-strip .seg{display:flex;align-items:center;justify-content:center;white-space:nowrap;transition:opacity .2s}
+.cost-strip .seg:hover{opacity:.8}
+.seg-stt{background:#3B82F6;color:#fff}
+.seg-dp{background:#F59E0B;color:#fff}
+.seg-stamp{background:#10B981;color:#fff}
+.seg-txn{background:#8B5CF6;color:#fff}
+.seg-gst{background:#EC4899;color:#fff}
+
+/* Distribution histogram */
+.dist-row{display:flex;align-items:center;gap:6px;margin:2px 0;font-size:11px}
+.dist-row .dist-label{width:50px;text-align:right;flex-shrink:0;font-family:var(--mono);color:var(--muted)}
+.dist-row .dist-bar{height:14px;border-radius:3px;min-width:2px;background:var(--positive);transition:width .3s}
+.dist-row .dist-bar.neg{background:var(--negative)}
+.dist-row .dist-val{font-family:var(--mono);color:var(--muted);width:40px}
+
+/* Responsive */
+@media(max-width:640px){
+  body{padding:10px}
+  .header{flex-direction:column;align-items:flex-start;gap:6px}
+  .capital-bar{flex-wrap:wrap}
+  .capital-bar .tier-tag{margin-left:0}
+  .tab-btn{padding:6px 12px;font-size:12px}
+  .stats-table{font-size:12px}
+  .stats-table th,.stats-table td{padding:4px 6px}
+  .stat-row{gap:6px 14px}
+}
+
+/* Loading */
+#loadingOverlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;z-index:100}
+#loadingOverlay.active{display:flex}
+#loadingOverlay .box{background:var(--surface);padding:24px 32px;border-radius:var(--radius);box-shadow:0 4px 20px rgba(0,0,0,.15);text-align:center}
+.spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin-bottom:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Search */
+.search-row{display:flex;gap:8px;margin-bottom:12px}
+.search-row input[type=text]{flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px}
+.search-row input[type=text]:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.search-row button{padding:8px 18px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px}
+.search-row button:hover{opacity:.9}
+
+/* Bottom section for search results */
+#searchResult{margin-top:4px}
+#signalTimeline{margin-top:12px;max-height:200px;overflow-y:auto;font-size:12px}
+#signalTimeline .tl-item{padding:4px 8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-family:var(--mono)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:32px 16px;color:var(--muted);font-size:13px}
+.empty-state .big{font-size:40px;display:block;margin-bottom:8px}
+
+/* Tabs within planner */
+.tier-tabs{display:flex;gap:4px;margin:12px 0}
+.tier-btn{padding:8px 16px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-weight:500;font-size:13px;color:var(--text);transition:.15s;text-align:left}
+.tier-btn:hover{border-color:var(--accent)}
+.tier-btn.selected{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+.tier-btn.disabled{opacity:.4;cursor:not-allowed}
+.tier-btn .tag{display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:2px}
+
+/* Stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:8px 0}
+.stat-box{padding:10px;border-radius:6px;background:var(--bg);text-align:center}
+.stat-box .k{font-size:11px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.03em}
+.stat-box .v{font-size:16px;font-weight:700;font-family:var(--mono)}
+
+/* Checklist */
+.checklist{list-style:none;padding:0;font-size:12px;color:var(--muted)}
+.checklist li{padding:4px 0 4px 20px;position:relative}
+.checklist li:before{content:'\2713';position:absolute;left:0;color:var(--positive);font-weight:700}
+
+/* Plain english helper */
+.plain{font-size:12px;color:var(--muted);margin-top:2px;font-style:italic}
+
+/* Year warnings */
+.flag-year{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:4px}
+
+/* Tooltip */
+[data-tip]{position:relative;cursor:help;border-bottom:1px dotted var(--border)}
+[data-tip]:hover:after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:4px 10px;border-radius:4px;font-size:11px;white-space:nowrap;z-index:10;font-weight:400;font-family:var(--font)}
+</style>
+</head>
+<body>
+
+<!-- Drop Zone -->
+<div id="dropZone">
+  <span class="icon">&#128202;</span>
+  <p><strong>Drop backtest JSON here</strong> or click to browse</p>
+  <p style="font-size:12px">Supports files exported from the backtest engine</p>
+  <input type="file" id="fileInput" accept=".json" style="display:none">
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+  <div class="box">
+    <div class="spinner"></div>
+    <div id="loadingText">Processing trades...</div>
+  </div>
+</div>
+
+<!-- App Container -->
+<div id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>
+      Backtest Analyzer
+      <span class="badge" id="badgeCount" style="background:var(--accent-light);color:var(--accent)"></span>
+    </h1>
+    <div class="meta">
+      <span id="metaEntry">Entry: &mdash;</span>
+      <span id="metaDate">Data: &mdash;</span>
+      <span id="metaSymbols">Symbols: &mdash;</span>
+    </div>
+  </div>
+
+  <!-- Capital Bar -->
+  <div class="capital-bar">
+    <label for="capitalInput">Your capital</label>
+    <input type="text" id="capitalInput" value="1,00,000">
+    <span class="note" id="capitalNote"></span>
+    <span class="tier-tag" id="tierTag"></span>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="lookup">Stock Lookup</button>
+    <button class="tab-btn" data-tab="stats">Verified Stats</button>
+    <button class="tab-btn" data-tab="planner">Tier Planner</button>
+  </div>
+
+  <!-- Tab: Stock Lookup -->
+  <div class="tab-panel" id="panel-lookup">
+    <div class="card">
+      <div class="search-row">
+        <input type="text" id="symbolInput" placeholder="Enter symbol (e.g. RELIANCE, HINDALCO, TCS)" autocomplete="off">
+        <button id="lookupBtn">Look up</button>
+      </div>
+      <div id="disclaimer" class="flag-box info" style="margin-bottom:0">
+        Strategy avg (14d): +9.4% win 82.1% across 4,692 trades. Individual stocks vary. Past performance &ne; future results.
+      </div>
+    </div>
+    <div id="searchResult"></div>
+  </div>
+
+  <!-- Tab: Verified Stats -->
+  <div class="tab-panel hidden" id="panel-stats">
+    <div id="statsContent"></div>
+  </div>
+
+  <!-- Tab: Tier Planner -->
+  <div class="tab-panel hidden" id="panel-planner">
+    <div id="plannerContent"></div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const TXN_RATE = 0.0000325;   // NSE cash delivery 0.00325%
+const STT_RATE = 0.001;       // 0.1% each side
+const STAMP_RATE = 0.00015;   // 0.015% buy only
+const SEBI_RATE = 0.000001;   // 0.0001% (₹10/crore)
+const GST_RATE = 0.18;        // 18% on txn+sebi
+const DP_FLAT = 15.34;        // ₹15.34 per sell, GST included
+const STCG_RATE = 0.156;      // 15.6% on net gains
+
+let TRADES = [];
+let META = {};
+let CAPITAL = 100000;
+let SELECTED_TIER = 'balanced';
+let STATS_CACHE = null;
+let lastSearchSymbol = null;
+
+// ============================================================
+// UTILITY
+// ============================================================
+function num(v){
+  if (v===null || v===undefined || v==='') return NaN;
+  const n = typeof v==='string' ? +v : v;
+  return isNaN(n) ? NaN : n;
+}
+function mean(a){return a.reduce((s,v)=>s+v,0)/a.length}
+function std(a,m){return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1))}
+function median(a){
+  const s=[...a].sort((x,y)=>x-y);
+  return s.length%2===0 ? (s[s.length/2-1]+s[s.length/2])/2 : s[Math.floor(s.length/2)];
+}
+function fmtRupee(n){
+  if (!isFinite(n)) return '—';
+  const r = Math.round(n);
+  return '₹' + r.toLocaleString('en-IN');
+}
+function fmtPct(n,d){
+  d = d===undefined?1:d;
+  if (!isFinite(n)) return '—';
+  return (n>=0?'+':'') + n.toFixed(d) + '%';
+}
+function pctClass(n){return n>=0?'pos':'neg'}
+function roundTo(n,d){const m=Math.pow(10,d);return Math.round(n*m)/m}
+
+// ============================================================
+// COST FORMULAS — Zerodha equity delivery
+// ============================================================
+function costSingle(pos){
+  const stt = STT_RATE*pos*2;
+  const txn = TXN_RATE*pos*2;
+  const stamp = STAMP_RATE*pos;
+  const sebi = SEBI_RATE*pos*2;
+  const gst = GST_RATE*(txn+sebi);
+  return stt+txn+stamp+sebi+gst+DP_FLAT;
+}
+function costLadder(pos, legs){
+  legs = legs||4;
+  const stt_buy = STT_RATE*pos;
+  const stamp = STAMP_RATE*pos;
+  let total = stt_buy+stamp;
+  const exitVal = pos/legs;
+  for (let i=0;i<legs;i++){
+    const stt = STT_RATE*exitVal;
+    const txn = TXN_RATE*exitVal;
+    const sebi = SEBI_RATE*exitVal;
+    const gst = GST_RATE*(txn+sebi);
+    total += stt+txn+sebi+gst+DP_FLAT;
+  }
+  return total;
+}
+// Verified: costSingle(5000)=26.49 costSingle(10000)=37.63 costSingle(25000)=71.07 costSingle(100000)=238.25
+// Verified: costLadder(5000,4)=72.31 costLadder(10000,4)=83.26 costLadder(25000,4)=116.10 costLadder(50000,4)=170.84
+
+// ============================================================
+// CAPITAL PARSING
+// ============================================================
+function parseCapitalInput(val){
+  if (!val || val.trim()===''){
+    return {value:100000, note:'Using default ₹1,00,000'};
+  }
+  let s = val.replace(/[₹,\s]/g,'');
+  let n = parseFloat(s);
+  if (isNaN(n) || n<=0){
+    const abs = parseFloat(s.replace(/^-/,''));
+    if (!isNaN(abs) && abs>0){
+      return {value:Math.floor(abs), note:'Negative? Using absolute value'};
+    }
+    return {value:100000, note:'Invalid input — using default ₹1,00,000'};
+  }
+  n = Math.floor(n);
+  if (n<2000){
+    return {value:2000, note:'Minimum ₹2,000 required — set to ₹2,000'};
+  }
+  return {value:n, note:''};
+}
+
+// ============================================================
+// TIER CONFIG
+// ============================================================
+function tierConfig(capital){
+  const starterSize = Math.max(2000, Math.min(10000, Math.round(capital*0.15)));
+  const balancedSize = Math.max(2000, Math.min(7500, Math.round(capital*0.08)));
+  const growthSize = Math.max(10000, Math.min(15000, Math.round(capital*0.10)));
+
+  const starterPos = Math.max(1, Math.floor(capital*0.60/starterSize));
+  const balancedPos = Math.max(1, Math.floor(capital*0.70/balancedSize));
+  const growthAvail = capital*0.75 >= growthSize;
+  const growthPos = growthAvail ? Math.max(1, Math.floor(capital*0.75/growthSize)) : 0;
+
+  return {
+    starter:{size:starterSize, positions:starterPos, deployed:starterSize*starterPos, available:true, desc:'Single flat exit'},
+    balanced:{size:balancedSize, positions:balancedPos, deployed:balancedSize*balancedPos, available:capital>=20000, desc:'Horizon-specific stops'},
+    growth:{size:growthSize, positions:growthPos, deployed:growthSize*growthPos, available:growthAvail && capital>=60000, desc:'4-way ladder exit'}
+  };
+}
+
+// ============================================================
+// DATA COMPUTATION
+// ============================================================
+function horizonStats(trades, key){
+  const vals = trades.map(t=>num(t[key])).filter(v=>isFinite(v));
+  const n = vals.length;
+  if (n===0) return {n:0, mean:NaN, std:NaN, sharpe:NaN, winRate:NaN, profitFactor:NaN, kelly:NaN, p5:NaN, p50:NaN, p90:NaN};
+  const mu = mean(vals);
+  const sd = n>1 ? std(vals,mu) : 0;
+  const wins = vals.filter(v=>v>0).length;
+  const losses = vals.filter(v=>v<0).length;
+  const winRate = wins/n*100;
+  const sumGains = vals.filter(v=>v>0).reduce((s,v)=>s+v,0);
+  const sumLosses = Math.abs(vals.filter(v=>v<0).reduce((s,v)=>s+v,0));
+  const pf = sumLosses>0 ? sumGains/sumLosses : (sumGains>0 ? Infinity : 0);
+  const avgWin = wins>0 ? sumGains/wins : 0;
+  const avgLoss = losses>0 ? sumLosses/losses : 0;
+  const kelly = avgLoss>0 ? (winRate/100 - (1-winRate/100)/(avgWin/avgLoss)) : 1;
+  const sorted = [...vals].sort((a,b)=>a-b);
+  const p5 = sorted[Math.max(0, Math.floor(n*0.05))];
+  const p50 = sorted[Math.floor(n*0.5)];
+  const p90 = sorted[Math.min(n-1, Math.floor(n*0.9))];
+  return {n, mean:mu, std:sd, sharpe:sd>0?mu/sd*Math.sqrt(252):0, winRate, profitFactor:pf, kelly, p5, p50, p90};
+}
+
+function computeAllStats(trades){
+  const HORIZONS = [7,14,30,45,60,90];
+  const hstats = {};
+  for (const d of HORIZONS){
+    hstats[d] = horizonStats(trades, 'return_'+d+'d');
+  }
+
+  // Ladder: 25% × 7d + 25% × 14d + 25% × 30d + 25% × 60d
+  const ladderVals = trades.map(t=>{
+    const r7=num(t.return_7d), r14=num(t.return_14d), r30=num(t.return_30d), r60=num(t.return_60d);
+    if (!isFinite(r7)||!isFinite(r14)||!isFinite(r30)||!isFinite(r60)) return NaN;
+    return 0.25*(r7+r14+r30+r60);
+  }).filter(v=>isFinite(v));
+  const ladderStats = horizonStats(trades, 'return_14d'); // placeholder shape, fill below
+  if (ladderVals.length>0){
+    const lmu = mean(ladderVals);
+    const lsd = ladderVals.length>1 ? std(ladderVals,lmu) : 0;
+    const lwins = ladderVals.filter(v=>v>0).length;
+    const llosses = ladderVals.filter(v=>v<0).length;
+    const lGains = ladderVals.filter(v=>v>0).reduce((s,v)=>s+v,0);
+    const lLosses = Math.abs(ladderVals.filter(v=>v<0).reduce((s,v)=>s+v,0));
+    const lpf = lLosses>0 ? lGains/lLosses : (lGains>0?Infinity:0);
+    const law = lwins>0 ? lGains/lwins : 0;
+    const lal = llosses>0 ? lLosses/llosses : 0;
+    const lkelly = lal>0 ? (lwins/ladderVals.length - (1-lwins/ladderVals.length)/(law/lal)) : 1;
+    const sorted = [...ladderVals].sort((a,b)=>a-b);
+    const ln = ladderVals.length;
+    Object.assign(ladderStats, {
+      n:ln, mean:lmu, std:lsd, sharpe:lsd>0?lmu/lsd*Math.sqrt(252):0,
+      winRate:lwins/ln*100, profitFactor:lpf, kelly:lkelly,
+      p5:sorted[Math.max(0,Math.floor(ln*0.05))],
+      p50:sorted[Math.floor(ln*0.5)],
+      p90:sorted[Math.min(ln-1,Math.floor(ln*0.9))]
+    });
+  }
+
+  // Market cap stats
+  const caps = {};
+  for (const cap of ['Largecap','Midcap','Smallcap']){
+    const filtered = trades.filter(t=>t.market_cap===cap);
+    caps[cap] = horizonStats(filtered, 'return_14d');
+  }
+
+  // Year stats
+  const years = {};
+  for (const t of trades){
+    const y = t.signal_date ? t.signal_date.slice(0,4) : '?';
+    if (!years[y]) years[y] = [];
+    const r = num(t.return_14d);
+    if (isFinite(r)) years[y].push(r);
+  }
+  const yearStats = Object.entries(years).map(([yr,vals])=>{
+    const n=vals.length;
+    const mu=mean(vals);
+    const wins=vals.filter(v=>v>0).length;
+    return {year:yr, n, avg:mu, winRate:wins/n*100};
+  }).sort((a,b)=>a.year.localeCompare(b.year));
+
+  // Week-of-month stats
+  const weeks = {1:[],2:[],3:[],4:[]};
+  for (const t of trades){
+    if (!t.signal_date) continue;
+    const day = parseInt(t.signal_date.slice(8,10),10);
+    const wk = day<=7 ? 1 : day<=14 ? 2 : day<=21 ? 3 : 4;
+    const r = num(t.return_14d);
+    if (isFinite(r)) weeks[wk].push(r);
+  }
+  const weekStats = Object.entries(weeks).map(([wk,vals])=>{
+    const n=vals.length;
+    const mu=mean(vals);
+    const wins=vals.filter(v=>v>0).length;
+    return {week:'Week '+wk, n, avg:mu, winRate:wins/n*100};
+  });
+
+  // Entry price stats
+  const prices = trades.map(t=>num(t.entry_price)).filter(v=>isFinite(v)&&v>0).sort((a,b)=>a-b);
+  const priceStats = {};
+  if (prices.length>0){
+    const n=prices.length;
+    priceStats.median = median(prices);
+    priceStats.p5 = prices[Math.floor(n*0.05)];
+    priceStats.p95 = prices[Math.floor(n*0.95)];
+    priceStats.pctUnder100 = prices.filter(p=>p<100).length/n*100;
+    priceStats.pctUnder500 = prices.filter(p=>p<500).length/n*100;
+    priceStats.pctUnder50 = prices.filter(p=>p<50).length/n*100;
+  }
+
+  // Concentration: top 10 most signaled symbols
+  const symCount = {};
+  for (const t of trades){
+    symCount[t.symbol] = (symCount[t.symbol]||0)+1;
+  }
+  const topSymbols = Object.entries(symCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const concentration = topSymbols.map(([sym,count])=>{
+    const st = trades.filter(t=>t.symbol===sym);
+    const rets = st.map(t=>num(t.return_14d)).filter(v=>isFinite(v));
+    const wins = rets.filter(v=>v>0).length;
+    return {symbol:sym, count, avg:rets.length>0?mean(rets):NaN, winRate:rets.length>0?wins/rets.length*100:NaN, n_rets:rets.length};
+  });
+
+  // Reversal stats
+  const both = trades.filter(t=>isFinite(num(t.return_7d)) && isFinite(num(t.return_90d)));
+  const rev90 = both.filter(t=>num(t.return_7d)>0 && num(t.return_90d)<0);
+  const rev90Winners = both.filter(t=>num(t.return_7d)>0);
+  const revRate90 = rev90Winners.length>0 ? rev90.length/rev90Winners.length*100 : 0;
+
+  const both14 = trades.filter(t=>isFinite(num(t.return_7d)) && isFinite(num(t.return_14d)));
+  const rev14 = both14.filter(t=>num(t.return_7d)>0 && num(t.return_14d)<0);
+  const rev14Winners = both14.filter(t=>num(t.return_7d)>0);
+  const revRate14 = rev14Winners.length>0 ? rev14.length/rev14Winners.length*100 : 0;
+
+  // Monthly signal counts
+  function monthlyAvgCount(filterFn){
+    const byMonth = {};
+    for (const t of trades){
+      if (!filterFn(t)) continue;
+      const ym = t.signal_date ? t.signal_date.slice(0,7) : '?';
+      byMonth[ym] = (byMonth[ym]||0)+1;
+    }
+    const counts = Object.values(byMonth);
+    return counts.length>0 ? mean(counts) : 0;
+  }
+  const monthlyStarter = monthlyAvgCount(t=>t.market_cap==='Largecap');
+  const monthlyBalanced = monthlyAvgCount(t=>t.market_cap==='Midcap'||t.market_cap==='Smallcap');
+  const monthlyGrowth = monthlyAvgCount(t=>t.market_cap==='Smallcap');
+
+  // Return distribution bins (10 bins from min to max)
+  const all14 = trades.map(t=>num(t.return_14d)).filter(v=>isFinite(v)).sort((a,b)=>a-b);
+  let distBins = [];
+  if (all14.length>0){
+    const binCount = 10;
+    const min = all14[0];
+    const max = all14[all14.length-1];
+    const binWidth = (max-min)/binCount || 1;
+    for (let i=0;i<binCount;i++){
+      const lo = min+i*binWidth;
+      const hi = lo+binWidth;
+      const cnt = all14.filter(v=>v>=lo && (i<binCount-1?v<hi:v<=hi)).length;
+      distBins.push({lo, hi, count:cnt, pct:cnt/all14.length*100});
+    }
+  }
+
+  // Per-symbol cache for quick lookup
+  const symMap = {};
+  for (const t of trades){
+    if (!symMap[t.symbol]) symMap[t.symbol] = [];
+    symMap[t.symbol].push(t);
+  }
+
+  return {
+    hstats, ladderStats, caps, yearStats, weekStats, priceStats,
+    concentration, revRate90, revRate14, rev90:n=>rev90.length,
+    monthly:{starter:monthlyStarter, balanced:monthlyBalanced, growth:monthlyGrowth},
+    distBins, symMap, totalTrades:trades.length, totalSymbols:Object.keys(symMap).length,
+    all14, allTrades:trades
+  };
+}
+
+// ============================================================
+// PER-SYMBOL LOOKUP
+// ============================================================
+function findSymbol(trades, input){
+  if (!input || !input.trim()) return null;
+  const q = input.trim().toUpperCase();
+  const noNS = q.endsWith('.NS') ? q.slice(0,-3) : q;
+
+  // Direct match
+  const exact = trades.find(t=>t.symbol===q || t.symbol===noNS+'.NS' || t.symbol===q+'.NS');
+  if (exact) return exact.symbol;
+
+  // Partial match
+  const candidates = [...new Set(
+    trades.filter(t=>{
+      const s = t.symbol;
+      return s===noNS || s.includes(q) || s.includes(noNS) || (s.endsWith('.NS') && s.slice(0,-3).includes(q));
+    }).map(t=>t.symbol)
+  )];
+  if (candidates.length===1) return candidates[0];
+  if (candidates.length>1) return {multiple:candidates.slice(0,8)};
+  return null;
+}
+
+function perSymbolStats(symTrades, strategyStats){
+  const n = symTrades.length;
+  const rets14 = symTrades.map(t=>num(t.return_14d)).filter(v=>isFinite(v));
+  const rets7 = symTrades.map(t=>num(t.return_7d)).filter(v=>isFinite(v));
+  const n14 = rets14.length;
+  const avg14 = n14>0 ? mean(rets14) : NaN;
+  const win14 = n14>0 ? rets14.filter(v=>v>0).length/n14*100 : NaN;
+  const best14 = n14>0 ? Math.max(...rets14) : NaN;
+  const worst14 = n14>0 ? Math.min(...rets14) : NaN;
+  const sd14 = n14>1 ? std(rets14, avg14) : 0;
+  const sharpe14 = sd14>0 ? avg14/sd14*Math.sqrt(252) : 0;
+
+  const prices = symTrades.map(t=>num(t.entry_price)).filter(v=>isFinite(v)&&v>0);
+  const medianPrice = prices.length>0 ? median(prices) : NaN;
+
+  const dates = symTrades.map(t=>t.signal_date).filter(Boolean).sort();
+  const firstDate = dates[0]||'—';
+  const lastDate = dates[dates.length-1]||'—';
+  const yearsRange = lastDate!=='—' && firstDate!=='—' ?
+    Math.round((new Date(lastDate)-new Date(firstDate))/(365.25*86400000)*10)/10 : 0;
+
+  // Staleness
+  const monthsSinceLast = lastDate!=='—' ?
+    Math.round((new Date()-new Date(lastDate))/(30*86400000)) : null;
+
+  // Concentration within 30d
+  let clusterWarnings = [];
+  for (let i=1;i<dates.length;i++){
+    const d1 = new Date(dates[i-1]);
+    const d2 = new Date(dates[i]);
+    const daysBetween = (d2-d1)/86400000;
+    if (daysBetween<=30) clusterWarnings.push(`${dates[i-1]} to ${dates[i]} (${Math.round(daysBetween)}d)`);
+  }
+  // Signals within 90d window
+  let signalDensity = 0;
+  for (let i=0;i<dates.length;i++){
+    const windowStart = new Date(dates[i]);
+    const windowEnd = new Date(windowStart);
+    windowEnd.setDate(windowEnd.getDate()+90);
+    const count = dates.filter(d=>{
+      const dt = new Date(d);
+      return dt>=windowStart && dt<=windowEnd;
+    }).length;
+    signalDensity = Math.max(signalDensity, count);
+  }
+
+  // Reliability tier
+  let tier, tierClass;
+  if (n14<2) {tier='Insufficient data'; tierClass='insufficient';}
+  else if (n14<3) {tier='Very limited (2 signals)'; tierClass='insufficient';}
+  else if (n14<5) {tier='Limited data'; tierClass='limited';}
+  else if (n14<10) {tier='Moderate sample'; tierClass='moderate';}
+  else {tier='Well-tested'; tierClass='tested';}
+
+  // Circuit risk
+  const circuitRisk = medianPrice<50 ? true : (medianPrice<100 ? 'amber' : false);
+
+  return {
+    n, n14, avg14, win14, best14, worst14, sharpe14,
+    medianPrice, firstDate, lastDate, yearsRange, monthsSinceLast,
+    clusterWarnings, signalDensity, tier, tierClass, circuitRisk,
+    overallAvg14:strategyStats.hstats[14].mean,
+    overallWin14:strategyStats.hstats[14].winRate
+  };
+}
+
+// ============================================================
+// FORMATTING HELPERS
+// ============================================================
+function plainSharpe(s){
+  if (!isFinite(s)) return '—';
+  if (s<0) return 'Below zero (poor risk-adjusted return)';
+  if (s<0.5) return 'Below average';
+  if (s<1) return 'Fair';
+  if (s<2) return 'Good';
+  return 'Excellent';
+}
+function plainPF(pf){
+  if (!isFinite(pf)) return '—';
+  if (pf===Infinity) return 'No losing trades in sample';
+  return `For every ₹1 lost, you made ₹${pf.toFixed(1)}`;
+}
+function plainKelly(k){
+  if (!isFinite(k)) return '—';
+  const hk = Math.max(0, Math.min(1, k/2));
+  return `Half-Kelly suggests using ${(hk*100).toFixed(0)}% of capital per position`;
+}
+function plainStd(sd, mean){
+  if (!isFinite(sd)||!isFinite(mean)) return '—';
+  const lo = mean-sd, hi = mean+sd;
+  return `68% of trades return ${fmtPct(lo,1)} to ${fmtPct(hi,1)}`;
+}
+
+// ============================================================
+// RENDER FUNCTIONS
+// ============================================================
+
+// --- Warnings ---
+function renderWarnings(s){
+  let html = '';
+  // Recent-trade note
+  const total = s.allTrades.length;
+  const valid14 = s.all14.length;
+  if (valid14<total){
+    html += `<div class="flag-box info">${total-valid14} recent trade${total-valid14!==1?'s':''} excluded from 14d stats (horizon not yet reached).</div>`;
+  }
+  // Stale symbol count
+  const now = new Date();
+  let staleCount = 0;
+  for (const [sym, trades] of Object.entries(s.symMap)){
+    const dates = trades.map(t=>t.signal_date).filter(Boolean);
+    if (dates.length===0) continue;
+    const last = new Date(Math.max(...dates.map(d=>new Date(d))));
+    const months = (now-last)/(30*86400000);
+    if (months>24) staleCount++;
+  }
+  if (staleCount>0){
+    html += `<div class="flag-box warn">${staleCount} of ${s.totalSymbols} symbols have no signal in the last 2 years — the strategy may have stopped selecting them.</div>`;
+  }
+  // Entry price risk
+  if (s.priceStats.pctUnder50 && s.priceStats.pctUnder50>5){
+    html += `<div class="flag-box warn">${s.priceStats.pctUnder50.toFixed(1)}% of entries are at <₹50 — these stocks are prone to circuit limits.</div>`;
+  }
+  // Exceptional year
+  const overallAvg = s.hstats[14].mean;
+  for (const yr of s.yearStats){
+    if (yr.avg > overallAvg*1.8 && yr.n>=20){
+      html += `<div class="flag-box info">${yr.year} had exceptionally high avg return (${fmtPct(yr.avg,1)} vs strategy avg ${fmtPct(overallAvg,1)}). Treat as exceptional, not baseline.</div>`;
+    }
+  }
+  return html;
+}
+
+// --- Stats Tab ---
+function renderStatsTab(s){
+  let html = '';
+  html += renderWarnings(s);
+
+  // Horizon table
+  html += `<div class="card"><h2>Returns by horizon</h2><div class="table-wrap" style="overflow-x:auto">`;
+  html += `<table class="stats-table"><thead><tr><th>Horizon</th><th>n</th><th>Avg</th><th>Std</th><th>Sharpe</th><th>Win%</th><th>PF</th><th>Kelly%</th><th data-tip="5th percentile — worst 5% of trades">P5</th><th data-tip="50th percentile — median">P50</th><th data-tip="90th percentile — top 10%">P90</th></tr></thead><tbody>`;
+  for (const d of [7,14,30,45,60,90]){
+    const h = s.hstats[d];
+    if (!h || h.n===0) continue;
+    html += `<tr>
+      <td>${d}d</td>
+      <td class="mono">${h.n.toLocaleString()}</td>
+      <td class="mono ${pctClass(h.mean)}">${fmtPct(h.mean,2)}</td>
+      <td class="mono">${fmtPct(h.std,2)}</td>
+      <td class="mono">${isFinite(h.sharpe)?h.sharpe.toFixed(2):'—'}</td>
+      <td class="mono">${isFinite(h.winRate)?h.winRate.toFixed(1)+'%':'—'}</td>
+      <td class="mono">${isFinite(h.profitFactor)?h.profitFactor.toFixed(2):'—'}</td>
+      <td class="mono">${isFinite(h.kelly)?(h.kelly*100).toFixed(1):'—'}</td>
+      <td class="mono ${pctClass(h.p5)}">${fmtPct(h.p5,2)}</td>
+      <td class="mono ${pctClass(h.p50)}">${fmtPct(h.p50,2)}</td>
+      <td class="mono ${pctClass(h.p90)}">${fmtPct(h.p90,2)}</td>
+    </tr>`;
+  }
+  // Ladder row
+  const l = s.ladderStats;
+  if (l && l.n>0){
+    html += `<tr style="background:var(--accent-light)">
+      <td><strong>Ladder (7/14/30/60)</strong></td>
+      <td class="mono">${l.n.toLocaleString()}</td>
+      <td class="mono ${pctClass(l.mean)}"><strong>${fmtPct(l.mean,2)}</strong></td>
+      <td class="mono">${fmtPct(l.std,2)}</td>
+      <td class="mono"><strong>${isFinite(l.sharpe)?l.sharpe.toFixed(2):'—'}</strong></td>
+      <td class="mono"><strong>${isFinite(l.winRate)?l.winRate.toFixed(1)+'%':'—'}</strong></td>
+      <td class="mono">${isFinite(l.profitFactor)?l.profitFactor.toFixed(2):'—'}</td>
+      <td class="mono">${isFinite(l.kelly)?(l.kelly*100).toFixed(1):'—'}</td>
+      <td class="mono ${pctClass(l.p5)}">${fmtPct(l.p5,2)}</td>
+      <td class="mono ${pctClass(l.p50)}">${fmtPct(l.p50,2)}</td>
+      <td class="mono ${pctClass(l.p90)}">${fmtPct(l.p90,2)}</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+  html += `<p class="plain">Sharpe >1 = good risk-adjusted return. PF = profit factor (₹ earned per ₹1 lost). Kelly = optimal position size %.</p>`;
+  html += `</div>`;
+
+  // Return distribution
+  if (s.distBins.length>0){
+    html += `<div class="card"><h2>14d return distribution</h2><p class="plain">Each bar shows the range and % of trades in that bin.</p>`;
+    const maxCount = Math.max(...s.distBins.map(b=>b.count));
+    for (const bin of s.distBins){
+      const w = Math.max(2, bin.count/maxCount*100);
+      const cls = bin.lo>=0 ? '' : ' neg';
+      html += `<div class="dist-row">
+        <span class="dist-label">${fmtPct(bin.lo,1)}</span>
+        <div class="dist-bar${cls}" style="width:${w}%"></div>
+        <span class="dist-val">${bin.count} (${bin.pct.toFixed(1)}%)</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Sharpe bar chart
+  html += `<div class="card"><h2>Sharpe ratio by horizon</h2><p class="plain">Risk-adjusted return. Higher is better. >1 = good.</p>`;
+  const maxSharpe = Math.max(1, ...Object.values(s.hstats).filter(h=>h&&isFinite(h.sharpe)).map(h=>h.sharpe));
+  for (const d of [7,14,30,45,60,90]){
+    const h = s.hstats[d];
+    if (!h || h.n===0) continue;
+    const w = Math.max(2, (h.sharpe||0)/maxSharpe*100);
+    html += `<div class="bar-row">
+      <span class="bar-label">${d}d</span>
+      <div class="bar-fill" style="width:${w}%"></div>
+      <span class="bar-val">${isFinite(h.sharpe)?h.sharpe.toFixed(2):'—'}</span>
+    </div>`;
+  }
+  if (l && l.n>0 && isFinite(l.sharpe)){
+    const w = Math.max(2, l.sharpe/maxSharpe*100);
+    html += `<div class="bar-row">
+      <span class="bar-label" style="font-weight:700">Ladder</span>
+      <div class="bar-fill" style="width:${w}%;background:var(--positive)"></div>
+      <span class="bar-val"><strong>${l.sharpe.toFixed(2)}</strong></span>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Entry price stats
+  if (s.priceStats.median){
+    html += `<div class="card"><h2>Entry price distribution</h2>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="k">Median</div><div class="v">${fmtRupee(s.priceStats.median)}</div></div>
+      <div class="stat-box"><div class="k">P5</div><div class="v">${fmtRupee(s.priceStats.p5)}</div></div>
+      <div class="stat-box"><div class="k">P95</div><div class="v">${fmtRupee(s.priceStats.p95)}</div></div>
+      <div class="stat-box"><div class="k">&lt;₹100</div><div class="v">${s.priceStats.pctUnder100.toFixed(0)}%</div></div>
+      <div class="stat-box"><div class="k">&lt;₹500</div><div class="v">${s.priceStats.pctUnder500.toFixed(0)}%</div></div>
+      <div class="stat-box"><div class="k">&lt;₹50</div><div class="v">${s.priceStats.pctUnder50.toFixed(1)}%</div></div>
+    </div>
+    <p class="plain">Stocks below ₹50 (${s.priceStats.pctUnder50.toFixed(1)}% of trades) may hit circuit limits — exits may not fill at desired price.</p>
+    </div>`;
+  }
+
+  // Market cap breakdown
+  html += `<div class="card"><h2>14d by market cap</h2>`;
+  html += `<table class="stats-table"><thead><tr><th>Cap</th><th>n</th><th>Avg</th><th>Win%</th><th>Sharpe</th></tr></thead><tbody>`;
+  for (const cap of ['Largecap','Midcap','Smallcap']){
+    const c = s.caps[cap];
+    if (!c || c.n===0) {html+=`<tr><td>${cap}</td><td colspan="4" class="mono" style="color:var(--muted)">No data</td></tr>`; continue;}
+    html += `<tr>
+      <td>${cap}</td>
+      <td class="mono">${c.n.toLocaleString()}</td>
+      <td class="mono ${pctClass(c.mean)}">${fmtPct(c.mean,2)}</td>
+      <td class="mono">${c.winRate.toFixed(1)}%</td>
+      <td class="mono">${isFinite(c.sharpe)?c.sharpe.toFixed(2):'—'}</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  // Reversal stats
+  html += `<div class="card"><h2>Reversal risk</h2><div class="stat-grid">
+    <div class="stat-box"><div class="k">7d→90d reversal</div><div class="v ${s.revRate90>20?'neg':'pos'}">${s.revRate90.toFixed(1)}%</div><div class="plain">Of 7d winners that turned into 90d losers</div></div>
+    <div class="stat-box"><div class="k">7d→14d reversal</div><div class="v ${s.revRate14>15?'neg':'pos'}">${s.revRate14.toFixed(1)}%</div><div class="plain">Of 7d winners that lost by 14d</div></div>
+    <div class="stat-box"><div class="k">Total reversed</div><div class="v">${s.rev90()}</div><div class="plain">Trades that reversed 7d→90d</div></div>
+  </div></div>`;
+
+  // Year stats
+  html += `<div class="card"><h2>Signal year breakdown</h2><p class="plain">Average 14d return per calendar year. Years with &lt;10 signals are unreliable.</p>`;
+  html += `<table class="stats-table"><thead><tr><th>Year</th><th>Signals</th><th>Avg 14d</th><th>Win%</th></tr></thead><tbody>`;
+  const overall = s.hstats[14].mean;
+  for (const yr of s.yearStats){
+    const isLow = yr.n<10;
+    const isHi = yr.avg > overall*1.8 && yr.n>=20;
+    html += `<tr${isLow||isHi?' style="background:var(--warning-light)"':''}>
+      <td>${yr.year}${isHi?' <span class="flag-year" style="background:var(--warning-light);color:var(--warning)">exceptional</span>':''}${isLow?' <span class="flag-year" style="background:#F3F4F6;color:#6B7280">low n</span>':''}</td>
+      <td class="mono">${yr.n}</td>
+      <td class="mono ${pctClass(yr.avg)}">${fmtPct(yr.avg,2)}</td>
+      <td class="mono">${yr.winRate.toFixed(1)}%</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  // Week-of-month
+  html += `<div class="card"><h2>Week-of-month (signal date)</h2><p class="plain">Based on signal date, not entry date. Reflects when the strategy generates signals, not optimal entry timing.</p>`;
+  html += `<table class="stats-table"><thead><tr><th>Week</th><th>Signals</th><th>Avg 14d</th><th>Win%</th></tr></thead><tbody>`;
+  for (const w of s.weekStats){
+    html += `<tr>
+      <td>${w.week}</td>
+      <td class="mono">${w.n.toLocaleString()}</td>
+      <td class="mono ${pctClass(w.avg)}">${fmtPct(w.avg,2)}</td>
+      <td class="mono">${w.winRate.toFixed(1)}%</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  // Concentration
+  html += `<div class="card"><h2>Most-signaled stocks</h2><p class="plain">Top 10 symbols by signal count. Win rate vs strategy baseline (${s.hstats[14].winRate.toFixed(0)}%).</p>`;
+  html += `<table class="stats-table"><thead><tr><th>Symbol</th><th>Signals</th><th>Avg 14d</th><th>Win%</th><th>vs Strategy</th></tr></thead><tbody>`;
+  for (const c of s.concentration){
+    const vs = isFinite(c.winRate) ? c.winRate - s.hstats[14].winRate : 0;
+    html += `<tr>
+      <td style="font-family:var(--mono)">${c.symbol}</td>
+      <td class="mono">${c.count}</td>
+      <td class="mono ${pctClass(c.avg)}">${isFinite(c.avg)?fmtPct(c.avg,2):'—'}</td>
+      <td class="mono">${isFinite(c.winRate)?c.winRate.toFixed(1)+'%':'—'}</td>
+      <td class="mono ${pctClass(vs)}">${vs>0?'+':''}${vs.toFixed(1)}%</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  // Cost breakdown
+  const samplePos = 25000;
+  const stt = STT_RATE*samplePos*2;
+  const txn = TXN_RATE*samplePos*2;
+  const stamp = STAMP_RATE*samplePos;
+  const sebi = SEBI_RATE*samplePos*2;
+  const gst = GST_RATE*(txn+sebi);
+  const dp = DP_FLAT;
+  const totalCost = stt+txn+stamp+sebi+gst+dp;
+  const segs = [
+    {label:'STT', val:stt, pct:stt/totalCost*100, cls:'seg-stt', tip:'Securities Transaction Tax: 0.1% each side'},
+    {label:'DP', val:dp, pct:dp/totalCost*100, cls:'seg-dp', tip:'Demat + DP charges: ₹15.34 flat per sell'},
+    {label:'Stamp', val:stamp, pct:stamp/totalCost*100, cls:'seg-stamp', tip:'Stamp duty: 0.015% on buy'},
+    {label:'Txn', val:txn, pct:txn/totalCost*100, cls:'seg-txn', tip:'NSE transaction charge: 0.00325%'},
+    {label:'GST', val:gst, pct:gst/totalCost*100, cls:'seg-gst', tip:'GST 18% on txn + SEBI charges'},
+    {label:'SEBI', val:sebi, pct:sebi/totalCost*100, cls:'seg-sebi', tip:'SEBI charges: ₹10/crore'}
+  ];
+  html += `<div class="card"><h2>Cost breakdown</h2><p class="plain">Per trade at a ${fmtRupee(samplePos)} position size. Hover bars for details.</p>`;
+  html += `<div class="cost-strip">`;
+  for (const seg of segs){
+    html += `<div class="seg ${seg.cls}" style="width:${Math.max(2,seg.pct)}%" title="${seg.tip}">${seg.pct>8?seg.label:''}</div>`;
+  }
+  html += `</div><div class="stat-grid" style="grid-template-columns:repeat(auto-fill,minmax(100px,1fr))">`;
+  for (const seg of segs){
+    html += `<div class="stat-box" title="${seg.tip}"><div class="k">${seg.label}</div><div class="v" style="font-size:13px">${fmtRupee(seg.val)}</div><div class="plain">${seg.pct.toFixed(0)}%</div></div>`;
+  }
+  html += `<div class="stat-box" style="background:var(--accent-light)"><div class="k">Total</div><div class="v" style="font-size:14px">${fmtRupee(totalCost)}</div><div class="plain">${(totalCost/samplePos*100).toFixed(2)}% of position</div></div>`;
+  html += `</div></div>`;
+
+  document.getElementById('statsContent').innerHTML = html;
+}
+
+// --- Stock Lookup Tab ---
+function renderLookupTabResult(symbol, s){
+  const container = document.getElementById('searchResult');
+  if (!symbol){
+    container.innerHTML = `<div class="empty-state"><span class="big">&#128269;</span>Type a symbol above to see per-stock analysis</div>`;
+    return;
+  }
+  if (symbol.multiple){
+    container.innerHTML = `<div class="card">
+      <div class="flag-box warn">Multiple symbols match. Did you mean one of these?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${symbol.multiple.map(sym=>
+        `<button class="tab-btn" style="background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px" onclick="document.getElementById('symbolInput').value='${sym.replace('.NS','')}';performLookup()">${sym}</button>`
+      ).join('')}</div>
+    </div>`;
+    return;
+  }
+  const symTrades = s.symMap[symbol];
+  if (!symTrades || symTrades.length===0){
+    container.innerHTML = `<div class="card"><div class="flag-box warn">Symbol not found in dataset.</div></div>`;
+    return;
+  }
+
+  const ps = perSymbolStats(symTrades, s);
+  const size = tierConfig(CAPITAL)[SELECTED_TIER].size;
+  const shares = isFinite(ps.medianPrice) && ps.medianPrice>0 ? Math.floor(size/ps.medianPrice) : null;
+  const rawReturn = isFinite(ps.avg14) ? ps.avg14 : s.hstats[14].mean;
+  const grossPnl = isFinite(rawReturn) ? size*rawReturn/100 : 0;
+  const costAmt = SELECTED_TIER==='growth' ? costLadder(size,4) : costSingle(size);
+  const netPnl = grossPnl - costAmt;
+  const afterTax = netPnl>0 ? netPnl*(1-STCG_RATE) : netPnl;
+  const vsAvg = isFinite(ps.win14) && isFinite(s.hstats[14].winRate) ? ps.win14 - s.hstats[14].winRate : null;
+  const vsAvgRet = isFinite(ps.avg14) && isFinite(s.hstats[14].mean) ? ps.avg14 - s.hstats[14].mean : null;
+  const affordable = isFinite(ps.medianPrice) ? (ps.medianPrice <= size ? 'PASS' : 'FAIL') : '—';
+
+  // Decision badge
+  const badgeMap = {
+    'Insufficient data': 'insufficient', 'Very limited (2 signals)': 'insufficient',
+    'Limited data': 'limited', 'Moderate sample': 'moderate', 'Well-tested': 'tested'
+  };
+
+  let html = `<div class="card">`;
+
+  // Header
+  html += `<div class="symbol-header">
+    <span class="decision-badge ${badgeMap[ps.tier]}">${ps.tier}</span>
+    <h2>${symbol}</h2>
+    <span class="n-signals">${ps.n} signal${ps.n!==1?'s':''}</span>
+  </div>`;
+
+  // Stats row
+  html += `<div class="stat-row">`;
+  if (isFinite(ps.avg14)) html += `<span><span class="label">Avg 14d:</span> <span class="value ${pctClass(ps.avg14)}">${fmtPct(ps.avg14,2)}</span>${vsAvgRet!==null?` <span class="label">(${vsAvgRet>=0?'+':''}${vsAvgRet.toFixed(2)}% vs strategy)</span>`:''}</span>`;
+  if (isFinite(ps.win14)) html += `<span><span class="label">Win rate:</span> <span class="value ${pctClass(ps.win14-50)}">${ps.win14.toFixed(1)}%</span>${vsAvg!==null?` <span class="label">(${vsAvg>=0?'+':''}${vsAvg.toFixed(1)}% vs strategy)</span>`:''}</span>`;
+  if (isFinite(ps.sharpe14)) html += `<span><span class="label">Sharpe:</span> <span class="value">${ps.sharpe14.toFixed(2)}</span> <span class="label">(${plainSharpe(ps.sharpe14)})</span></span>`;
+  html += `</div>`;
+
+  // Best/worst
+  html += `<div class="stat-row">`;
+  if (isFinite(ps.best14)) html += `<span><span class="label">Best:</span> <span class="value pos">${fmtPct(ps.best14,2)}</span></span>`;
+  if (isFinite(ps.worst14)) html += `<span><span class="label">Worst:</span> <span class="value neg">${fmtPct(ps.worst14,2)}</span></span>`;
+  html += `<span><span class="label">Range:</span> <span class="value" style="font-size:12px">${ps.firstDate} to ${ps.lastDate}</span></span>`;
+  if (ps.yearsRange>0) html += `<span><span class="label">Span:</span> <span class="value">${ps.yearsRange} yr${ps.yearsRange!==1?'s':''}</span></span>`;
+  html += `</div>`;
+
+  // Staleness
+  if (ps.monthsSinceLast!==null && ps.monthsSinceLast>12){
+    html += `<div class="flag-box warn">Last signal ${ps.monthsSinceLast} months ago (${ps.lastDate}). The strategy may have stopped selecting this stock.</div>`;
+  }
+
+  // Entry price
+  if (isFinite(ps.medianPrice)){
+    html += `<div class="stat-row"><span><span class="label">Median entry price:</span> <span class="value">${fmtRupee(ps.medianPrice)}</span></span></div>`;
+    if (ps.circuitRisk===true){
+      html += `<div class="flag-box error">Entry price ₹${Math.round(ps.medianPrice)} — stocks below ₹50 are prone to circuit limits. Exit may not fill at desired price.</div>`;
+    } else if (ps.circuitRisk==='amber'){
+      html += `<div class="flag-box warn">Entry price ₹${Math.round(ps.medianPrice)} — stocks below ₹100 may have liquidity issues.</div>`;
+    }
+  }
+
+  // Affordability + net return
+  html += `<hr style="border:none;border-top:1px solid var(--border);margin:10px 0">`;
+  html += `<div style="font-size:13px;font-weight:600;margin-bottom:6px">Your plan: ${SELECTED_TIER} tier — ${fmtRupee(size)} per position</div>`;
+  html += `<div class="stat-row">`;
+  if (shares!==null) html += `<span><span class="label">Shares at entry:</span> <span class="value">~${shares}</span></span>`;
+  html += `<span><span class="label">Affordability:</span> <span class="value ${affordable==='PASS'?'pos':'neg'}">${affordable}</span></span>`;
+  html += `<span><span class="label">Cost:</span> <span class="value neg">${fmtRupee(costAmt)}</span></span>`;
+  html += `<span><span class="label">Net after costs:</span> <span class="value ${pctClass(afterTax)}">${fmtRupee(Math.round(afterTax))}</span></span>`;
+  if (isFinite(rawReturn)) html += `<span><span class="label">Net return:</span> <span class="value ${pctClass(afterTax)}">${fmtPct(afterTax/size*100,2)}</span></span>`;
+  html += `</div>`;
+  html += `<p class="plain">After STCG (${(STCG_RATE*100).toFixed(1)}%) — assumes profitable financial year. Actual tax may differ with loss offset.</p>`;
+
+  // Signal clusters
+  if (ps.clusterWarnings.length>0){
+    html += `<div class="flag-box warn">${ps.clusterWarnings.length} instance${ps.clusterWarnings.length!==1?'s':''} of signals within 30 days. Consider waiting 30 days between entries to avoid concentration.</div>`;
+  }
+  if (ps.signalDensity>=4){
+    html += `<div class="flag-box warn">High signal density: ${ps.signalDensity} signals within a 90-day window. This stock may be volatile or frequently triggered.</div>`;
+  }
+
+  // Signal timeline
+  html += `<div id="signalTimeline">`;
+  const sorted = [...symTrades].sort((a,b)=>a.signal_date.localeCompare(b.signal_date)).slice(-10).reverse();
+  for (const t of sorted){
+    const r = num(t.return_14d);
+    html += `<div class="tl-item">
+      <span>${t.signal_date}</span>
+      <span class="${isFinite(r)?(r>=0?'pos':'neg'):''}">${isFinite(r)?fmtPct(r,2):'—'}</span>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Caution for tiny samples
+  if (ps.n14<3){
+    html += `<div class="flag-box error" style="margin-top:8px">Too few trades with 14d data (n=${ps.n14}) to draw reliable conclusions.</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// --- Planner Tab ---
+function renderPlannerTab(s){
+  let html = '';
+
+  // Capital + tier selection
+  html += `<div class="card">
+    <div class="input-row" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">
+      <label style="font-weight:600">Your capital</label>
+      <input type="text" id="plannerCapital" value="${fmtRupee(CAPITAL).replace('₹','')}" style="width:140px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;text-align:right;font-family:var(--mono);font-size:14px">
+      <span id="plannerCapitalNote" class="note"></span>
+    </div>
+    <div class="tier-tabs" id="plannerTierTabs"></div>
+    <div id="plannerTierBody"></div>
+  </div>`;
+
+  document.getElementById('plannerContent').innerHTML = html;
+
+  document.getElementById('plannerCapital').addEventListener('change', function(){
+    const r = parseCapitalInput(this.value);
+    CAPITAL = r.value;
+    document.getElementById('plannerCapitalNote').textContent = r.note;
+    this.value = Math.round(CAPITAL).toLocaleString('en-IN');
+    renderPlannerTierUI(s);
+    updateCapitalBar(s);
+  });
+
+  renderPlannerTierUI(s);
+}
+
+function renderPlannerTierUI(s){
+  const cfg = tierConfig(CAPITAL);
+  const tabsEl = document.getElementById('plannerTierTabs');
+  if (!tabsEl) return;
+  const labels = {starter:'Starter', balanced:'Balanced', growth:'Growth'};
+  const subs = {starter:'Single flat exit', balanced:'Horizon-specific stops', growth:'4-way ladder exit'};
+
+  if (!cfg[SELECTED_TIER].available){
+    SELECTED_TIER = cfg.balanced.available ? 'balanced' : 'starter';
+  }
+
+  tabsEl.innerHTML = Object.keys(labels).map(k=>{
+    const disabled = !cfg[k].available;
+    return `<button class="tier-btn ${SELECTED_TIER===k?'selected':''} ${disabled?'disabled':''}" data-tier="${k}" ${disabled?'disabled':''}>
+      ${labels[k]}<span class="tag">${disabled ? 'Needs '+(k==='balanced'?'₹20,000+':k==='growth'?'₹60,000+':'more capital') : subs[k]}</span>
+    </button>`;
+  }).join('');
+
+  tabsEl.querySelectorAll('.tier-btn').forEach(btn=>{
+    if (btn.disabled) return;
+    btn.addEventListener('click', function(){ SELECTED_TIER = this.dataset.tier; renderPlannerTierUI(s); });
+  });
+
+  renderPlannerTierBody(cfg[SELECTED_TIER], s);
+}
+
+function renderPlannerTierBody(cfg, s){
+  const size = cfg.size, positions = cfg.positions, deployed = cfg.deployed;
+  const buffer = CAPITAL - deployed;
+
+  let retSource, retLabel, costFn, legs, monthlySignals, filterDesc;
+  if (SELECTED_TIER==='starter'){
+    retSource = s.caps['Largecap'] && s.caps['Largecap'].n>0 ? s.caps['Largecap'] : s.hstats[14];
+    retLabel = 'Largecap 14d';
+    costFn = costSingle; legs=1;
+    monthlySignals = s.monthly.starter;
+    filterDesc = 'Largecap stocks only, single flat exit at horizon';
+  } else if (SELECTED_TIER==='balanced'){
+    retSource = s.hstats[14];
+    retLabel = 'All-cap 14d';
+    costFn = costSingle; legs=1;
+    monthlySignals = s.monthly.balanced;
+    filterDesc = 'Midcap + Smallcap entries, horizon-specific stop per trade';
+  } else {
+    retSource = s.ladderStats && s.ladderStats.n>0 ? s.ladderStats : s.hstats[14];
+    retLabel = 'Ladder (7/14/30/60)';
+    costFn = pos=>costLadder(pos,4); legs=4;
+    monthlySignals = s.monthly.growth;
+    filterDesc = 'Smallcap entries, 25% exit at 7/14/30/60d';
+  }
+
+  const rawReturnPct = retSource && isFinite(retSource.mean) ? retSource.mean : 0;
+  const costRupee = costFn(size);
+  const costPct = costRupee/size*100;
+  const netReturnPct = rawReturnPct - costPct;
+  const taxAdjPct = netReturnPct>0 ? netReturnPct*(1-STCG_RATE) : netReturnPct;
+  const tradesPerMonth = Math.min(positions, Math.max(1, Math.round(monthlySignals)));
+  const monthlyReturnRupee = tradesPerMonth * (taxAdjPct/100) * size;
+
+  const stopPct = SELECTED_TIER==='starter' ? 8 : (SELECTED_TIER==='balanced' ? 10 : 12);
+  const stressDrawdown = positions * (stopPct/100) * size;
+  const stressDrawdownPct = stressDrawdown/CAPITAL*100;
+
+  // Monthly return range from historical simulation
+  // Group all trades by month, apply tier filter, compute per-month avg
+  const byMonth = {};
+  let sampleSym = null;
+  for (const t of s.allTrades){
+    let pass = false;
+    if (SELECTED_TIER==='starter') pass = t.market_cap==='Largecap';
+    else if (SELECTED_TIER==='balanced') pass = t.market_cap==='Midcap'||t.market_cap==='Smallcap';
+    else pass = t.market_cap==='Smallcap';
+    if (!pass) continue;
+    if (!sampleSym) sampleSym = t.symbol;
+    const ym = t.signal_date ? t.signal_date.slice(0,7) : null;
+    if (!ym) continue;
+    if (!byMonth[ym]) byMonth[ym] = [];
+    const r = num(t.return_14d);
+    if (isFinite(r)) byMonth[ym].push(r);
+  }
+  const monthlyAvgs = Object.values(byMonth).map(vals=>mean(vals)).sort((a,b)=>a-b);
+  const mn = monthlyAvgs.length;
+  const p10 = mn>0 ? monthlyAvgs[Math.max(0,Math.floor(mn*0.1))] : NaN;
+  const p50 = mn>0 ? monthlyAvgs[Math.floor(mn*0.5)] : NaN;
+  const p90 = mn>0 ? monthlyAvgs[Math.min(mn-1,Math.floor(mn*0.9))] : NaN;
+  const monthlyReturnP10 = isFinite(p10) ? tradesPerMonth * (p10/100) * size : NaN;
+  const monthlyReturnP50 = isFinite(p50) ? tradesPerMonth * (p50/100) * size : NaN;
+  const monthlyReturnP90 = isFinite(p90) ? tradesPerMonth * (p90/100) * size : NaN;
+
+  // Week-of-month for this tier
+  const wkTrades = {1:[],2:[],3:[],4:[]};
+  for (const t of s.allTrades){
+    let pass = false;
+    if (SELECTED_TIER==='starter') pass = t.market_cap==='Largecap';
+    else if (SELECTED_TIER==='balanced') pass = t.market_cap==='Midcap'||t.market_cap==='Smallcap';
+    else pass = t.market_cap==='Smallcap';
+    if (!pass || !t.signal_date) continue;
+    const day = parseInt(t.signal_date.slice(8,10),10);
+    const wk = day<=7 ? 1 : day<=14 ? 2 : day<=21 ? 3 : 4;
+    const r = num(t.return_14d);
+    if (isFinite(r)) wkTrades[wk].push(r);
+  }
+
+  // Cost strip for this tier
+  const segs = [];
+  const stt = STT_RATE*size*2;
+  const txn = TXN_RATE*size*2;
+  const stamp = STAMP_RATE*size;
+  const sebi = SEBI_RATE*size*2;
+  const gst = GST_RATE*(txn+sebi);
+  const dp = DP_FLAT;
+  const totalC = stt+txn+stamp+sebi+gst+dp;
+  const costSegs = [
+    {label:'STT', val:stt, cls:'seg-stt'},
+    {label:'DP', val:dp, cls:'seg-dp'},
+    {label:'Stamp', val:stamp, cls:'seg-stamp'},
+    {label:'Txn', val:txn, cls:'seg-txn'},
+    {label:'GST', val:gst, cls:'seg-gst'}
+  ];
+
+  // Trade example
+  const medPrice = s.priceStats.median || 329;
+  const exShares = Math.floor(size/medPrice);
+  const exGross = isFinite(rawReturnPct) ? size*rawReturnPct/100 : 0;
+  const exNet = exGross - costRupee;
+  const exAfterTax = exNet>0 ? exNet*(1-STCG_RATE) : exNet;
+
+  let html = `
+  <div class="stat-grid">
+    <div class="stat-box"><div class="k">Position size</div><div class="v">${fmtRupee(size)}</div></div>
+    <div class="stat-box"><div class="k">Positions</div><div class="v">${positions}</div></div>
+    <div class="stat-box"><div class="k">Capital deployed</div><div class="v">${fmtRupee(deployed)}</div></div>
+    <div class="stat-box"><div class="k">Cash buffer</div><div class="v">${fmtRupee(buffer)} (${(buffer/CAPITAL*100).toFixed(0)}%)</div></div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-box"><div class="k">Raw return (${retLabel})</div><div class="v ${pctClass(rawReturnPct)}">${fmtPct(rawReturnPct,2)}</div></div>
+    <div class="stat-box"><div class="k">Cost per trade</div><div class="v neg">${fmtRupee(costRupee)} (${costPct.toFixed(2)}%)</div></div>
+    <div class="stat-box"><div class="k">Net return, post-tax</div><div class="v ${pctClass(taxAdjPct)}">${fmtPct(taxAdjPct,2)}</div></div>
+    <div class="stat-box"><div class="k">Win rate</div><div class="v">${retSource? (isFinite(retSource.winRate)?retSource.winRate.toFixed(1)+'%':'—') : '—'}</div></div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-box"><div class="k">Signals/month</div><div class="v">${monthlySignals.toFixed(1)}</div></div>
+    <div class="stat-box"><div class="k">Trades you can take</div><div class="v">${tradesPerMonth}/mo</div></div>
+    <div class="stat-box"><div class="k">Est. monthly return</div><div class="v ${pctClass(monthlyReturnRupee)}">${fmtRupee(monthlyReturnRupee)}</div></div>
+    <div class="stat-box"><div class="k">Stress drawdown</div><div class="v neg">${fmtRupee(stressDrawdown)} (${stressDrawdownPct.toFixed(1)}%)</div></div>
+  </div>`;
+
+  // Monthly range
+  if (mn>0){
+    html += `<div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-box"><div class="k">Monthly P10 (bad month)</div><div class="v ${pctClass(monthlyReturnP10)}">${isFinite(monthlyReturnP10)?fmtRupee(monthlyReturnP10):'—'}</div><div class="plain">Only 10% of months are worse</div></div>
+      <div class="stat-box"><div class="k">Monthly P50 (typical)</div><div class="v ${pctClass(monthlyReturnP50)}">${isFinite(monthlyReturnP50)?fmtRupee(monthlyReturnP50):'—'}</div><div class="plain">Half of months are better/worse</div></div>
+      <div class="stat-box"><div class="k">Monthly P90 (good month)</div><div class="v ${pctClass(monthlyReturnP90)}">${isFinite(monthlyReturnP90)?fmtRupee(monthlyReturnP90):'—'}</div><div class="plain">Only 10% of months are better</div></div>
+    </div>
+    <p class="plain">Based on ${mn} months of historical returns. Some months may have 0 signals — these are excluded.</p>`;
+  }
+
+  // Week-of-month for this tier
+  const hasWk = Object.values(wkTrades).some(a=>a.length>0);
+  if (hasWk){
+    html += `<h3 style="margin-top:12px">Week-of-month (signal date)</h3><p class="plain">Based on signal date, not entry. Reflects signal patterns.</p>`;
+    html += `<div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">`;
+    for (let w=1;w<=4;w++){
+      const v = wkTrades[w];
+      const mu = v.length>0 ? mean(v) : NaN;
+      html += `<div class="stat-box"><div class="k">Week ${w}</div><div class="v ${pctClass(mu)}">${isFinite(mu)?fmtPct(mu,2):'—'}</div><div class="plain">n=${v.length}</div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Cost strip
+  html += `<h3 style="margin-top:12px">Where your ₹${Math.round(size).toLocaleString('en-IN')} goes</h3>
+  <div class="cost-strip">`;
+  for (const seg of costSegs){
+    const pct = totalC>0 ? seg.val/totalC*100 : 0;
+    html += `<div class="seg ${seg.cls}" style="width:${Math.max(2,pct)}%" title="${seg.label}: ${fmtRupee(seg.val)}">${pct>8?seg.label:''}</div>`;
+  }
+  html += `</div><p class="plain">Total cost: ${fmtRupee(totalC)} (${(totalC/size*100).toFixed(2)}% of position)</p>`;
+
+  // Trade example
+  html += `<div class="card-sm" style="background:var(--bg);margin-top:10px">
+    <div style="font-size:13px;font-weight:600">Example trade</div>
+    <p class="plain" style="margin-top:4px">
+      At ${fmtRupee(size)} buying a representative stock at ${fmtRupee(medPrice)}:
+      <strong>~${exShares} shares</strong>.
+      If the trade matches the average return (${fmtPct(rawReturnPct,2)}):
+      gross = ${fmtRupee(Math.round(exGross))},
+      after Zerodha costs = ${fmtRupee(Math.round(exNet))},
+      after STCG = <strong>${fmtRupee(Math.round(exAfterTax))}</strong>.
+      This is an estimate — individual trades vary.
+    </p>
+  </div>`;
+
+  // Positions warning
+  if (positions>20){
+    html += `<div class="flag-box warn" style="margin-top:8px">${positions} open positions — monitoring overhead may diminish returns. Consider capping at 15-20 positions.</div>`;
+  }
+  if (positions<4 && SELECTED_TIER!=='starter'){
+    html += `<div class="flag-box warn">Only ${positions} positions at this tier — consider a lower tier for better diversification.</div>`;
+  }
+
+  // Checklist
+  html += `<h3 style="margin-top:12px">Before you start</h3>
+  <ul class="checklist">
+    <li>Broker supports GTT (Good-Till-Triggered) stop-loss orders</li>
+    <li>You can check positions once daily after market close — no intraday watching needed</li>
+    ${legs>1 ? '<li>You can track 4 separate exit dates per position (day 7, 14, 30, 60)' : '<li>You can act on a single exit signal per trade</li>'}
+    <li>This capital can stay invested for up to 90 days without withdrawal</li>
+    <li>You understand stop-losses can slip past set levels if a stock hits circuit limit</li>
+  </ul>`;
+
+  // Reload disclaimer
+  html += `<p class="plain" style="margin-top:8px">${filterDesc}. Stop-loss: ${stopPct}%. Past performance does not guarantee future results. Data as of ${META.latest_price_date||'latest'}.</p>`;
+
+  const body = document.getElementById('plannerTierBody');
+  if (body) body.innerHTML = html;
+  updateCapitalBar(s);
+}
+
+// ============================================================
+// CAPITAL BAR UPDATER
+// ============================================================
+function updateCapitalBar(s){
+  const input = document.getElementById('capitalInput');
+  if (input) input.value = Math.round(CAPITAL).toLocaleString('en-IN');
+  const cfg = tierConfig(CAPITAL);
+  const avail = Object.keys(cfg).filter(k=>cfg[k].available);
+  const best = avail.includes('growth') ? 'Growth' : avail.includes('balanced') ? 'Balanced' : 'Starter';
+  const tag = document.getElementById('tierTag');
+  if (tag) tag.textContent = best + ' tier available';
+}
+
+// ============================================================
+// MAIN LOAD
+// ============================================================
+function loadBacktest(data){
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.classList.add('active');
+  document.getElementById('loadingText').textContent = 'Processing trades...';
+
+  setTimeout(()=>{
+    try {
+      if (!data.trades || !Array.isArray(data.trades)){
+        alert('Invalid file format: missing trades array.');
+        overlay.classList.remove('active');
+        return;
+      }
+      TRADES = data.trades;
+      META = {
+        total_signals: data.total_signals,
+        successful_signals: data.successful_signals,
+        entry_mode: data.entry_mode || '—',
+        latest_price_date: data.latest_price_date || '—'
+      };
+
+      // Update header
+      document.getElementById('badgeCount').textContent = `${TRADES.length} trades`;
+      document.getElementById('metaEntry').textContent = `Entry: ${META.entry_mode}`;
+      document.getElementById('metaDate').textContent = `Data: ${META.latest_price_date}`;
+
+      // Compute all stats (may take a moment)
+      STATS_CACHE = computeAllStats(TRADES);
+      document.getElementById('metaSymbols').textContent = `Symbols: ${STATS_CACHE.totalSymbols}`;
+
+      // Hide drop zone, show app
+      document.getElementById('dropZone').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+
+      updateCapitalBar(STATS_CACHE);
+
+      // Render all tabs
+      renderStatsTab(STATS_CACHE);
+      renderPlannerTab(STATS_CACHE);
+      renderLookupTabResult(null, STATS_CACHE);
+
+      // Reset search
+      lastSearchSymbol = null;
+      document.getElementById('symbolInput').value = '';
+
+      overlay.classList.remove('active');
+    } catch(e){
+      console.error(e);
+      alert('Error processing file: ' + e.message);
+      overlay.classList.remove('active');
+    }
+  }, 50);
+}
+
+// ============================================================
+// LOOKUP
+// ============================================================
+function performLookup(){
+  if (!STATS_CACHE) return;
+  const input = document.getElementById('symbolInput').value;
+  const result = findSymbol(TRADES, input);
+  renderLookupTabResult(result, STATS_CACHE);
+}
+
+// ============================================================
+// EVENT BINDING
+// ============================================================
+document.addEventListener('DOMContentLoaded', function(){
+
+  // Drop zone
+  const dz = document.getElementById('dropZone');
+  const fi = document.getElementById('fileInput');
+
+  dz.addEventListener('click', ()=>fi.click());
+  dz.addEventListener('dragover', e=>{e.preventDefault();dz.classList.add('dragover')});
+  dz.addEventListener('dragleave', ()=>dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e=>{
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.json')){
+      const reader = new FileReader();
+      reader.onload = ev=>{
+        try { loadBacktest(JSON.parse(ev.target.result)); }
+        catch(err){ alert('Invalid JSON file: ' + err.message); }
+      };
+      reader.readAsText(file);
+    } else {
+      alert('Please drop a .json file');
+    }
+  });
+
+  fi.addEventListener('change', ()=>{
+    const file = fi.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      try { loadBacktest(JSON.parse(ev.target.result)); }
+      catch(err){ alert('Invalid JSON file: ' + err.message); }
+    };
+    reader.readAsText(file);
+  });
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      this.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
+      const panel = document.getElementById('panel-'+this.dataset.tab);
+      if (panel) panel.classList.remove('hidden');
+    });
+  });
+
+  // Capital input
+  const capInput = document.getElementById('capitalInput');
+  if (capInput){
+    capInput.addEventListener('change', function(){
+      const r = parseCapitalInput(this.value);
+      CAPITAL = r.value;
+      document.getElementById('capitalNote').textContent = r.note;
+      this.value = Math.round(CAPITAL).toLocaleString('en-IN');
+      if (STATS_CACHE){
+        updateCapitalBar(STATS_CACHE);
+        // Re-render planner if visible
+        const plannerPanel = document.getElementById('panel-planner');
+        if (!plannerPanel.classList.contains('hidden')){
+          renderPlannerTab(STATS_CACHE);
+        }
+      }
+    });
+  }
+
+  // Stock lookup
+  document.getElementById('lookupBtn').addEventListener('click', performLookup);
+  document.getElementById('symbolInput').addEventListener('keydown', function(e){
+    if (e.key==='Enter') performLookup();
+  });
+
+  // Debounced lookup on input (300ms)
+  let lookupTimer;
+  document.getElementById('symbolInput').addEventListener('input', function(){
+    clearTimeout(lookupTimer);
+    lookupTimer = setTimeout(performLookup, 300);
+  });
+});
+</script>
+
+</body>
+</html>

@@ -462,8 +462,8 @@ const Dashboard = ({ report, onBack }) => {
                                 <th onClick={() => handleSort('entry_price')}>
                                     Entry {sortConfig.key === 'entry_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('latest_price_return')}>
-                                    Latest Return {sortConfig.key === 'latest_price_return' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                                <th onClick={() => handleSort('latest_price')}>
+                                    Latest Price {sortConfig.key === 'latest_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
 
                                 <th onClick={() => handleSort('return_7d')}>
@@ -493,9 +493,9 @@ const Dashboard = ({ report, onBack }) => {
                                     <td>{formatCurrency(trade.entry_price)}</td>
                                     <td
                                         className={`clickable-cell ${getColorClass(trade.latest_price_return)}`}
-                                        title={trade.latest_price_date ? `Latest Price: ${formatCurrency(trade.latest_price)} (as of ${trade.latest_price_date})` : 'Latest Price: N/A'}
+                                        title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}
                                     >
-                                        {formatPercent(trade.latest_price_return)}
+                                        {trade.latest_price ? formatCurrency(trade.latest_price) : 'N/A'}
                                     </td>
 
                                     <td
@@ -540,7 +540,7 @@ const Dashboard = ({ report, onBack }) => {
                 </div>
                 {report.latest_price_date && (
                     <p className="text-xs text-gray-500 mt-2 text-center">
-                        Latest returns based on close price as of {report.latest_price_date}. Prices may be delayed.
+                        Latest prices based on close price as of {report.latest_price_date}. Prices may be delayed.
                     </p>
                 )}
             </div>

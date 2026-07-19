@@ -325,7 +325,7 @@ async def _handle_backtest(
             cached_latest_date = cached.get("latest_price_date")
             if progress_callback:
                 await progress_callback(0, 1, "Refreshing latest prices...")
-            if cached_latest_date and cached_latest_date < datetime.now().strftime("%Y-%m-%d"):
+            if cached_latest_date is None or cached_latest_date < datetime.now().strftime("%Y-%m-%d"):
                 logger.info("L1 cache stale — refreshing latest prices")
                 all_symbols = list(set(t.get("symbol") for t in cached.get("trades", []) if t.get("status") == "Success"))
                 if all_symbols:
@@ -339,6 +339,15 @@ async def _handle_backtest(
                                 t["latest_price_date"] = date_str
                                 if t.get("entry_price") and t["entry_price"] > 0:
                                     t["latest_price_return"] = round(((price - t["entry_price"]) / t["entry_price"]) * 100, 2)
+                                    logger.debug(
+                                        "[DIAG L1] latest_price_return for %s: price=%s, entry_price=%s, return=%s",
+                                        t.get("symbol"), price, t["entry_price"], t["latest_price_return"]
+                                    )
+                                else:
+                                    logger.debug(
+                                        "[DIAG L1] latest_price_return SKIPPED for %s: entry_price=%s (type=%s, truthy=%s)",
+                                        t.get("symbol"), t.get("entry_price"), type(t.get("entry_price")).__name__, bool(t.get("entry_price"))
+                                    )
                                 latest_dates.append(date_str)
                     if latest_dates:
                         cached["latest_price_date"] = max(latest_dates)
@@ -572,10 +581,22 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
         try:
             report = await _handle_backtest(data, entry_mode, progress_callback=on_progress, filename="websocket_upload", user_id=user_id)
             report_dict = report.model_dump()
+
+            # Build compact per-symbol latest_price map (3 fields per symbol, ~175KB for 1168 symbols)
+            latest_prices = {}
+            for t in report.trades:
+                if t.status == "Success" and t.latest_price is not None:
+                    latest_prices[t.symbol] = {
+                        "latest_price": t.latest_price,
+                        "latest_price_date": t.latest_price_date,
+                        "latest_price_return": t.latest_price_return,
+                    }
+
             report_dict.pop("trades", None)
             await websocket.send_json(_clean_nan({
                 "type": "complete",
-                "report": report_dict
+                "report": report_dict,
+                "latest_prices": latest_prices,
             }))
         except ValueError as e:
             await websocket.send_json({"type": "error", "message": str(e)})

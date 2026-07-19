@@ -7,7 +7,7 @@ describe('Trade Table Column Order', () => {
         'signal_close_price',
         'entry_date',
         'entry_price',
-        'latest_price_return',
+        'latest_price',
         'return_7d',
         'return_30d',
         'return_90d',
@@ -15,54 +15,53 @@ describe('Trade Table Column Order', () => {
         'max_low_90d',
     ];
 
-    it('Latest Return must appear right after Entry (position 5)', () => {
+    it('Latest Price must appear right after Entry (position 5)', () => {
         const entryIdx = COLUMNS.indexOf('entry_price');
-        const latestRetIdx = COLUMNS.indexOf('latest_price_return');
-        expect(latestRetIdx).toBe(entryIdx + 1);
+        const latestPriceIdx = COLUMNS.indexOf('latest_price');
+        expect(latestPriceIdx).toBe(entryIdx + 1);
     });
 
-    it('Latest Return must appear before 1 Week Return', () => {
+    it('Latest Price must appear before 1 Week Return', () => {
         const wkIdx = COLUMNS.indexOf('return_7d');
-        const latestRetIdx = COLUMNS.indexOf('latest_price_return');
-        expect(latestRetIdx).toBeLessThan(wkIdx);
+        const latestPriceIdx = COLUMNS.indexOf('latest_price');
+        expect(latestPriceIdx).toBeLessThan(wkIdx);
     });
 });
 
-describe('Latest Return Tooltip', () => {
-    const formatCurrency = (val) => {
-        if (val == null || isNaN(val)) return '₹0.00';
-        return '₹' + Math.abs(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+describe('Latest Price Tooltip (shows return)', () => {
+    const formatPercent = (val) => {
+        if (val === null || val === undefined || isNaN(val)) return 'N/A';
+        return `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`;
     };
 
-    const getLatestReturnTooltip = (trade) => {
+    const getLatestPriceTooltip = (trade) => {
         return trade.latest_price_date
-            ? `Latest Price: ${formatCurrency(trade.latest_price)} (as of ${trade.latest_price_date})`
-            : 'Latest Price: N/A';
+            ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})`
+            : 'Return: N/A';
     };
 
-    it('shows latest_price and date, not percentage', () => {
-        const tooltip = getLatestReturnTooltip({
-            latest_price: 1100.50,
+    it('shows return percentage and date, not price', () => {
+        const tooltip = getLatestPriceTooltip({
+            latest_price_return: -0.98,
             latest_price_date: '2026-07-17'
         });
-        expect(tooltip).toContain('Latest Price: ₹1,100.50');
-        expect(tooltip).toContain('as of 2026-07-17');
-        expect(tooltip).not.toContain('%');
+        expect(tooltip).toContain('Return: -0.98%');
+        expect(tooltip).toContain('since 2026-07-17');
     });
 
     it('shows N/A when no date', () => {
-        const tooltip = getLatestReturnTooltip({
-            latest_price: null,
+        const tooltip = getLatestPriceTooltip({
+            latest_price_return: null,
             latest_price_date: null
         });
-        expect(tooltip).toBe('Latest Price: N/A');
+        expect(tooltip).toBe('Return: N/A');
     });
 
-    it('formats zero price correctly', () => {
-        const tooltip = getLatestReturnTooltip({
-            latest_price: 0,
-            latest_price_date: '2026-07-17'
+    it('shows positive return with + sign', () => {
+        const tooltip = getLatestPriceTooltip({
+            latest_price_return: 5.25,
+            latest_price_date: '2026-07-19'
         });
-        expect(tooltip).toContain('₹0.00');
+        expect(tooltip).toContain('Return: +5.25%');
     });
 });

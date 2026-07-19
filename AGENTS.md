@@ -196,11 +196,8 @@ ws.onmessage = (event) => {
 };
 ```
 
-### Latest Return column order
-`<th>` and `<td>` must appear **after** Entry column, **before** Exit columns. Test validates column positions by index.
-
-### Tooltip shows price not percentage
-The Latest Return cell tooltip shows `"Latest Price: ₹X (as of YYYY-MM-DD)"`.
+### Latest Price column order
+`<th>` and `<td>` must appear **after** Entry column, **before** Exit columns. Test validates column positions by index. Cell shows `₹X` (currency), tooltip shows `"Return: +X.XX% (since YYYY-MM-DD)"`. Color coding (green/red) is based on return direction, not price movement.
 
 ### Tailwind CSS v4
 Uses Tailwind v4 with `@tailwindcss/postcss` plugin (not v3 `@tailwind` directives). CSS entry is `@import "tailwindcss"` in `index.css`. PostCSS config at `frontend/postcss.config.js`.

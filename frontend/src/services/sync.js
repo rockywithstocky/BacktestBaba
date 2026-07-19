@@ -1,15 +1,8 @@
-import { saveReport } from './db';
-
 const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 16000];
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export async function syncReport(report, trades = [], token = null) {
   let localId = null;
-  try {
-    localId = await saveReport(report);
-  } catch (err) {
-    console.warn('[sync] IndexedDB save failed:', err);
-  }
 
   // Remote sync with exponential backoff
   if (token) {

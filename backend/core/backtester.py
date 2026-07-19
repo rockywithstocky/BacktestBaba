@@ -515,8 +515,16 @@ class Backtester:
                             latest_dates.append(date_str)
                             if r.entry_price and r.entry_price > 0:
                                 r.latest_price_return = round(((price - r.entry_price) / r.entry_price) * 100, 2)
+                                logger.debug(
+                                    "[DIAG] latest_price_return for %s: price=%s, entry_price=%s, return=%s",
+                                    r.symbol, price, r.entry_price, r.latest_price_return
+                                )
                             else:
                                 r.latest_price_return = None
+                                logger.debug(
+                                    "[DIAG] latest_price_return SKIPPED for %s: entry_price=%s (type=%s)",
+                                    r.symbol, r.entry_price, type(r.entry_price).__name__
+                                )
                 if latest_dates:
                     report.latest_price_date = max(latest_dates)
             except Exception:
