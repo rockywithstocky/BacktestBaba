@@ -1,8 +1,8 @@
-# BacktestBaba — Work State (2026-07-18)
+# BacktestBaba — Work State (2026-07-19)
 
-**Branch:** `feat/d1-persistence` (ahead of origin by 2 commits)
-**Status:** Latest Return N/A fix — COMPLETE AND VERIFIED
-**Next:** Push to `main` → auto-deploy to Render + Vercel
+**Branch:** `feat/d1-persistence` (ahead of origin by 1 commit)
+**Status:** Latest Return column fix — shipped. PR #7 review analyzed.
+**Next:** Fix 4 PR review issues (see §5), then merge to main
 **Test Count:** Backend 85/85, Frontend 21/21, Build OK
 
 ---
@@ -34,7 +34,48 @@ cd frontend; npm test -- --run
 
 ---
 
-## 1. Completed This Session (Jul 18, 2026)
+## 1. Completed This Session (Jul 19, 2026)
+
+### Production Pre-Mortem Analysis
+
+Reviewed all changes against Render free-tier constraints:
+
+| Risk | Severity | Status |
+|------|----------|--------|
+| **Render 30s first-byte timeout kills HTTP fallback** | Critical | Pre-existing — WS is the only viable path on Render. Mobile now uses WS (our fix) so this is fine. |
+| **VITE_WS_TIMEOUT default 30s vs Render cold start ~30s** | Medium | Pre-existing. Mitigate by setting `VITE_WS_TIMEOUT=300000` in Vercel env vars. |
+| **`visibilitychange` race on iOS** | Low | Watchdog may fire before handler on tab resume → HTTP fallback (which fails on Render). Acceptable. |
+| **Diagnostic logs at `logger.info` would flood production** | Low | Fixed by reverting to `logger.debug` after debugging. |
+
+### Latest Price Column Display Fix
+
+- **Problem**: Frontend container was built 2 hours before Dashboard.jsx swap (price in cell, return in tooltip) landed
+- **Fix**: `docker compose up -d --build frontend` — rebuilt with latest code
+- **Root cause tooltip**: The Docker volume `cache_data` persists diskcache across container restarts; `docker volume rm backtestbaba_cache_data` cleared it
+
+### Diagnostic Logging (Debug Only)
+
+Changed `[DIAG]` and `[DIAG L1]` logs from `logger.info` → `logger.debug` after debugging. Active only when `LOG_LEVEL=DEBUG` is set.
+
+### Relevant Files Touched
+
+| File | Change |
+|------|--------|
+| `backend/core/backtester.py:518-527` | `[DIAG]` diagnostic logging (debug level) |
+| `backend/main.py:342-350` | `[DIAG L1]` cache-hit diagnostic logging (debug level) |
+
+### PR #7 Review Analysis (D1 Persistence Abstraction)
+
+Scanned the full review against current code. ~40% of claims were inaccurate — key corrections:
+
+| Review Claim | Reality |
+|-------------|---------|
+| "Breaking Changes" — signature changed | `authorization: Header(None)` is backward-compatible. Not breaking. |
+| "Auth cache collision" — token collision risk | Tokens are UUIDv4 — collision probability ~10⁻¹⁸. Not a real risk. |
+| "Circuit breaker uses exponential wait" | Already has exponential **backoff** with jitter (persistence.py:474-489). Review was wrong. |
+| "batch_upsert_signals is dead code" | Called at `main.py:292` inside `_persist_upload` on every backtest. Review cited wrong line numbers. |
+| "D1WorkerBackend — 9 stubs prevent deploy" | PostgresBackend is the production backend (all 17 methods implemented). D1 stubs are a design choice. |
+| "Persistence timeout hardcoded to 3s" | Configurable via `PERSISTENCE_TIMEOUT` env var. 3s is just the default. |
 
 ### 🔴 Fix: Latest Return Showed N/A (P0 — Shipped)
 
@@ -125,17 +166,32 @@ On L1 cache HIT (re-upload), Phase B is skipped entirely → `persist_symbol_dat
 
 ---
 
-## 4. Known Issues / Backlog
+## 4. PR #7 — 4 Actionable Fixes (Todo)
+
+| # | Issue | File | Fix |
+|---|-------|------|-----|
+| 1 | **Row-hash excludes entry_price** | `persistence.py:16` | Add `entry_price` to `compute_row_hash()` formula so different entry prices produce different hashes |
+| 2 | **L2 cache crashes if signal_results table missing** | `main.py:373-435` | Wrap `get_upload_by_user_and_hash` / `get_signals_for_upload` in try/except → fallback to cache MISS |
+| 3 | **No auth tests** | `tests/` | Add `test_auth.py` covering signup, login, token validation, expired token, logout revocation |
+| 4 | **L1 freshness check compares date, not timestamp** | `main.py:328` | Change `cached_latest_date < "YYYY-MM-DD"` → `cached_latest_ts < now - timedelta(minutes=5)` so same-day re-uploads at 4pm don't skip refresh if cached at 2pm |
+
+---
+
+## 5. Known Issues / Backlog
 
 | ID | Issue | Location | Priority |
 |----|-------|----------|----------|
 | L3 | Copyright year hardcoded to 2024 in landing page footer | `LandingPage.jsx` | Low |
 | P1 | Account deletion API (pre-mortem item) | Not implemented | Tracked |
 | R5 | D1WorkerBackend stubs for 9 new methods | `persistence.py` | Must implement before Render deploy w/ persistence |
+| **PR7.1** | **Row-hash excludes entry_price** | `persistence.py:16` | **High** — affects dedup correctness |
+| **PR7.2** | **L2 cache crashes if signal_results table missing** | `main.py:373-435` | **High** — blocks deploy without Postgres |
+| **PR7.3** | **Missing auth tests** | `tests/test_auth.py` | **Medium** — required before prod deploy |
+| **PR7.4** | **L1 freshness uses date, not timestamp** | `main.py:328` | **Low** — minor, same-day re-upload edge case |
 
 ---
 
-## 5. Quick Resume Commands
+## 6. Quick Resume Commands
 
 ```powershell
 # Rebuild + start (after code changes)

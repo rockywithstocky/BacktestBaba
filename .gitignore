@@ -66,6 +66,9 @@ backend/.env.production
 .coverage
 htmlcov/
 
+# Analysis artifacts
+docs/backtest_analyzer*.html
+
 # User data
 Data/ChartInk/*.csv
 
