@@ -170,6 +170,12 @@ const Dashboard = ({ report, onBack }) => {
     const formatPercent = (val) => val !== null && val !== undefined ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%` : 'N/A';
     const formatCurrency = (val) => val !== null && val !== undefined && val !== '' ? `₹${Number(val).toFixed(2)}` : 'N/A';
     const getColorClass = (val) => val > 0 ? 'positive' : val < 0 ? 'negative' : 'neutral';
+    const getTradingViewUrl = (symbol) => {
+        if (!symbol) return '#';
+        if (symbol.endsWith('.NS')) return `https://in.tradingview.com/symbols/NSE-${symbol.slice(0, -3)}/`;
+        if (symbol.endsWith('.BO')) return `https://in.tradingview.com/symbols/BSE-${symbol.slice(0, -3)}/`;
+        return `https://in.tradingview.com/symbols/${symbol}/`;
+    };
 
     const getEntryDate = (trade) => trade.entry_date || trade.signal_date;
 
@@ -492,10 +498,16 @@ const Dashboard = ({ report, onBack }) => {
                                     <td>{getEntryDate(trade)}</td>
                                     <td>{formatCurrency(trade.entry_price)}</td>
                                     <td
-                                        className={`clickable-cell ${getColorClass(trade.latest_price_return)}`}
+                                        className={getColorClass(trade.latest_price_return)}
                                         title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}
                                     >
-                                        {trade.latest_price ? formatCurrency(trade.latest_price) : 'N/A'}
+                                        {trade.latest_price && trade.symbol ? (
+                                            <a href={getTradingViewUrl(trade.symbol)}
+                                               target="_blank" rel="noopener noreferrer"
+                                               style={{ color: 'inherit', textDecoration: 'none' }}>
+                                                {formatCurrency(trade.latest_price)}
+                                            </a>
+                                        ) : trade.latest_price ? formatCurrency(trade.latest_price) : 'N/A'}
                                     </td>
 
                                     <td
