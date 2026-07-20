@@ -159,22 +159,6 @@ const LandingPage = () => {
                 </motion.div>
             </div>
 
-            {/* Footer */}
-            <footer className="relative z-10 border-t border-white/5 bg-black/50 backdrop-blur-md mt-20">
-                <div className="container mx-auto px-6 py-12">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl">
-                                <TrendingUp size={24} className="text-white" />
-                            </div>
-                            <span className="font-bold text-xl">StockBacktester<span className="text-blue-400">Pro</span></span>
-                        </div>
-                        <div className="text-gray-400 text-sm">
-                            © 2024 StockBacktester Pro. Empowering traders worldwide.
-                        </div>
-                    </div>
-                </div>
-            </footer>
         </div>
     );
 };

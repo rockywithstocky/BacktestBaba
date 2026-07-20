@@ -46,6 +46,14 @@ class FileHashCache:
             key[:40], num_trades, CacheTTL.FILE_HASH_REPORT
         )
 
+    @staticmethod
+    def delete(file_hash: str, entry_mode: str):
+        """Remove a cached report by file_hash + entry_mode."""
+        key = f"report_{file_hash}_{entry_mode}"
+        if key in _cache:
+            del _cache[key]
+            logger.info("File hash cache DELETED: %s", key[:40])
+
 
 class JobStorage:
     """Manages per-run temp files for batch processing results."""

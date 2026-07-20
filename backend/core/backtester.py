@@ -1,5 +1,5 @@
 import asyncio
-import gc
+import hashlib
 import logging
 import time
 
@@ -12,6 +12,7 @@ from .symbol_resolver import SymbolResolver
 from ..utils.date_utils import parse_date, get_next_trading_day, get_future_trading_day
 from ..models.schemas import SignalResult, BacktestReport
 from ..config import Limits
+from ..persistence import PersistenceBackend
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class Backtester:
         entry_mode: str = "next_close",
         run_id: Optional[str] = None,
         job_store=None,
+        persistence_backend: Optional[PersistenceBackend] = None,
     ) -> BacktestReport:
         results: List[SignalResult] = []
         total = len(signals)
@@ -74,7 +76,7 @@ class Backtester:
         resolved_map = {}
         for batch_i in range(0, len(unique_raw), Limits.BATCH_RESOLVE_CHUNK):
             batch = unique_raw[batch_i:batch_i + Limits.BATCH_RESOLVE_CHUNK]
-            chunk_result = await asyncio.to_thread(SymbolResolver.batch_resolve, batch)
+            chunk_result = await asyncio.wait_for(asyncio.to_thread(SymbolResolver.batch_resolve, batch), timeout=30)
             resolved_map.update(chunk_result)
             if progress_callback:
                 await progress_callback(
@@ -93,7 +95,7 @@ class Backtester:
             raw_symbol = signal.get("symbol") or signal.get("Symbol")
             date_str = signal.get("date") or signal.get("Date")
 
-            if progress_callback:
+            if progress_callback and (i % Limits.PROGRESS_THROTTLE_EVERY_N == 0 or i == len(signals) - 1):
                 await progress_callback(i + 1, total_steps, f"Processing: {raw_symbol}")
 
             if not raw_symbol or not date_str:
@@ -181,12 +183,12 @@ class Backtester:
                         f"Fetching batch {chunk_idx + 1}/{total_chunks} ({len(chunk)} symbols)..."
                     )
 
-                chunk_df = await asyncio.to_thread(
+                chunk_df = await asyncio.wait_for(asyncio.to_thread(
                     DataProvider.get_bulk_ticker_data,
                     chunk,
                     global_start.strftime("%Y-%m-%d"),
                     global_end.strftime("%Y-%m-%d")
-                )
+                ), timeout=60)
 
                 if chunk_df is not None and not chunk_df.empty:
                     chunks_with_data += 1
@@ -207,7 +209,6 @@ class Backtester:
                                          chunk_idx + 1, sym, exc_info=True)
 
                 del chunk_df
-                gc.collect()
 
         phase_b_time = time.monotonic() - phase_start
         logger.info("Phase B — Chunked fetch completed (%d/%d chunks with data), elapsed=%.2fs",
@@ -238,7 +239,15 @@ class Backtester:
 
             async def fetch_meta(sym):
                 async with sem:
-                    return sym, await asyncio.to_thread(DataProvider.get_ticker_info, sym)
+                    try:
+                        result = await asyncio.wait_for(
+                            asyncio.to_thread(DataProvider.get_ticker_info, sym),
+                            timeout=10
+                        )
+                        return sym, result
+                    except asyncio.TimeoutError:
+                        logger.warning("Metadata timeout for %s", sym)
+                        return sym, {"sector": None, "marketCap": None}
 
             meta_results = await asyncio.gather(*(fetch_meta(s) for s in symbols_needing_api))
             for sym, meta in meta_results:
@@ -269,17 +278,17 @@ class Backtester:
             if not batch_results:
                 return
             if job_store:
-                dicts = [r.dict() for r in batch_results]
+                dicts = [r.model_dump() for r in batch_results]
                 job_store.save_batch(batch_num, dicts)
                 batch_num += 1
             if progress_callback:
                 await progress_callback(total + num_chunks + batch_num - 1, total_steps,
                                         f"Batch {batch_num}: {len(batch_results)} trades",
-                                        trades=[r.dict() for r in batch_results])
+                                        trades=[r.model_dump() for r in batch_results])
             batch_results = []
 
         for i, p_sig in enumerate(parsed_signals):
-            if progress_callback:
+            if progress_callback and (i % Limits.PROGRESS_THROTTLE_EVERY_N == 0 or i == len(parsed_signals) - 1):
                 await progress_callback(total + num_chunks + i + 1, total_steps,
                                         f"Computing: {p_sig.get('raw') or 'Unknown'}")
 
@@ -301,109 +310,145 @@ class Backtester:
             resolved_symbol = p_sig["resolved"]
             signal_date = p_sig["signal_date"]
             date_str = p_sig["date_str"]
-            
-            # Data path: Phase B populated per-symbol cache via persist_symbol_data().
-            # get_ticker_data() checks this cache first (0 API cost on cache hit),
-            # falls back to yfinance API only if cache miss or insufficient range.
-            df = await asyncio.to_thread(
-                DataProvider.get_ticker_data,
-                resolved_symbol,
-                p_sig["start_date"].strftime("%Y-%m-%d"),
-                p_sig["end_date"].strftime("%Y-%m-%d")
-            )
-            
-            if df is None or df.empty:
-                results.append(SignalResult(
-                    symbol=resolved_symbol,
-                    signal_date=signal_date.strftime("%Y-%m-%d"),
-                    entry_price=0.0,
-                    status="No Data"
-                ))
-                continue
-                
-            # 4. Calculate Returns
-            # Ensure index is datetime
-            df.index = pd.to_datetime(df.index).tz_localize(None)
-            
-            # Signal Close Price (nearest trading day to signal_date)
-            signal_trading_day = get_next_trading_day(signal_date, df)
-            signal_close_price = (df.loc[signal_trading_day]["Close"]
-                                  if signal_trading_day is not None
-                                  else None)
-            
-            # Entry Date (always NEXT trading day after signal_date)
-            entry_date = get_future_trading_day(signal_date, df)
-            if not entry_date:
-                 results.append(SignalResult(
-                    symbol=resolved_symbol,
-                    signal_date=signal_date.strftime("%Y-%m-%d"),
-                    entry_price=0.0,
-                    entry_mode=entry_mode,
-                    status="No Entry Data"
-                ))
-                 continue
-            
-            # Entry Price (mode-dependent)
-            if entry_mode == "next_open":
-                entry_price = df.loc[entry_date]["Open"]
-            else:
-                entry_price = df.loc[entry_date]["Close"]
-            
-            normalized_signal_date = signal_date.strftime("%Y-%m-%d")
-            res = SignalResult(
-                symbol=resolved_symbol,
-                signal_date=normalized_signal_date,
-                signal_close_price=round(signal_close_price, 2) if signal_close_price is not None else None,
-                entry_date=entry_date.strftime("%Y-%m-%d"),
-                entry_price=round(entry_price, 2),
-                entry_mode=entry_mode,
-                sector=metadata_map.get(resolved_symbol, {}).get("sector"),
-                market_cap=str(metadata_map.get(resolved_symbol, {}).get("marketCap")) if metadata_map.get(resolved_symbol, {}).get("marketCap") is not None else None,
-                status="Success"
-            )
-            
-            # Calculate forward returns dynamically
-            # Standard horizons + custom duration if not present
-            horizons = sorted(list(set([7, 14, 30, 45, 60, 90, duration])))
-            
-            for h in horizons:
-                if h > duration: continue
-                
-                target_date = entry_date + timedelta(days=h)
-                exit_date = get_next_trading_day(target_date, df)
-                
-                if exit_date:
-                    exit_price = df.loc[exit_date]["Close"]
-                    if pd.notna(exit_price) and pd.notna(entry_price) and entry_price != 0:
-                        ret = ((exit_price - entry_price) / entry_price) * 100
-                        
-                        if h in horizons:
-                            setattr(res, f"return_{h}d", round(ret, 2))
-                            setattr(res, f"exit_price_{h}d", round(exit_price, 2))
-                            agg[h]["sum"] += round(ret, 2)
-                            agg[h]["count"] += 1
-                            if ret > 0:
-                                agg[h]["wins"] += 1
-            
-            # Max High/Low in Duration
-            window_end = entry_date + timedelta(days=duration)
-            window_df = df[entry_date:window_end]
-            
-            if not window_df.empty:
-                max_high = window_df["High"].max()
-                max_low = window_df["Low"].min()
-                if pd.notna(max_high):
-                    res.max_high_90d = round(max_high, 2)
-                    max_high_idx = window_df["High"].idxmax()
-                    if pd.notna(max_high_idx):
-                        res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
-                if pd.notna(max_low):
-                    res.max_low_90d = round(max_low, 2)
-                    max_low_idx = window_df["Low"].idxmin()
-                    if pd.notna(max_low_idx):
-                        res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
 
-            # Online best/worst tracking
+            # ── Row-hash cache: skip yfinance + computation if this signal was already computed ──
+            row_hash_input = f"{resolved_symbol}|{date_str}|{entry_mode}|{duration}"
+            row_hash = hashlib.sha256(row_hash_input.encode()).hexdigest()
+            cached_result = DataProvider.get_cached_result(row_hash)
+            horizons = sorted(list(set([7, 14, 30, 45, 60, 90, duration])))
+            horizon_deltas = {h: timedelta(days=h) for h in horizons}
+            duration_delta = timedelta(days=duration)
+
+            if cached_result is not None:
+                res = SignalResult(**cached_result)
+                logger.debug("Row-hash HIT for %s (%s)", resolved_symbol, date_str)
+            else:
+                # Data path: Phase B populated per-symbol cache via persist_symbol_data().
+                # get_ticker_data() checks this cache first (0 API cost on cache hit),
+                # falls back to yfinance API only if cache miss or insufficient range.
+                df = await asyncio.wait_for(asyncio.to_thread(
+                    DataProvider.get_ticker_data,
+                    resolved_symbol,
+                    p_sig["start_date"].strftime("%Y-%m-%d"),
+                    p_sig["end_date"].strftime("%Y-%m-%d")
+                ), timeout=30)
+
+                if df is None or df.empty:
+                    results.append(SignalResult(
+                        symbol=resolved_symbol,
+                        signal_date=signal_date.strftime("%Y-%m-%d"),
+                        entry_price=0.0,
+                        status="No Data"
+                    ))
+                    continue
+
+                if persistence_backend is not None:
+                    try:
+                        last_date = df.index[-1]
+                        if hasattr(last_date, 'strftime'):
+                            data_recency = last_date.strftime("%Y-%m-%d")
+                        else:
+                            data_recency = str(last_date)
+                        await persistence_backend.upsert_symbol_freshness(
+                            symbol=resolved_symbol,
+                            last_fetched=datetime.now().strftime("%Y-%m-%d"),
+                            data_recency=data_recency
+                        )
+                    except Exception as e:
+                        logger.warning("upsert_symbol_freshness failed for %s: %s", resolved_symbol, e)
+
+                # 4. Calculate Returns
+                # Ensure index is datetime
+                df.index = pd.to_datetime(df.index).tz_localize(None)
+
+                # Signal Close Price (nearest trading day to signal_date)
+                signal_trading_day = get_next_trading_day(signal_date, df)
+                signal_close_price = (df.loc[signal_trading_day]["Close"]
+                                      if signal_trading_day is not None
+                                      else None)
+
+                # Entry Date (always NEXT trading day after signal_date)
+                entry_date = get_future_trading_day(signal_date, df)
+                if not entry_date:
+                     results.append(SignalResult(
+                        symbol=resolved_symbol,
+                        signal_date=signal_date.strftime("%Y-%m-%d"),
+                        entry_price=0.0,
+                        entry_mode=entry_mode,
+                        status="No Entry Data"
+                    ))
+                     continue
+
+                # Entry Price (mode-dependent)
+                if entry_mode == "next_open":
+                    entry_price = df.loc[entry_date]["Open"]
+                else:
+                    entry_price = df.loc[entry_date]["Close"]
+
+                normalized_signal_date = signal_date.strftime("%Y-%m-%d")
+                res = SignalResult(
+                    symbol=resolved_symbol,
+                    signal_date=normalized_signal_date,
+                    signal_close_price=round(signal_close_price, 2) if signal_close_price is not None else None,
+                    entry_date=entry_date.strftime("%Y-%m-%d"),
+                    entry_price=round(entry_price, 2),
+                    entry_mode=entry_mode,
+                    sector=metadata_map.get(resolved_symbol, {}).get("sector"),
+                    market_cap=str(metadata_map.get(resolved_symbol, {}).get("marketCap")) if metadata_map.get(resolved_symbol, {}).get("marketCap") is not None else None,
+                    status="Success"
+                )
+
+                # Calculate forward returns dynamically
+                for h in horizons:
+                    if h > duration: continue
+
+                    target_date = entry_date + horizon_deltas[h]
+                    exit_date = get_next_trading_day(target_date, df)
+
+                    if exit_date:
+                        exit_price = df.loc[exit_date]["Close"]
+                        if pd.notna(exit_price) and pd.notna(entry_price) and entry_price != 0:
+                            ret = ((exit_price - entry_price) / entry_price) * 100
+
+                            if h in horizons:
+                                setattr(res, f"return_{h}d", round(ret, 2))
+                                setattr(res, f"exit_price_{h}d", round(exit_price, 2))
+                                agg[h]["sum"] += round(ret, 2)
+                                agg[h]["count"] += 1
+                                if ret > 0:
+                                    agg[h]["wins"] += 1
+
+                # Max High/Low in Duration
+                window_end = entry_date + duration_delta
+                window_df = df[entry_date:window_end]
+
+                if not window_df.empty:
+                    max_high = window_df["High"].max()
+                    max_low = window_df["Low"].min()
+                    if pd.notna(max_high):
+                        res.max_high_90d = round(max_high, 2)
+                        max_high_idx = window_df["High"].idxmax()
+                        if pd.notna(max_high_idx):
+                            res.max_high_date = max_high_idx.strftime("%Y-%m-%d")
+                    if pd.notna(max_low):
+                        res.max_low_90d = round(max_low, 2)
+                        max_low_idx = window_df["Low"].idxmin()
+                        if pd.notna(max_low_idx):
+                            res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
+
+                DataProvider.set_cached_result(row_hash, res.model_dump())
+
+            # Aggregation for cached results (computed results already updated above)
+            if cached_result is not None:
+                for h in horizons:
+                    ret = getattr(res, f"return_{h}d", None)
+                    if ret is not None:
+                        agg[h]["sum"] += ret
+                        agg[h]["count"] += 1
+                        if ret > 0:
+                            agg[h]["wins"] += 1
+
+            # Online best/worst tracking (shared: both cached and computed)
             ret_90 = res.return_90d
             if ret_90 is not None:
                 if best_performer is None or ret_90 > getattr(best_performer, "return_90d", -999):
@@ -452,4 +497,44 @@ class Backtester:
             total, len(successful), total - len(successful), total_time, status_summary
         )
 
+        report.cache_stats = DataProvider.get_cache_stats()
+        report.cache_source = "l3_compute"
+
+        # ── Latest Price Integration ──────────────────────────────
+        if successful:
+            try:
+                all_symbols = list(set(r.symbol for r in successful))
+                latest_prices = await asyncio.to_thread(DataProvider.get_latest_prices_batch, all_symbols)
+                latest_dates = []
+                for r in results:
+                    if r.status == "Success" and r.symbol in latest_prices:
+                        price, date_str = latest_prices[r.symbol]
+                        r.latest_price = price
+                        r.latest_price_date = date_str
+                        if price is not None and date_str is not None:
+                            latest_dates.append(date_str)
+                            if r.entry_price and r.entry_price > 0:
+                                r.latest_price_return = round(((price - r.entry_price) / r.entry_price) * 100, 2)
+                                logger.debug(
+                                    "[DIAG] latest_price_return for %s: price=%s, entry_price=%s, return=%s",
+                                    r.symbol, price, r.entry_price, r.latest_price_return
+                                )
+                            else:
+                                r.latest_price_return = None
+                                logger.debug(
+                                    "[DIAG] latest_price_return SKIPPED for %s: entry_price=%s (type=%s)",
+                                    r.symbol, r.entry_price, type(r.entry_price).__name__
+                                )
+                if latest_dates:
+                    report.latest_price_date = max(latest_dates)
+            except Exception:
+                logger.exception("Latest price integration failed (non-blocking)")
+
         return report
+
+
+
+
+
+
+

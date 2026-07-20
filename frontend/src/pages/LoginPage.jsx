@@ -1,29 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { login, logout } from '../services/auth';
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
     const navigate = useNavigate();
 
-    const handleLogin = (e) => {
-        e.preventDefault();
-        setIsLoading(true);
+    useEffect(() => {
+        logout();
+    }, []);
 
-        // Mock API call
-        setTimeout(() => {
-            localStorage.setItem('isLoggedIn', 'true');
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setError('');
+        setIsLoading(true);
+        try {
+            const result = await login(email, password);
+            if (result?.token && result?.user) {
+                navigate('/dashboard');
+            } else {
+                setError('Login failed — unexpected server response');
+            }
+        } catch (err) {
+            const body = err.response?.data;
+            const msg = body?.detail || body?.error || err.message || 'Login failed';
+            console.error('[Login] Error:', err.response?.status, body);
+            setError(msg);
+        } finally {
             setIsLoading(false);
-            navigate('/dashboard');
-        }, 1500);
+        }
     };
 
     return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Gradients */}
             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[100px]" />
             <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[100px]" />
 
@@ -36,6 +50,17 @@ const LoginPage = () => {
                     <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
                     <p className="text-gray-400">Sign in to access your trading tools</p>
                 </div>
+
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3"
+                    >
+                        <AlertCircle size={20} className="text-red-400 shrink-0 mt-0.5" />
+                        <p className="text-red-300 text-sm">{error}</p>
+                    </motion.div>
+                )}
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div className="space-y-2">

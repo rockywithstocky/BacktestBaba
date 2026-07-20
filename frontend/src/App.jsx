@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
@@ -8,11 +8,20 @@ import Footer from './components/Footer';
 import DashboardHub from './pages/DashboardHub';
 import BacktesterPage from './pages/BacktesterPage';
 import FundamentalAnalysis from './pages/FundamentalAnalysis';
+import AdminPage from './pages/AdminPage';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
   const location = useLocation();
+
+  useEffect(() => {
+    import('./services/auth').then(({ getToken, validate, logout }) => {
+      if (getToken() && isLoggedIn) {
+        validate().catch(() => {});
+      }
+    });
+  }, []);
 
   if (!isLoggedIn) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -54,6 +63,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <FundamentalAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/admin"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
               </ProtectedRoute>
             }
           />

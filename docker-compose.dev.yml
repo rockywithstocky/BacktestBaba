@@ -1,15 +1,22 @@
-# Development override - hot-reload enabled
-version: '3.8'
-
+# Development override — enables hot-reload and PG for local dev
 services:
+  postgres:
+    ports:
+      - "5432:5432"
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     volumes:
-      - ./backend:/app
-    command: >
-      sh -c "pip install -e . && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      - ./backend:/app/backend
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - DATABASE_URL=postgresql://backtest:backtest@postgres:5432/backtestbaba
+      - PERSISTENCE_ENABLED=true
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:

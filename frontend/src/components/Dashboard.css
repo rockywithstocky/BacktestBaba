@@ -103,6 +103,7 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     opacity: 0;
+    pointer-events: none;
     transition: opacity 0.3s;
 }
 

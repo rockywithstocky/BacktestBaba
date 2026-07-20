@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, ComposedChart, Scatter
@@ -17,7 +17,16 @@ const Dashboard = ({ report, onBack }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'signal_date', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(25);
-    const [capital, setCapital] = useState(100000);
+    const capitalRef = useRef(null);
+    const [capital, setCapital] = useState(() => {
+        return localStorage.getItem('backtest_capital') || '';
+    });
+    useEffect(() => {
+        if (capitalRef.current) capitalRef.current.value = capital;
+    }, []);
+    useEffect(() => {
+        localStorage.setItem('backtest_capital', capital === '' || capital === '0' ? '' : capital);
+    }, [capital]);
     const [selectedStock, setSelectedStock] = useState(null);
     const [selectedPeriod, setSelectedPeriod] = useState(null);
 
@@ -60,7 +69,7 @@ const Dashboard = ({ report, onBack }) => {
                 negativeMedian: negSorted.length > 0 ? negSorted[Math.floor(negSorted.length / 2)] : 0,
                 negativeAvg: negAvg,
                 profitFactor,
-                capitalReturn: capital * (avg / 100)
+                capitalReturn: (Number(capital) || 0) * (avg / 100)
             };
         };
         return {
@@ -159,8 +168,15 @@ const Dashboard = ({ report, onBack }) => {
     const totalPages = Math.ceil(sortedTrades.length / itemsPerPage);
 
     const formatPercent = (val) => val !== null && val !== undefined ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%` : 'N/A';
-    const formatCurrency = (val) => val ? `₹${val.toFixed(2)}` : 'N/A';
+    const formatCurrency = (val) => val !== null && val !== undefined && val !== '' ? `₹${Number(val).toFixed(2)}` : 'N/A';
     const getColorClass = (val) => val > 0 ? 'positive' : val < 0 ? 'negative' : 'neutral';
+    const getTradingViewUrl = (symbol) => {
+        if (!symbol) return '#';
+        let tvSymbol = symbol;
+        if (symbol.endsWith('.NS')) tvSymbol = `NSE:${symbol.slice(0, -3)}`;
+        else if (symbol.endsWith('.BO')) tvSymbol = `BSE:${symbol.slice(0, -3)}`;
+        return `https://in.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`;
+    };
 
     const getEntryDate = (trade) => trade.entry_date || trade.signal_date;
 
@@ -207,14 +223,20 @@ const Dashboard = ({ report, onBack }) => {
                     <div className="capital-input-group">
                         <span className="currency-symbol">₹</span>
                         <input
-                            type="number"
-                            value={capital}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setCapital(val === '' ? '' : Number(val));
+                            ref={capitalRef}
+                            type="text"
+                            inputMode="numeric"
+                            defaultValue={capital || ''}
+                            onInput={(e) => {
+                                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                                setCapital(e.target.value);
                             }}
-                            onBlur={() => {
-                                if (capital === '' || capital === 0) setCapital(100000);
+                            onBlur={(e) => {
+                                const v = e.target.value;
+                                if (v === '' || v === '0') {
+                                    e.target.value = '100000';
+                                    setCapital('100000');
+                                }
                             }}
                             className="capital-input"
                             placeholder="Capital"
@@ -374,7 +396,7 @@ const Dashboard = ({ report, onBack }) => {
                                 <th>Neg. Count</th>
                                 <th>Neg. Median</th>
                                 <th>Neg. Avg</th>
-                                <th>Avg Profit/Trade</th>
+                                 <th>Capital Return</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -405,7 +427,7 @@ const Dashboard = ({ report, onBack }) => {
 
             <div className="trade-log-card">
                 <div className="trade-log-header">
-                    <h3 className="section-title">Trade Log <span className="hint-text">(Hover for date/price, Click to view chart)</span></h3>
+                    <h3 className="section-title">Trade Log</h3>
                     <div className="trade-log-controls">
                         <div className="search-box">
                             <Search size={18} />
@@ -447,9 +469,10 @@ const Dashboard = ({ report, onBack }) => {
                                 <th onClick={() => handleSort('entry_price')}>
                                     Entry {sortConfig.key === 'entry_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th>
-                                    Mode
+                                <th onClick={() => handleSort('latest_price')}>
+                                    Latest Price {sortConfig.key === 'latest_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
+
                                 <th onClick={() => handleSort('return_7d')}>
                                     1 Week Return {sortConfig.key === 'return_7d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
@@ -475,11 +498,19 @@ const Dashboard = ({ report, onBack }) => {
                                     <td>{trade.signal_close_price ? formatCurrency(trade.signal_close_price) : '-'}</td>
                                     <td>{getEntryDate(trade)}</td>
                                     <td>{formatCurrency(trade.entry_price)}</td>
-                                    <td>
-                                        <span className={`mode-badge ${trade.entry_mode === 'next_open' ? 'open' : 'close'}`}>
-                                            {trade.entry_mode === 'next_open' ? 'Open' : 'Close'}
-                                        </span>
+                                    <td
+                                        className={getColorClass(trade.latest_price_return)}
+                                        title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}
+                                    >
+                                        {trade.latest_price && trade.symbol ? (
+                                            <a href={getTradingViewUrl(trade.symbol)}
+                                               target="_blank" rel="noopener noreferrer"
+                                               style={{ color: 'inherit', textDecoration: 'none' }}>
+                                                {formatCurrency(trade.latest_price)}
+                                            </a>
+                                        ) : trade.latest_price ? formatCurrency(trade.latest_price) : 'N/A'}
                                     </td>
+
                                     <td
                                         className={`clickable-cell ${getColorClass(trade.return_7d)}`}
                                         onClick={() => handleCellClick(trade, '7d')}
@@ -520,6 +551,11 @@ const Dashboard = ({ report, onBack }) => {
                         <ChevronRight size={20} />
                     </button>
                 </div>
+                {report.latest_price_date && (
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                        Latest prices based on close price as of {report.latest_price_date}. Prices may be delayed.
+                    </p>
+                )}
             </div>
         </motion.div>
     );

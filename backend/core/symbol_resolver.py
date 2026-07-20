@@ -4,7 +4,7 @@ import pandas as pd
 import yfinance as yf
 from diskcache import Cache
 
-from .data_provider import DataProvider
+from .data_provider import DataProvider, _yf_retry
 from ..config import Paths, CacheTTL, Limits
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,7 @@ class SymbolResolver:
         result = {}
 
         uncached_keys = []
+        pre_suffixed = []
         for sym in symbols:
             key = sym.upper().strip()
             if not key:
@@ -53,10 +54,12 @@ class SymbolResolver:
                 result[key] = resolved
                 if resolved:
                     seen_resolved.add(resolved)
+            elif key.endswith(".NS") or key.endswith(".BO"):
+                pre_suffixed.append(key)
             else:
                 uncached_keys.append(key)
 
-        if not uncached_keys:
+        if not uncached_keys and not pre_suffixed:
             return result
 
         batch_size = Limits.BATCH_RESOLVE_CHUNK
@@ -67,10 +70,10 @@ class SymbolResolver:
             for i in range(0, len(suffixed), batch_size):
                 chunk = suffixed[i:i + batch_size]
                 try:
-                    data = yf.download(
+                    data = _yf_retry(lambda: yf.download(
                         tickers=chunk, period="1d",
                         group_by='ticker', progress=False, threads=True
-                    )
+                    ))
                     if data is None or data.empty:
                         continue
                     if isinstance(data.columns, pd.MultiIndex):
@@ -85,24 +88,38 @@ class SymbolResolver:
                     logger.debug("batch_resolve chunk failed for %d symbols", len(chunk), exc_info=True)
             return valid
 
-        valid_ns = _batch_check(".NS", uncached_keys)
-        remaining = [k for k in uncached_keys if f"{k}.NS" not in valid_ns]
-        valid_bo = _batch_check(".BO", remaining) if remaining else set()
+        # Resolve pre-suffixed keys (e.g. "RELIANCE.NS") — check as-is
+        if pre_suffixed:
+            valid_pre = _batch_check("", pre_suffixed)
+            for key in pre_suffixed:
+                if key in valid_pre and key not in seen_resolved:
+                    result[key] = key
+                    seen_resolved.add(key)
+                    _disk_cache.set(f"resolve_{key}", key, expire=CacheTTL.SYMBOL_RESOLUTION)
+                else:
+                    result[key] = None
+                    _disk_cache.set(f"resolve_{key}", None, expire=CacheTTL.SYMBOL_RESOLUTION)
 
-        for key in uncached_keys:
-            ns = f"{key}.NS"
-            bo = f"{key}.BO"
-            if ns in valid_ns and ns not in seen_resolved:
-                result[key] = ns
-                seen_resolved.add(ns)
-                _disk_cache.set(f"resolve_{key}", ns, expire=CacheTTL.SYMBOL_RESOLUTION)
-            elif bo in valid_bo and bo not in seen_resolved:
-                result[key] = bo
-                seen_resolved.add(bo)
-                _disk_cache.set(f"resolve_{key}", bo, expire=CacheTTL.SYMBOL_RESOLUTION)
-            else:
-                result[key] = None
-                _disk_cache.set(f"resolve_{key}", None, expire=CacheTTL.SYMBOL_RESOLUTION)
+        # Resolve bare keys — try .NS then .BO
+        if uncached_keys:
+            valid_ns = _batch_check(".NS", uncached_keys)
+            remaining = [k for k in uncached_keys if f"{k}.NS" not in valid_ns]
+            valid_bo = _batch_check(".BO", remaining) if remaining else set()
+
+            for key in uncached_keys:
+                ns = f"{key}.NS"
+                bo = f"{key}.BO"
+                if ns in valid_ns and ns not in seen_resolved:
+                    result[key] = ns
+                    seen_resolved.add(ns)
+                    _disk_cache.set(f"resolve_{key}", ns, expire=CacheTTL.SYMBOL_RESOLUTION)
+                elif bo in valid_bo and bo not in seen_resolved:
+                    result[key] = bo
+                    seen_resolved.add(bo)
+                    _disk_cache.set(f"resolve_{key}", bo, expire=CacheTTL.SYMBOL_RESOLUTION)
+                else:
+                    result[key] = None
+                    _disk_cache.set(f"resolve_{key}", None, expire=CacheTTL.SYMBOL_RESOLUTION)
 
         return result
 

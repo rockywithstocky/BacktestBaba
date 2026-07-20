@@ -1,261 +1,226 @@
-# architecture.md — BacktestBaba Data Flow
+# Architecture: D1 Persistence Microservice
 
-> **Produced by**: Principal Engineer + Senior Architect joint discovery  
-> **Method**: Every file read. Nothing invented. Gaps explicitly stated.
+## System Context
 
----
+BacktestBaba is a stateless CSV backtesting app. Users upload signals (symbol + date pairs), the backend fetches prices, computes returns across 6 horizons (7/14/30/45/60/90d), and streams results via WebSocket. Currently, results live only in `sessionStorage` — gone on tab close.
 
-## PART A — Technical Discovery
+The D1 Persistence Microservice adds a durable, queryable, zero-cost data layer with user identity, priority tiers, immediate audit logging, and dual-stage yfinance filtering.
 
-### Where does processing begin in this application?
+### Worker Deployment Status (as of July 2026)
 
-**Frontend path** (`frontend/src/main.jsx` → `App.jsx` → `BacktesterPage.jsx`):  
-`main.jsx` bootstraps React with `BrowserRouter`. `App.jsx` defines routes and wraps protected routes in a `localStorage` auth check. The user lands on `/dashboard/backtester` → `BacktesterPage.jsx`, which renders `UploadCard.jsx`. On submit, `BacktesterPage.handleUpload()` calls `runBacktestWS()` from `services/api.js`.
-
-**Backend path** (`backend/main.py`):  
-The FastAPI application is instantiated at module level (`app = FastAPI(...)`). CORS middleware is added using the `CORS_ORIGINS` environment variable (defaulting to `http://localhost:5173,http://localhost:5174`). The two active entry points are:
-- `@app.websocket("/ws/backtest")` — primary path; receives raw file bytes over a WebSocket.
-- `@app.post("/api/backtest")` — secondary REST path; receives a multipart file upload.
-
-### How does data move through the system step by step?
-
-```
-[Browser] User selects file
-    ↓
-[api.js:runBacktestWS] Opens WebSocket to ws://localhost:8000/ws/backtest
-    ↓ (ArrayBuffer sent over WS)
-[main.py:websocket_endpoint] Receives raw bytes via await websocket.receive_bytes()
-    ↓
-[main.py:parse_upload_data]
-  - Checks file size (≤10MB) and non-empty
-  - Tries pd.read_csv(); if fails, tries pd.read_excel()
-  - Strips whitespace from column names
-  - Validates 'symbol' and 'date' (or 'signal_date') columns exist
-    ↓
-[main.py] Converts DataFrame to list of dicts (signals)
-    ↓
-[core/backtester.py:Backtester.run_backtest_async]
-  |
-  |── PHASE A: Resolution & Bounds
-  |   For each signal:
-  |     - Extracts raw_symbol, date_str (checks both 'symbol'/'Symbol', 'date'/'Date' keys)
-  |     - asyncio.to_thread → SymbolResolver.resolve(raw_symbol)
-  |         → SymbolResolver._resolve_uncached:
-  |             - If already has .NS/.BO suffix → verify via DataProvider.get_latest_price
-  |             - Try "{symbol}.NS" → DataProvider.get_latest_price (diskcache 5min TTL)
-  |             - Try "{symbol}.BO" → DataProvider.get_latest_price
-  |             - Returns resolved ticker or None
-  |     - parse_date(date_str) — tries 7 date formats
-  |     - Computes start_date = signal_date, end_date = signal_date + duration + 10 days
-  |     - Tracks global_start and global_end across all signals
-  |     - Collects unique_resolved_symbols (deduplicated, order-preserving)
-  |     - Progress callback: type="progress", phase 0→50% of bar
-  |
-  |── PHASE B: Bulk Fetch & Enrichment (parallel)
-  |   Bulk OHLCV fetch:
-  |     asyncio.to_thread → DataProvider.get_bulk_ticker_data(unique_resolved_symbols, global_start, global_end)
-  |       → yf.download(tickers=symbols, group_by='ticker', auto_adjust=True, threads=True)
-  |       → Returns pd.MultiIndex DataFrame (ticker, OHLCV_column) [never cached at bulk level]
-  |
-  |   Metadata enrichment (concurrent, bounded by Semaphore(10)):
-  |     asyncio.gather → for each unique symbol:
-  |       asyncio.to_thread → DataProvider.get_ticker_info(symbol)
-  |         - diskcache check (key="{symbol}_info", 7-day TTL)
-  |         - yf.Ticker(symbol).info → extracts sector, marketCap
-  |         - Caches result; on exception: returns {"sector": null, "marketCap": null}, no re-raise
-  |
-  |── PHASE C: Calculation Loop
-  |   For each parsed signal:
-  |     If status != "Valid" → append SignalResult(status=error_code, entry_price=0.0)
-  |
-  |     Slice bulk_df for this symbol:
-  |       - isinstance(bulk_df.columns, pd.MultiIndex) check
-  |       - bulk_df[resolved_symbol].dropna(how='all')
-  |       - If symbol missing from MultiIndex: log [SLICE MISS], df = None
-  |
-  |     Fallback (if df is None or empty):
-  |       asyncio.to_thread → DataProvider.get_ticker_data(symbol, start, end)
-  |         - diskcache check (key="{symbol}_{start}_{end}", 24hr TTL)
-  |         - yf.Ticker(symbol).history(start, end, auto_adjust=True)
-  |         - Caches result
-  |
-  |     If df still empty → SignalResult(status="No Data")
-  |
-  |     df.index = pd.to_datetime(df.index).tz_localize(None)
-  |
-  |     Entry date: get_next_trading_day(signal_date, df, max_lookahead=5)
-  |       → Scans signal_date + 0..5 days for any date present in df.index
-  |     If no entry date → SignalResult(status="No Entry Data")
-  |
-  |     entry_price = df.loc[entry_date]["Close"]
-  |
-  |     For each horizon h in [7,14,30,45,60,90] where h ≤ duration:
-  |       target_date = entry_date + timedelta(days=h)
-  |       exit_date = get_next_trading_day(target_date, df, max_lookahead=5)
-  |       if exit_date:
-  |         exit_price = df.loc[exit_date]["Close"]
-  |         ret = ((exit_price - entry_price) / entry_price) * 100
-  |         setattr(res, f"return_{h}d", round(ret, 2))
-  |         setattr(res, f"exit_price_{h}d", round(exit_price, 2))
-  |
-  |     window_df = df[entry_date : entry_date + timedelta(days=duration)]
-  |     res.max_high_90d = window_df["High"].max()   ← field name reused for arbitrary duration
-  |     res.max_low_90d  = window_df["Low"].min()    ← field name reused for arbitrary duration
-  |     res.max_high_date / res.max_low_date via idxmax/idxmin
-  |
-  |── Aggregate BacktestReport
-      For each horizon: calc avg_return, win_rate over successful trades
-      best_performer / worst_performer by return_30d
-      ↓
-[main.py:websocket_endpoint] Sends JSON: {"type": "complete", "report": report.dict()}
-    ↓
-[api.js:runBacktestWS onmessage] data.type === 'complete' → calls onComplete(data.report)
-    ↓
-[BacktesterPage.jsx] setReport(reportData) → renders <Dashboard report={report} />
-    ↓
-[Dashboard.jsx] Computes stats, enrichmentStats, holdingPeriodData via useMemo
-    ↓
-[Dashboard.jsx] Renders: stat cards, BarChart (holding period), BarChart (sector edge),
-                BarChart (market-cap edge), stats table, paginated sortable trade log
-    ↓
-[StockChartModal.jsx] Rendered on cell click: shows entry/exit/max-high/max-low points
-                      on Area/Line/Bar chart; links to /dashboard/fundamental/:symbol
-```
-
-### Where does data change shape or get transformed?
-
-| Step | Transformation |
-|------|---------------|
-| `parse_upload_data` | Raw bytes → `pd.DataFrame` with stripped column headers |
-| `df.to_dict(orient="records")` | DataFrame → list of plain Python dicts |
-| `SymbolResolver.resolve` | Bare symbol (e.g. `RELIANCE`) → Yahoo Finance ticker (e.g. `RELIANCE.NS`) |
-| `parse_date` | Date string in any of 7 formats → `datetime` object |
-| `yf.download` | HTTP response → `pd.MultiIndex DataFrame` (ticker × OHLCV) |
-| `bulk_df[symbol].dropna` | MultiIndex slice → single-ticker flat DataFrame |
-| `df.index.tz_localize(None)` | Timezone-aware index → timezone-naive index |
-| `((exit_price - entry_price) / entry_price) * 100` | Two float prices → percentage return |
-| `round(ret, 2)` / `round(exit_price, 2)` | Full-precision float → 2-decimal-place float |
-| `report.dict()` | Pydantic `BacktestReport` → JSON-serializable Python dict |
-| `Dashboard.jsx useMemo stats` | Array of `return_Nd` floats → avg, median, highest, lowest, positiveCount, negativeCount, profitFactor, capitalReturn |
-| `enrichmentStats useMemo` | Per-trade sector/marketCap + return_30d → aggregated list sorted by avg return |
-
-### Where does the system hand off to something external?
-
-1. `DataProvider.get_latest_price` / `DataProvider.get_ticker_data` / `DataProvider.get_bulk_ticker_data` / `DataProvider.get_ticker_info` — all make HTTP calls to Yahoo Finance via the `yfinance` library.
-2. `diskcache.Cache` — all reads and writes go to `backend/.cache/` on the local filesystem.
-3. WebSocket frame send in `main.py` — progress and completion packets travel back to the browser over the persistent WebSocket connection.
-4. `Dashboard.jsx` "Save Report" button — triggers a browser download of `backtest_report.json` (purely client-side; no server call).
-5. `StockChartModal` "Analyze Fundamentals" link — navigates to `/dashboard/fundamental/:symbol`, which renders `FundamentalAnalysis.jsx`. **That page uses entirely hardcoded mock data** — it does not call the backend. This is documented inline with a comment: `// Mock Data - In real app, fetch from backend (yfinance)`.
-
-### Plain text flow diagram
-
-```
-FILE (CSV/XLSX, ≤10MB)
-  │
-  ▼
-[BROWSER: UploadCard.jsx]
-  │  ArrayBuffer over WebSocket
-  ▼
-[BACKEND: main.py/websocket_endpoint]
-  │  parse & validate columns
-  ▼
-[BACKEND: Backtester.run_backtest_async]
-  │
-  ├─[Phase A] Resolve symbols ──────────── → Yahoo Finance (latest price, symbol check)
-  │            Parse dates                   ↑ diskcache (5-min TTL)
-  │            Compute date bounds
-  │
-  ├─[Phase B] Bulk OHLCV download ──────── → Yahoo Finance (yf.download, no cache)
-  │            Concurrent metadata fetch ── → Yahoo Finance (.info endpoint)
-  │                                           ↑ diskcache (7-day TTL)
-  │
-  └─[Phase C] Slice data per symbol
-              Fallback fetch if needed ──── → Yahoo Finance (yf.Ticker.history)
-              Calculate 6 return horizons    ↑ diskcache (24-hr TTL)
-              Compute max high/low
-              Aggregate report
-  │
-  ▼
-[BACKEND: WebSocket send {"type":"complete", "report": {...}}]
-  │
-  ▼
-[BROWSER: BacktesterPage.jsx → Dashboard.jsx]
-  │  useMemo computations (stats, enrichmentStats, holdingPeriodData)
-  ▼
-[BROWSER: Charts + Trade Log rendered]
-  │  User clicks return cell
-  ▼
-[BROWSER: StockChartModal.jsx] (no backend call — data already in report)
-```
-
----
-
-## If You Just Joined This Team
-
-When a **CSV file upload** arrives, first `parse_upload_data` [the function in `main.py` that reads bytes and checks the file is valid CSV/Excel with the right columns] validates the file structure.
-
-Then `Backtester.run_backtest_async` [the core engine in `backend/core/backtester.py` that orchestrates all three phases] takes over: first it calls `SymbolResolver.resolve` [the class in `symbol_resolver.py` that converts a bare stock name like `RELIANCE` into the Yahoo Finance format `RELIANCE.NS`] for each row, then it calls `DataProvider.get_bulk_ticker_data` [the class in `data_provider.py` that makes a single large download request to Yahoo Finance for all stocks at once] to fetch all historical prices in one shot, and simultaneously calls `DataProvider.get_ticker_info` [the method that fetches sector and market-cap labels] for each stock concurrently.
-
-Then, for each original signal, it slices the big price DataFrame, finds the entry price on the next available trading day, and calculates how much the stock moved at 7, 14, 30, 45, 60, and 90 days, recording both the percentage return and exit price for each horizon.
-
-Finally, the assembled `BacktestReport` [the Pydantic model in `models/schemas.py` that packages all per-trade results and aggregated statistics] is sent back through the WebSocket to the browser, which hands it to `Dashboard.jsx` [the 500-line React component that renders all charts, statistics, and the trade log table].
-
-If the upload fails or Yahoo Finance cannot be reached, `BacktesterPage.jsx` [the page-level React component] displays an inline error message and nothing is written anywhere — all state lives in browser memory for the duration of the session.
-
----
-
-## If You Are Setting Up To Test This
-
-**Which step in the flow is the one I am most likely testing?**  
-`Backtester.run_backtest_async` — it is the only step that has a `pytest` suite (`backend/tests/test_backtester.py`). That test mocks `DataProvider` and `SymbolResolver` to avoid real network calls.
-
-**What enters the system at the start of this flow?**  
-Raw file bytes of a CSV or Excel file. The minimum required content is two columns (`symbol` and `date`) and at least one data row. Maximum size is 10 MB.
-
-**What exits the system at the end?**  
-A `BacktestReport` JSON object delivered over a WebSocket message with `"type": "complete"`. It contains per-trade results in the `trades` array and aggregated statistics (avg_return, win_rate) for up to 6 holding periods.
-
-**If my test fails, which step should I check first and why?**  
-Check `SymbolResolver.resolve` first: if it returns `None` for your test symbol, the entire signal is marked `"Symbol Not Found"` and skipped — no price data is fetched, no returns are computed. This is the most common root cause of a completely empty result set when using real data. Print the `resolved_symbol` in Phase A to confirm the `.NS` or `.BO` suffix was correctly appended, then verify Yahoo Finance has data for that resolved ticker and date range.
-
----
-
-## Quick Reference
-
-| STEP | Component | What it does |
+| Component | Status | Notes |
 |---|---|---|
-| 1 | `UploadCard.jsx` | User selects or drags a CSV/Excel file onto the drop zone |
-| 2 | `api.js:runBacktestWS` | Opens a WebSocket to `/ws/backtest`; sends the file as an `ArrayBuffer` the moment the connection opens |
-| 3 | `main.py:websocket_endpoint` | Receives raw bytes; passes them to `parse_upload_data` |
-| 4 | `main.py:parse_upload_data` | Checks size ≤10MB; parses CSV then Excel; strips column whitespace; validates `symbol` and `date` columns exist |
-| 5 | `Backtester` — Phase A (Resolve) | Iterates every row; calls `SymbolResolver.resolve` per symbol; parses each date string; builds global date bounds; sends 0–50% progress |
-| 6 | `SymbolResolver.resolve` | Tries `{symbol}.NS` then `{symbol}.BO`; validates via `DataProvider.get_latest_price`; stores result in in-process memory cache |
-| 7 | `Backtester` — Phase B (Bulk fetch) | Single `yf.download` for all unique symbols over the global date range; returns a `pd.MultiIndex DataFrame`; result is not cached |
-| 8 | `Backtester` — Phase B (Metadata) | Concurrently fetches `sector` and `marketCap` per symbol via `DataProvider.get_ticker_info`; bounded by `asyncio.Semaphore(10)`; cached 7 days |
-| 9 | `Backtester` — Phase C (Slice) | Slices bulk DataFrame per symbol using `isinstance(columns, pd.MultiIndex)` check; falls back to `yf.Ticker.history` if symbol is missing |
-| 10 | `Backtester` — Phase C (Calculate) | Finds entry price via `get_next_trading_day(signal_date, df, max_lookahead=5)`; calculates 6 return horizons and max high/low over the duration window |
-| 11 | `Backtester` — Aggregate | Computes `avg_return` and `win_rate` for each horizon; identifies `best_performer` and `worst_performer` by `return_30d` |
-| 12 | `main.py:websocket_endpoint` | Sends `{"type":"complete","report":{...}}` over the WebSocket |
-| 13 | `BacktesterPage.jsx` | Receives the report; replaces `UploadCard` with `Dashboard` |
-| 14 | `Dashboard.jsx` | Computes all frontend stats via `useMemo`; renders stat cards, three bar charts, stats table, and paginated trade log |
-| 15 | `StockChartModal.jsx` | Rendered on return-cell click; shows entry/exit/max-high/max-low as area, line, or bar chart; links to `/dashboard/fundamental/:symbol` |
+| Worker URL | ✅ Live | `https://backtestbaba-d1-proxy.rockywithstocky-ff8.workers.dev` |
+| D1 database `backtestbaba` | ✅ Created | Free tier, 5GB |
+| D1 binding to Worker | ❌ Not configured | Must be done before Phase D |
+| API endpoints (15 routes) | ❌ Not deployed | Default Hello World template |
+| Schema (6 tables) | ❌ Not applied | Migration in Phase C |
 
 ---
 
-## For Someone New
+## Architecture Diagram
 
-**Everyday analogy:** Think of BacktestBaba like a race results service for stock picks. You hand in a list of horses you backed (your stock signals) along with the date of each race. The service goes to the official race archive (Yahoo Finance), looks up how each horse actually finished at 1 week, 1 month, and 3 months after the race date, and hands you back a report showing your overall win rate, average gain, and which pick performed best. You never had to visit the archive yourself — the service did all the legwork and returned a clean summary to your browser.
+```mermaid
+flowchart TB
+    subgraph Browser["User Browser"]
+        IDB[IndexedDB<br/>L2 cache - persists across tabs]
+        IDB2[sessionStorage<br/>L1 cache - current session]
+        DASH[Dashboard.jsx]
+        AUTH[LoginPage.jsx]
+        ADMIN[AdminPage.jsx]
+    end
 
-**Plain English flow:**
+    subgraph Backend["FastAPI Backend (Render)"]
+        MAIN[main.py]
+        BT[backtester.py]
+        PERS[persistence.py]
+        subgraph ABC["PersistenceBackend ABC"]
+            D1W[D1WorkerBackend]
+            NULL[NullBackend]
+        end
+    end
 
-1. The trader drops a CSV file onto the website. Each row has a stock name and a date — that is the signal they want to test.
-2. The moment "Run Backtest" is clicked, the browser opens a live connection to the Python server and sends the file across it as raw data.
-3. The server reads the file and checks it looks correct: the right column names are present, the file is not empty, and it is under 10MB.
-4. For each row, the server figures out the correct Yahoo Finance name for the stock — for example, "RELIANCE" becomes "RELIANCE.NS" for the National Stock Exchange, or "RELIANCE.BO" for the Bombay Stock Exchange.
-5. Once all stock names are resolved, the server makes a single large request to Yahoo Finance to download historical prices for all stocks at once, covering the full date range of the file — this is much faster than requesting each stock one by one.
-6. While the price download is in progress, the server also quietly fetches background labels (sector like "Technology" or "Energy", and market size) for each stock, running up to 10 at a time to avoid overloading Yahoo Finance.
-7. For each signal, the server finds the closing stock price on the first available trading day on or after the signal date, then finds it again at 7, 14, 30, 45, 60, and 90 calendar days later — calculating the percentage gain or loss for each horizon.
-8. All results are packaged into a single report and sent back to the browser over the live connection.
-9. The browser renders the report as summary cards, bar charts, a statistics breakdown table, and a full searchable trade log — entirely without any further contact with the server.
-10. If the user clicks a return percentage in the trade log, a modal opens showing a mini chart of that stock's entry price, exit price, and highest and lowest point during the holding period.
+    subgraph CF["Cloudflare Worker"]
+        WORKER[backtestbaba-d1-proxy<br/>15 endpoints]
+        D1[("D1 SQLite<br/>6 tables<br/>5GB free")]
+    end
 
+    DASH -- "WS (real-time trades)" --> MAIN
+    DASH -- "HTTP (fallback)" --> MAIN
+    AUTH -- "HTTP" --> MAIN
+    ADMIN -- "HTTP" --> MAIN
+    MAIN --> BT
+    MAIN --> PERS
+    PERS --> D1W
+    PERS --> NULL
+    D1W -- "HTTP (3s timeout)" --> WORKER
+    WORKER --> D1
+    BT -. "dual-stage row_hash lookup" .-> D1W
+
+    style IDB fill:#e1f5fe,stroke:#01579b
+    style IDB2 fill:#e1f5fe,stroke:#01579b
+    style D1 fill:#f3e5f5,stroke:#4a148c
+    style NULL fill:#eee,stroke:#999
+```
+
+---
+
+## Data Flow — Full Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant U as User Browser
+    participant F as FastAPI
+    participant C as diskcache
+    participant W as CF Worker
+    participant D as D1
+    participant Y as yfinance
+
+    U->>F: WebSocket: upload CSV bytes
+    F->>F: SHA-256 file hash
+    F->>+W: POST /api/ingestion (Pillar 3 — immediate log)
+    W->>D: INSERT ingestion_log (status='received')
+    W-->>-F: {id: "..."}
+    F->>C: FileHashCache.get(hash)
+    alt Cache HIT
+        C-->>F: cached report
+        F-->>U: stream cached trades via WS
+    else Cache MISS
+        F->>F: parse CSV → signals
+        F->>F: compute row_hashes from inputs
+        F->>+W: POST /api/signals/lookup (Pillar 4 — dual-stage)
+        W->>D: SELECT row_hash WHERE row_hash IN (...)
+        W-->>-F: {existing: ["hash1", "hash2"]}
+        F->>F: split: known_set → skip; new_set → process
+        F->>+Y: yf.download(new_set symbols only)
+        Y-->>-F: OHLCV data
+        F->>F: run_backtest_async() — compute returns
+        F-->>U: progress + trades via WS
+        F->>C: FileHashCache.set(hash, report)
+        F-->>U: {"type": "complete", report}
+        U->>U: save to IndexedDB (Pillar 4 — client-mediated)
+        U->>U: background POST to /api/persist (1s→2s→4s→8s retry)
+        Note over F: synchronous D1 persist (before WS complete)
+        F->>W: POST /api/uploads + POST /api/signals
+        W->>D: INSERT OR IGNORE signal_hashes
+        W->>D: UPDATE quota
+    end
+```
+
+---
+
+## Auth Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User Browser
+    participant F as FastAPI
+    participant W as CF Worker
+    participant D as D1
+
+    U->>F: POST /api/auth/signup {email, password}
+    F->>+W: POST /api/auth/signup
+    W->>D: SELECT users WHERE email=?
+    W->>D: INSERT users + INSERT sessions
+    W-->>-F: {user, token}
+    F-->>U: {user, token}
+    U->>U: store token in localStorage
+
+    U->>F: POST /api/auth/login {email, password}
+    F->>+W: POST /api/auth/login
+    W->>D: SELECT users WHERE email=? + verify hash
+    W->>D: INSERT sessions
+    W-->>-F: {user, token}
+    F-->>U: {user, token}
+
+    Note over U,F: Every subsequent request includes Authorization: Bearer <token>
+    F->>+W: GET /api/auth/validate?token=xxx
+    W->>D: SELECT sessions + users, check revoked + expiry
+    W-->>-F: {user} or 401
+```
+
+---
+
+## Graceful Degradation Matrix
+
+| Scenario | Detection | Backend Behavior | User Experience |
+|---|---|---|---|
+| PERSISTENCE_ENABLED=False | Config flag | NullBackend, no-op | Normal report, no badge |
+| Worker unreachable | HTTP timeout (>3s) | Log warning, skip persist | Normal report |
+| Worker 429 (quota ≥95%) | HTTP 429 response | Log warning, skip persist | Normal report |
+| Worker 500 on ingestion | HTTP 500 | Log error, skip persist, backtest still runs | Normal report |
+| D1 lookup fails (dual-stage, Phase E) | Timeout on POST /signals/lookup | Log warning, fetch ALL from yfinance (no optimization) | Normal report, slightly slower |
+| Auth token expired | Worker returns 401 | Return 401 to frontend, redirect to login | Login page |
+| Render sleeps during persist | Platform idle timeout | Persist interrupted. Next upload with same file_hash re-persists. | Normal report (WS already delivered). Persistence deferred. |
+| Everything works | HTTP 200 in <200ms | Persist succeeds before WS complete | Normal report + "saved" badge |
+
+The backtest NEVER fails due to D1. All degradation paths return the same `BacktestReport` via WebSocket.
+
+---
+
+## Key Architectural Decisions
+
+### Decision 1: Synchronous Persistence (not fire-and-forget)
+- **What**: After backtest completes and report is cached in diskcache, persistence runs synchronously before the WS `complete` message is sent.
+- **Why**: Render free tier sleeps after 15 min idle. Fire-and-forget tasks are killed on sleep, causing persistent data loss. Synchronous persist guarantees durability at the cost of ~300-500ms added latency. The user sees the report AFTER persistence finishes.
+
+### Decision 2: Microservice Boundary, Not Embedded
+- **What**: A separate Cloudflare Worker handles all D1 interactions. FastAPI communicates only via HTTP.
+- **Why**: Zero deployment coupling. D1 credentials never enter the Render environment.
+- **Worker URL**: `https://backtestbaba-d1-proxy.rockywithstocky-ff8.workers.dev`
+- **Endpoints**: 15 routes across 6 domains (health, auth, ingestion, uploads, signals, admin)
+
+### Decision 3: Abstract Backend Interface
+- **What**: `PersistenceBackend` ABC with `D1WorkerBackend` and `NullBackend` implementations.
+- **Why**: Swapping to Postgres, MongoDB, or local SQLite later means writing a new class.
+
+### Decision 4: Row-Level Dedup via UNIQUE Constraint
+- **What**: `row_hash = SHA256(symbol + "|" + date + "|" + entry_mode)` with `UNIQUE(row_hash)` in D1 schema.
+- **Why**: Deterministic, input-derived (no yfinance needed). INSERT OR IGNORE deduplicates at the database level.
+
+### Decision 5: Single Row per Trade with JSON Blob
+- **What**: `signal_hashes` table contains `results_json TEXT` — all 6 horizon returns, exit prices, max_high/low serialized as JSON.
+- **Why**: Avoids normalized trade_results table (12x write amplification). JSON enables future AI queries.
+
+### Decision 6: Hard Quota Block at 95%
+- **What**: `quota` singleton table tracks total_writes. Worker rejects writes with 429 when usage exceeds 95% of write_limit (default 1M).
+- **Why**: Prevents surprise exhaustion. Manual export + clear.
+
+### Decision 7: Dual-Stage Lookup (Pillar 4)
+- **What**: Before yfinance calls, compute row_hashes from CSV inputs and batch-check D1 for existing hashes. Only fetch yfinance data for net-new rows.
+- **Why**: row_hash is input-derived, needs zero market data. Protects yfinance rate limits.
+
+### Decision 8: Immediate Ingestion Log (Pillar 3)
+- **What**: Write to `ingestion_log` at the moment file bytes arrive, BEFORE any processing. Filename stored raw.
+- **Why**: Immutable audit trail. file_hash (SHA-256 of bytes) is the sole content identity — not the filename.
+
+### Decision 9: Client-Mediated Persistence (Pillar 4)
+- **What**: Frontend saves report to IndexedDB immediately on WS receipt, then attempts background POST to backend with exponential backoff (1s→2s→4s→8s→16s).
+- **Why**: User sees data instantly from IndexedDB. Server sync is best-effort.
+
+---
+
+## Scope Boundaries — Explicitly Deferred
+
+| Feature | Reason | Planned Phase |
+|---|---|---|
+| **T-001 entry_mode dispatch** | Trivial refactor, unrelated to persistence | After D1 |
+| **AI queries on results_json** | Blob is designed for it, query layer is future | Future |
+| **Email verification / password reset** | Out of scope for $0 MVP | Future |
+
+Everything else (auth, admin, IndexedDB, client-mediated sync, ingestion log, dual-stage lookup) is in scope for this build.
+
+---
+
+## Zero Regression Guarantee
+
+| Property | How It Is Preserved |
+|---|---|
+| Backtest math | Persistence runs AFTER computation. Phase E dual-stage lookup only reduces yfinance calls — does not change return calculation. |
+| WebSocket delivery | `asyncio.create_task` runs AFTER `await websocket.send(...)`. User receives report before D1 write begins. |
+| FileHashCache | Persistence runs AFTER `FileHashCache.set()`. Existing cache behavior is identical. |
+| Existing test suite | All existing tests import `main.py`, `backtester.py`, `schemas.py` — none import `persistence.py`. When `PERSISTENCE_ENABLED=False` (default), `NullBackend` produces zero side effects. New tests added for auth, ingestion, dual-stage. |
+| Error handling | All Worker calls wrapped in try/except with 3s timeout. No unhandled exceptions escape. |
+| HTTP endpoints | `POST /api/backtest` returns synchronously. Fire-and-forget persistence runs after response is sent. No latency increase. |
+| Auth added | Auth is additive — all existing unauthenticated flows continue working until `AUTH_REQUIRED` flag is flipped. |
+| Dual-stage lookup on failure | If D1 lookup fails (timeout), backtest falls back to fetching ALL data from yfinance — same behavior as today, just slightly slower. |

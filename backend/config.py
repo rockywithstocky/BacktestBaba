@@ -1,7 +1,21 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 BACKEND_DIR = Path(__file__).parent
+
+# Load .env.local if present (lightweight, no external dep)
+_env_local = BACKEND_DIR / ".env.local"
+if _env_local.exists():
+    for line in _env_local.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip()
+        if key and not os.environ.get(key):
+            os.environ[key] = val
 
 
 def is_render() -> bool:
@@ -31,7 +45,6 @@ class Limits:
         "BULK_FETCH_CHUNK",
         "25" if is_render() else "100"
     ))
-    RATE_LIMIT_BACKOFF_SEC = float(os.getenv("RATE_LIMIT_BACKOFF_SEC", "1.0"))
 
     WS_TIMEOUT_SEC = int(os.getenv("WS_TIMEOUT_SEC", "300"))
     HTTP_TIMEOUT_SEC = int(os.getenv("HTTP_TIMEOUT_SEC", "55" if is_render() else "600"))
@@ -50,6 +63,7 @@ class CacheTTL:
     LATEST_PRICE = int(os.getenv("CACHE_TTL_LATEST", "300"))  # 5 min
 
     FILE_HASH_REPORT = int(os.getenv("CACHE_TTL_REPORT", "2592000"))  # 30 days
+    ROW_HASH = int(os.getenv("CACHE_TTL_ROW_HASH", "2592000"))  # 30 days
 
     DISKCACHE_SIZE_LIMIT_MB = int(os.getenv("DISKCACHE_SIZE_LIMIT_MB", "500"))
 
@@ -63,3 +77,9 @@ class Paths:
     def ensure_dirs(cls):
         for d in (cls.CACHE_DIR, cls.JOBS_DIR, cls.TEMP_DIR):
             Path(d).mkdir(parents=True, exist_ok=True)
+
+
+PERSISTENCE_ENABLED: bool = os.getenv("PERSISTENCE_ENABLED", "false").lower() == "true"
+WORKER_URL: Optional[str] = os.getenv("WORKER_URL")
+DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
+PERSISTENCE_TIMEOUT: int = int(os.getenv("PERSISTENCE_TIMEOUT", "3"))
