@@ -172,9 +172,10 @@ const Dashboard = ({ report, onBack }) => {
     const getColorClass = (val) => val > 0 ? 'positive' : val < 0 ? 'negative' : 'neutral';
     const getTradingViewUrl = (symbol) => {
         if (!symbol) return '#';
-        if (symbol.endsWith('.NS')) return `https://in.tradingview.com/symbols/NSE-${symbol.slice(0, -3)}/`;
-        if (symbol.endsWith('.BO')) return `https://in.tradingview.com/symbols/BSE-${symbol.slice(0, -3)}/`;
-        return `https://in.tradingview.com/symbols/${symbol}/`;
+        let tvSymbol = symbol;
+        if (symbol.endsWith('.NS')) tvSymbol = `NSE:${symbol.slice(0, -3)}`;
+        else if (symbol.endsWith('.BO')) tvSymbol = `BSE:${symbol.slice(0, -3)}`;
+        return `https://in.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`;
     };
 
     const getEntryDate = (trade) => trade.entry_date || trade.signal_date;
