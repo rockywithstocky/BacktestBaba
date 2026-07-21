@@ -55,7 +55,8 @@ class Backtester:
         total_steps = total * 2
 
         if progress_callback:
-            await progress_callback(0, total_steps, "Initializing...")
+            await progress_callback(0, total_steps, "Initializing...",
+                                    total_signals=total, signals_processed=0)
 
         phase_start = time.monotonic()
         logger.info("Phase A — Resolving %d signals (duration=%d, entry_mode=%s)", total, duration, entry_mode)
@@ -71,7 +72,8 @@ class Backtester:
                 unique_raw.append(raw)
 
         if progress_callback:
-            await progress_callback(1, total_steps, f"Batch resolving {len(unique_raw)} symbols...")
+            await progress_callback(1, total_steps, f"Batch resolving {len(unique_raw)} symbols...",
+                                    total_signals=total, signals_processed=0)
 
         resolved_map = {}
         for batch_i in range(0, len(unique_raw), Limits.BATCH_RESOLVE_CHUNK):
@@ -81,7 +83,8 @@ class Backtester:
             if progress_callback:
                 await progress_callback(
                     1, total_steps,
-                    f"Batch resolving {len(resolved_map)}/{len(unique_raw)} symbols..."
+                    f"Batch resolving {len(resolved_map)}/{len(unique_raw)} symbols...",
+                    total_signals=total, signals_processed=0
                 )
 
         # Pass 2: process each signal with pre-resolved symbols
@@ -96,7 +99,8 @@ class Backtester:
             date_str = signal.get("date") or signal.get("Date")
 
             if progress_callback and (i % Limits.PROGRESS_THROTTLE_EVERY_N == 0 or i == len(signals) - 1):
-                await progress_callback(i + 1, total_steps, f"Processing: {raw_symbol}")
+                await progress_callback(i + 1, total_steps, f"Processing: {raw_symbol}",
+                                        total_signals=total, signals_processed=i + 1)
 
             if not raw_symbol or not date_str:
                 parsed_signals.append({"status": "Invalid Input", "raw": str(raw_symbol), "date": str(date_str)})
@@ -174,13 +178,15 @@ class Backtester:
             total_chunks = len(chunks)
 
             if progress_callback:
-                await progress_callback(total, total_steps, f"Fetching data in {total_chunks} batches...")
+                await progress_callback(total, total_steps, f"Fetching data in {total_chunks} batches...",
+                                        total_signals=total, signals_processed=total)
 
             for chunk_idx, chunk in enumerate(chunks):
                 if progress_callback:
                     await progress_callback(
                         total + chunk_idx + 1, total_steps,
-                        f"Fetching batch {chunk_idx + 1}/{total_chunks} ({len(chunk)} symbols)..."
+                        f"Fetching batch {chunk_idx + 1}/{total_chunks} ({len(chunk)} symbols)...",
+                        total_signals=total, signals_processed=total
                     )
 
                 chunk_df = await asyncio.wait_for(asyncio.to_thread(
@@ -231,7 +237,8 @@ class Backtester:
         if symbols_needing_api:
             if progress_callback:
                 await progress_callback(total, total_steps,
-                                        f"Fetching metadata for {len(symbols_needing_api)} symbols...")
+                                        f"Fetching metadata for {len(symbols_needing_api)} symbols...",
+                                        total_signals=total, signals_processed=total)
 
             logger.info("Phase B — Enriching metadata for %d symbols (CSV provided %d, API needed %d)",
                         len(unique_resolved_symbols), len(csv_meta_symbols), len(symbols_needing_api))
@@ -284,13 +291,15 @@ class Backtester:
             if progress_callback:
                 await progress_callback(total + num_chunks + batch_num - 1, total_steps,
                                         f"Batch {batch_num}: {len(batch_results)} trades",
-                                        trades=[r.model_dump() for r in batch_results])
+                                        trades=[r.model_dump() for r in batch_results],
+                                        total_signals=total, signals_processed=len(results))
             batch_results = []
 
         for i, p_sig in enumerate(parsed_signals):
             if progress_callback and (i % Limits.PROGRESS_THROTTLE_EVERY_N == 0 or i == len(parsed_signals) - 1):
                 await progress_callback(total + num_chunks + i + 1, total_steps,
-                                        f"Computing: {p_sig.get('raw') or 'Unknown'}")
+                                        f"Computing: {p_sig.get('raw') or 'Unknown'}",
+                                        total_signals=total, signals_processed=i + 1)
 
             if p_sig["status"] != "Valid":
                 # Normalize date to YYYY-MM-DD for failed signals too

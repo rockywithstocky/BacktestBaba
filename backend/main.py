@@ -564,14 +564,18 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
                 "type": "progress",
                 "current": current,
                 "total": total,
-                "symbol": symbol
+                "symbol": symbol,
+                "total_signals": kwargs.get("total_signals"),
+                "signals_processed": kwargs.get("signals_processed"),
             }
             if "trades" in kwargs:
                 msg = {
                     "type": "trade_batch",
                     "batch": kwargs["trades"],
                     "current": current,
-                    "total": total
+                    "total": total,
+                    "total_signals": kwargs.get("total_signals"),
+                    "signals_processed": kwargs.get("signals_processed"),
                 }
             try:
                 await websocket.send_json(_clean_nan(msg))

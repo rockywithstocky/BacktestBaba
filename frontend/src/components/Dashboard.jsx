@@ -58,6 +58,9 @@ const Dashboard = ({ report, onBack }) => {
             const grossLoss = Math.abs(negativeValues.reduce((s, v) => s + v, 0));
             const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? Infinity : 0);
 
+            const std = Math.sqrt(values.reduce((sum, v) => sum + (v - avg) ** 2, 0) / values.length);
+            const consistency = std > 0 ? avg / std : (avg > 0 ? 999 : -999);
+
             return {
                 avg, median,
                 highest: Math.max(...values),
@@ -69,6 +72,7 @@ const Dashboard = ({ report, onBack }) => {
                 negativeMedian: negSorted.length > 0 ? negSorted[Math.floor(negSorted.length / 2)] : 0,
                 negativeAvg: negAvg,
                 profitFactor,
+                consistency,
                 capitalReturn: (Number(capital) || 0) * (avg / 100)
             };
         };
@@ -115,17 +119,28 @@ const Dashboard = ({ report, onBack }) => {
         };
     }, [successfulTrades]);
 
-    const holdingPeriodData = useMemo(() => {
-        if (!stats) return [];
-        return [
-            { period: '7d', label: '1 Week', avgReturn: stats['7d']?.avg || 0 },
-            { period: '14d', label: '2 Weeks', avgReturn: stats['14d']?.avg || 0 },
-            { period: '30d', label: '1 Month', avgReturn: stats['30d']?.avg || 0 },
-            { period: '45d', label: '1.5 Months', avgReturn: stats['45d']?.avg || 0 },
-            { period: '60d', label: '2 Months', avgReturn: stats['60d']?.avg || 0 },
-            { period: '90d', label: '3 Months', avgReturn: stats['90d']?.avg || 0 },
+    const distributionData = useMemo(() => {
+        const returns = successfulTrades.map(t => t.return_30d).filter(v => v !== null && v !== undefined);
+        if (returns.length === 0) return [];
+        const ranges = [
+            { min: -Infinity, max: -20, label: '< -20%' },
+            { min: -20, max: -10, label: '-20%' },
+            { min: -10, max: -5, label: '-10%' },
+            { min: -5, max: 0, label: '-5%' },
+            { min: 0, max: 5, label: '0%' },
+            { min: 5, max: 10, label: '+5%' },
+            { min: 10, max: 20, label: '+10%' },
+            { min: 20, max: 40, label: '+20%' },
+            { min: 40, max: Infinity, label: '> +40%' },
         ];
-    }, [stats]);
+        const counts = ranges.map(() => 0);
+        returns.forEach(v => {
+            for (let i = 0; i < ranges.length; i++) {
+                if (v > ranges[i].min && v <= ranges[i].max) { counts[i]++; break; }
+            }
+        });
+        return ranges.map((r, i) => ({ label: r.label, count: counts[i], fill: r.max <= 0 ? '#ef4444' : '#10b981' }));
+    }, [successfulTrades]);
 
     const handleSort = (key) => {
         setSortConfig(prev => ({
@@ -177,6 +192,11 @@ const Dashboard = ({ report, onBack }) => {
         else if (symbol.endsWith('.BO')) tvSymbol = `BSE:${symbol.slice(0, -3)}`;
         return `https://in.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`;
     };
+    const getScreenerUrl = (symbol) => {
+        if (!symbol) return '#';
+        const clean = symbol.replace(/\.(NS|BO)$/, '');
+        return `https://www.screener.in/company/${encodeURIComponent(clean)}/`;
+    };
 
     const getEntryDate = (trade) => trade.entry_date || trade.signal_date;
 
@@ -192,7 +212,6 @@ const Dashboard = ({ report, onBack }) => {
         setSelectedPeriod(period);
     };
 
-    // Enhanced tooltip content
     const getTooltipContent = (trade, period) => {
         const exitPriceKey = `exit_price_${period}`;
         const exitDate = getExitDate(trade, period);
@@ -200,6 +219,22 @@ const Dashboard = ({ report, onBack }) => {
 
         return `📅 Exit Date: ${exitDate}\n💰 Exit Price: ${formatCurrency(exitPrice)}`;
     };
+
+    const bestSymbol = report.best_performer?.symbol;
+    const worstSymbol = report.worst_performer?.symbol;
+
+    const riskStats = useMemo(() => {
+        const vals = successfulTrades.filter(t => t.entry_price && t.max_low_90d && t.max_high_90d);
+        if (vals.length === 0) return null;
+        const drawdowns = vals.map(t => ((t.entry_price - t.max_low_90d) / t.entry_price) * 100);
+        const runups = vals.map(t => ((t.max_high_90d - t.entry_price) / t.entry_price) * 100);
+        const avgDrawdown = drawdowns.reduce((s, v) => s + v, 0) / drawdowns.length;
+        const avgRunup = runups.reduce((s, v) => s + v, 0) / runups.length;
+        const maxDrawdown = Math.max(...drawdowns);
+        const stop5Hit = drawdowns.filter(d => d >= 5).length;
+        const stop8Hit = drawdowns.filter(d => d >= 8).length;
+        return { avgDrawdown, avgRunup, maxDrawdown, stop5Hit, stop8Hit, total: vals.length };
+    }, [successfulTrades]);
 
     return (
         <motion.div className="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -218,7 +253,11 @@ const Dashboard = ({ report, onBack }) => {
                 <button onClick={onBack} className="btn-back">
                     <ArrowLeft size={20} /> Back
                 </button>
-                <h1 className="dashboard-title">Backtest Report</h1>
+                <h1 className="dashboard-title">Backtest Report {report.entry_mode && (
+                    <span className={`mode-badge ${report.entry_mode === 'next_open' ? 'open' : 'close'}`}>
+                        {report.entry_mode === 'next_open' ? 'Next Open' : 'Next Close'}
+                    </span>
+                )}</h1>
                 <div className="header-controls">
                     <div className="capital-input-group">
                         <span className="currency-symbol">₹</span>
@@ -308,20 +347,20 @@ const Dashboard = ({ report, onBack }) => {
 
             <div className="charts-grid">
                 <div className="chart-card">
-                    <h3 className="section-title">Optimal Holding Period (Avg Return)</h3>
-                    <p className="text-xs text-gray-400 mb-4">Signal-level average return decay across time.</p>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={holdingPeriodData}>
+                    <h3 className="section-title">Return Distribution (1 Month)</h3>
+                    <p className="text-xs text-gray-400 mb-4">How your trade returns are spread across ranges.</p>
+                    <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={distributionData} margin={{ bottom: 40, left: 5, right: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} />
-                            <YAxis stroke="#9ca3af" tickFormatter={(val) => `${val}%`} tick={{ fontSize: 12 }} />
+                            <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={60} />
+                            <YAxis stroke="#9ca3af" tickFormatter={(val) => `${val}`} tick={{ fontSize: 12 }} />
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                                formatter={(value) => [`${value.toFixed(2)}%`, 'Avg Return']}
+                                formatter={(value, name, props) => [`${value} trade${value !== 1 ? 's' : ''}`, props.payload.label]}
                             />
-                            <Bar dataKey="avgReturn" fill="#3b82f6" radius={[4, 4, 0, 0]}>
-                                {holdingPeriodData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.avgReturn > 0 ? '#10b981' : '#ef4444'} />
+                            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                {distributionData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.fill} />
                                 ))}
                             </Bar>
                         </BarChart>
@@ -390,6 +429,7 @@ const Dashboard = ({ report, onBack }) => {
                                 <th>Median</th>
                                 <th>Highest</th>
                                 <th>Lowest</th>
+                                <th>Consistency</th>
                                 <th>Pos. Count</th>
                                 <th>Pos. Median</th>
                                 <th>Pos. Avg</th>
@@ -400,9 +440,10 @@ const Dashboard = ({ report, onBack }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {['7d', '30d', '90d'].map(period => {
+                            {['7d', '14d', '30d', '45d', '60d', '90d'].map(period => {
                                 const s = stats[period];
-                                const periodName = period === '7d' ? '1 Week' : period === '30d' ? '1 Month' : '3 Month';
+                                const names = { '7d': '1 Week', '14d': '2 Weeks', '30d': '1 Month', '45d': '1.5 Months', '60d': '2 Months', '90d': '3 Months' };
+                                const periodName = names[period] || period;
                                 return s ? (
                                     <tr key={period}>
                                         <td className="period-cell">{periodName}</td>
@@ -410,6 +451,9 @@ const Dashboard = ({ report, onBack }) => {
                                         <td>{formatPercent(s.median)}</td>
                                         <td className="positive">{formatPercent(s.highest)}</td>
                                         <td className="negative">{formatPercent(s.lowest)}</td>
+                                        <td className={getColorClass(s.consistency)}>
+                                            {s.consistency === 999 ? 'MAX' : s.consistency === -999 ? 'MIN' : s.consistency.toFixed(2)}
+                                        </td>
                                         <td>{s.positiveCount}</td>
                                         <td className="positive">{formatPercent(s.positiveMedian)}</td>
                                         <td className="positive">{formatPercent(s.positiveAvg)}</td>
@@ -423,6 +467,16 @@ const Dashboard = ({ report, onBack }) => {
                         </tbody>
                     </table>
                 </div>
+                {stats['30d'] && (() => {
+                    const avg = stats['30d'].avg;
+                    const netCost = avg * 0.998;
+                    const netAll = avg > 0 ? netCost * 0.844 : netCost;
+                    return (
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                            Gross avg (30d): {formatPercent(avg)} &middot; After trans. costs (~0.2%): {formatPercent(netCost)} &middot; After STCG (15.6%): <span className={getColorClass(netAll)}>{formatPercent(netAll)}</span>
+                        </p>
+                    );
+                })()}
             </div>
 
             <div className="trade-log-card">
@@ -492,12 +546,23 @@ const Dashboard = ({ report, onBack }) => {
                         </thead>
                         <tbody>
                             {paginatedTrades.map((trade, idx) => (
-                                <tr key={idx}>
+                                <tr key={idx} className={
+                                    trade.symbol === bestSymbol ? 'row-best' :
+                                    trade.symbol === worstSymbol ? 'row-worst' : ''
+                                }>
                                     <td className="symbol-cell">{trade.symbol}</td>
                                     <td>{trade.signal_date}</td>
                                     <td>{trade.signal_close_price ? formatCurrency(trade.signal_close_price) : '-'}</td>
                                     <td>{getEntryDate(trade)}</td>
-                                    <td>{formatCurrency(trade.entry_price)}</td>
+                                    <td>
+                                        {trade.entry_price && trade.symbol ? (
+                                            <a href={getScreenerUrl(trade.symbol)}
+                                               target="_blank" rel="noopener noreferrer"
+                                               style={{ color: 'inherit', textDecoration: 'none' }}>
+                                                {formatCurrency(trade.entry_price)}
+                                            </a>
+                                        ) : formatCurrency(trade.entry_price)}
+                                    </td>
                                     <td
                                         className={getColorClass(trade.latest_price_return)}
                                         title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}
@@ -557,6 +622,81 @@ const Dashboard = ({ report, onBack }) => {
                     </p>
                 )}
             </div>
+
+            <details className="position-sizing-card">
+                <summary className="position-sizing-summary">
+                    <span>Position Sizing &amp; Risk Analysis</span>
+                    <span className="text-xs text-gray-500">based on ₹{Number(capital || 100000).toLocaleString('en-IN')} capital</span>
+                </summary>
+                <div className="position-sizing-content">
+                    {(() => {
+                        const cap = Number(capital) || 100000;
+                        const tiers = [
+                            { name: 'Starter', pct: 15, multiplier: 0.85, desc: 'Single exit' },
+                            { name: 'Balanced', pct: 8, multiplier: 0.95, desc: 'Stops by horizon' },
+                            { name: 'Growth', pct: 10, multiplier: 0.90, desc: '4-way ladder' },
+                        ];
+                        return (
+                            <div className="tier-grid">
+                                {tiers.map(t => {
+                                    const posSize = cap * t.pct / 100;
+                                    const posCount = Math.floor(cap * t.multiplier / posSize);
+                                    const deployed = posSize * posCount;
+                                    return (
+                                        <div key={t.name} className="tier-card">
+                                            <div className="tier-name">{t.name}</div>
+                                            <div className="tier-desc">{t.desc}</div>
+                                            <div className="tier-amount">₹{posSize.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                                            <div className="tier-label">per position</div>
+                                            <div className="tier-count">{posCount} positions</div>
+                                            <div className="tier-label">₹{deployed.toLocaleString('en-IN', { maximumFractionDigits: 0 })} deployed</div>
+                                            <div className="tier-label">₹{(cap - deployed).toLocaleString('en-IN', { maximumFractionDigits: 0 })} buffer</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+                    {riskStats && (
+                        <div className="risk-row">
+                            <span>Avg drawdown: <strong className="negative">{riskStats.avgDrawdown.toFixed(1)}%</strong></span>
+                            <span>Avg run-up: <strong className="positive">{riskStats.avgRunup.toFixed(1)}%</strong></span>
+                            <span>Max drawdown: <strong className="negative">{riskStats.maxDrawdown.toFixed(1)}%</strong></span>
+                            <span>Stop 5% hits: <strong>{riskStats.stop5Hit}/{riskStats.total} ({((riskStats.stop5Hit / riskStats.total) * 100).toFixed(0)}%)</strong></span>
+                            <span>Stop 8% hits: <strong>{riskStats.stop8Hit}/{riskStats.total} ({((riskStats.stop8Hit / riskStats.total) * 100).toFixed(0)}%)</strong></span>
+                        </div>
+                    )}
+                    {stats['30d'] && (() => {
+                        const avgR = stats['30d'].avg;
+                        const avgWin = stats['30d'].positiveAvg;
+                        const avgLoss = stats['30d'].negativeAvg;
+                        const winRate = stats['30d'].positiveCount / (stats['30d'].positiveCount + stats['30d'].negativeCount);
+                        const kelly = winRate - ((1 - winRate) / ((avgWin > 0 ? avgWin : 1) / Math.abs(avgLoss > 0 ? avgLoss : 1)));
+                        return (
+                            <div className="risk-row">
+                                <span>Kelly optimal: <strong className={kelly > 0 ? 'positive' : 'negative'}>{kelly > 0 ? `${(kelly * 100).toFixed(1)}%` : 'N/A'}</strong></span>
+                                <span>Avg win: <strong className="positive">{formatPercent(avgWin)}</strong></span>
+                                <span>Avg loss: <strong className="negative">{formatPercent(avgLoss)}</strong></span>
+                            </div>
+                        );
+                    })()}
+                    {(() => {
+                        const price = 10000;
+                        const stt = price * 0.001;
+                        const txn = price * 0.0000325;
+                        const stamp = price * 0.00015;
+                        const sebi = price * 0.000001;
+                        const dp = 15.34;
+                        const gst = (stt + txn + sebi) * 0.18;
+                        const total = stt + txn + stamp + sebi + dp + gst;
+                        return (
+                            <div className="risk-row text-xs text-gray-500">
+                                <span>Per ₹10,000 trade: STT ₹{stt.toFixed(2)} + DP ₹{dp.toFixed(2)} + Stamp ₹{stamp.toFixed(2)} + Txn ₹{txn.toFixed(4)} + GST ₹{gst.toFixed(2)} = <strong>₹{total.toFixed(2)}</strong></span>
+                            </div>
+                        );
+                    })()}
+                </div>
+            </details>
         </motion.div>
     );
 };
