@@ -30,10 +30,12 @@ const Dashboard = ({ report, onBack }) => {
     const [selectedStock, setSelectedStock] = useState(null);
     const [selectedPeriod, setSelectedPeriod] = useState(null);
 
-    const successfulTrades = useMemo(() =>
-        report.trades.filter(t => t.status === 'Success'),
-        [report.trades]
-    );
+    const successfulTrades = useMemo(() => {
+        if (!Array.isArray(report?.trades)) {
+            return [];
+        }
+        return report.trades.filter(t => t.status === 'Success');
+    }, [report?.trades]);
 
     const stats = useMemo(() => {
         const calc = (period) => {
@@ -150,6 +152,7 @@ const Dashboard = ({ report, onBack }) => {
     };
 
     const filteredTrades = useMemo(() => {
+        if (!Array.isArray(successfulTrades)) return [];
         return successfulTrades.filter(trade =>
             trade.symbol.toLowerCase().includes(searchTerm.toLowerCase())
         );

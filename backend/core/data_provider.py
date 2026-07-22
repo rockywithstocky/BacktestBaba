@@ -101,11 +101,6 @@ class DataProvider:
         Checks per-symbol cache first; if cached range covers requested,
         returns a slice. Otherwise fetches full range and caches it.
         """
-        # Legacy exact-range key (backward compat — versioned to avoid stale adjusted data)
-        legacy_key = f"{symbol}_{start_date}_{end_date}_v{CACHE_VERSION}"
-        if legacy_key in cache:
-            return cache[legacy_key]
-
         # Per-symbol wide cache with range check
         rkey = DataProvider._range_key(symbol)
         range_meta = cache.get(rkey)
@@ -146,14 +141,26 @@ class DataProvider:
         rkey = DataProvider._range_key(symbol)
         actual_start = df.index[0]
         actual_end = df.index[-1]
+
+        # Preserve existing cache if it covers wider range than fresh yfinance fetch
+        # Prevents Phase B bulk data (wider) from being overwritten by Phase C
+        # single-symbol yfinance call (truncated for less-liquid NSE stocks)
+        existing_r = cache.get(rkey)
+        if existing_r is not None:
+            cached_start, cached_end = existing_r
+            if hasattr(cached_start, 'tz') and cached_start.tz is not None:
+                cached_start = cached_start.tz_localize(None)
+            if hasattr(cached_end, 'tz') and cached_end.tz is not None:
+                cached_end = cached_end.tz_localize(None)
+            if cached_start <= actual_start and cached_end >= actual_end:
+                df_cached = cache.get(dkey)
+                if df_cached is not None:
+                    req_start = pd.to_datetime(start_date)
+                    req_end = pd.to_datetime(end_date)
+                    return df_cached.loc[str(req_start):str(req_end)]
+
         cache.set(dkey, df)
         cache.set(rkey, (actual_start, actual_end))
-        end_dt = end_date if isinstance(end_date, datetime) else pd.to_datetime(end_date)
-        if hasattr(end_dt, 'tz') and end_dt.tz is not None:
-            end_dt = end_dt.tz_localize(None)
-        is_recent = (datetime.now() - end_dt).days < CacheTTL.RECENT_CUTOFF_DAYS
-        ttl = CacheTTL.TICKER_DATA_RECENT if is_recent else CacheTTL.TICKER_DATA_HISTORICAL
-        cache.set(legacy_key, df, expire=ttl)
         return df
 
     @staticmethod

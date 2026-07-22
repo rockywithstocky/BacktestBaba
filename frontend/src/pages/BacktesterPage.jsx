@@ -75,6 +75,8 @@ const BacktesterPage = () => {
             listReports().catch(() => []),
             fetchUploads().then(r => r.results || []).catch(() => []),
         ]).then(([local, server]) => {
+            if (!Array.isArray(local)) local = [];
+            if (!Array.isArray(server)) server = [];
             const localIds = new Set(local.map(r => r.id));
             const merged = [
                 ...local,
@@ -156,7 +158,10 @@ const BacktesterPage = () => {
 
     const handleDeleteReport = async (id) => {
         await deleteReport(id);
-        setSavedReports(prev => prev.filter(r => r.id !== id));
+        setSavedReports(prev => {
+            if (!Array.isArray(prev)) return [];
+            return prev.filter(r => r.id !== id);
+        });
     };
 
     return (
