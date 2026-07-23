@@ -98,6 +98,13 @@ docker compose exec postgres psql -U backtest -d backtestbaba -c "UPDATE users S
 | `backend/tests/test_latest_price.py` | 16 tests for latest price batch, OHLCV fallback, persist_symbol_data seeding, NaN Close edge cases |
 | `frontend/src/__tests__/test_dashboard_columns.test.js` | 5 tests for column order validation |
 | `frontend/src/__tests__/test_latest_return.test.js` | 9 tests for Latest Return tooltip/display |
+| `frontend/src/analyzer/AITradeCheck.jsx` | Floating AI chat widget (bubble + settings + result cards + follow-up) |
+| `frontend/src/analyzer/aiBridge.js` | Reactive module store — cross-component context piping |
+| `frontend/src/analyzer/aiConfig.js` | Model presets + sessionStorage-persisted API key (migrated from localStorage) |
+| `frontend/src/analyzer/aiApi.js` | System prompt builder, callLLM, testConnection, auto-CORS fallback to backend proxy |
+| `backend/main.py` (AI Proxy section) | `POST /api/ai/chat` — domain allowlist, auth gate, rate limiter, sanitized errors |
+| `backend/tests/test_ai_proxy.py` | 20 tests — SSRF blocking, rate limiter bounds, allowlist enforcement, error sanitization |
+| `frontend/src/__tests__/test_ai_proxy_security.test.js` | 10 tests — sessionStorage migration, auth header injection |
 
 ## Frontend Routing (react-router-dom v7)
 
@@ -202,6 +209,22 @@ ws.onmessage = (event) => {
 ### Tailwind CSS v4
 Uses Tailwind v4 with `@tailwindcss/postcss` plugin (not v3 `@tailwind` directives). CSS entry is `@import "tailwindcss"` in `index.css`. PostCSS config at `frontend/postcss.config.js`.
 
+### AI Proxy — domain allowlist, auth gate, rate limiting
+The `POST /api/ai/chat` proxy forwards browser AI API calls server-to-server to bypass CORS. **Security layers enforced in order:**
+
+1. **Auth gate** — requires valid `Authorization: Bearer <session_token>`. Uses `_validate_token()` same as protected endpoints. Frontend reads token from `localStorage['auth_token']` via `getAuthToken()` in `aiApi.js`.
+2. **Domain allowlist** — `baseUrl` hostname must match `AI_PROXY_ALLOWLIST` (default: `opencode.ai`, `api.openai.com`, `api.anthropic.com`, `api.deepseek.com`, `api.groq.com`, `generativelanguage.googleapis.com`). Extend via `AI_PROXY_ALLOWLIST` env var. SSRF attempts (internal IPs, metadata endpoints) blocked here.
+3. **Rate limiter** — 30 requests/min/IP in-memory sliding window. Returns 429 when exceeded.
+4. **Error sanitization** — upstream error bodies replaced with generic messages. Full errors logged server-side only.
+
+**Critical rules:**
+- Never bypass the auth gate — the endpoint must always validate the session token before any other processing
+- Custom proxy domains must be added to the allowlist (env var or hardcoded set) — arbitrary `baseUrl` values are rejected
+- The frontend sends auth token automatically via `getAuthToken()` in `tryProxyCall()` — no manual header construction needed
+- API key is stored in `sessionStorage` (cleared on tab close, not `localStorage`) — see `aiConfig.js`
+- CSP in `index.html` restricts `connect-src` — any new backend URL must be added to the policy
+- See [ADR-004](docs/decisions/ADR-004-ai-proxy-security-hardening.md) for full security audit and test coverage
+
 ## Environment Setup
 
 **Backend** `.env.local`:
@@ -228,3 +251,4 @@ VITE_WS_URL=ws://localhost:8000/ws
 - [docs/ai/CURRENT_STATE.md](docs/ai/CURRENT_STATE.md) — Detailed system architecture
 - [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) — High-level project context
 - [DEPLOYMENT.md](DEPLOYMENT.md) — Render (backend) + Vercel (frontend) deployment
+- [ADR-004 — AI Proxy Security Hardening](docs/decisions/ADR-004-ai-proxy-security-hardening.md) — SSRF, auth, rate limiting, CSP, error sanitization coverage

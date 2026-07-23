@@ -3,7 +3,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, ComposedChart, Scatter
 } from 'recharts';
-import { ArrowLeft, TrendingUp, TrendingDown, Percent, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, X, BarChart3, LineChart as LineChartIcon, Activity, ArrowRight } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Percent, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, X, BarChart3, LineChart as LineChartIcon, Activity, ArrowRight, ChartBar, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import './Dashboard.css';
@@ -11,6 +11,8 @@ import './Dashboard.css';
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
 
 import StockChartModal from './StockChartModal';
+import AnalyzerPanel from '../analyzer/AnalyzerPanel';
+import { getFreshStocks } from '../analyzer/analyzerUtils';
 
 const Dashboard = ({ report, onBack }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -29,6 +31,9 @@ const Dashboard = ({ report, onBack }) => {
     }, [capital]);
     const [selectedStock, setSelectedStock] = useState(null);
     const [selectedPeriod, setSelectedPeriod] = useState(null);
+    const [panelOpen, setPanelOpen] = useState(false);
+    const [panelSymbol, setPanelSymbol] = useState(null);
+    const [selectedEntryPrice, setSelectedEntryPrice] = useState(null);
 
     const successfulTrades = useMemo(() => {
         if (!Array.isArray(report?.trades)) {
@@ -239,6 +244,16 @@ const Dashboard = ({ report, onBack }) => {
         return { avgDrawdown, avgRunup, maxDrawdown, stop5Hit, stop8Hit, total: vals.length };
     }, [successfulTrades]);
 
+    const freshStocks = useMemo(() => {
+        return getFreshStocks(successfulTrades);
+    }, [successfulTrades]);
+
+    const handleOpenPanel = (symbol, price) => {
+        setPanelSymbol(symbol || null);
+        setSelectedEntryPrice(price || null);
+        setPanelOpen(true);
+    };
+
     return (
         <motion.div className="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {selectedStock && selectedPeriod && (
@@ -291,16 +306,24 @@ const Dashboard = ({ report, onBack }) => {
                             const downloadAnchorNode = document.createElement('a');
                             downloadAnchorNode.setAttribute("href", dataStr);
                             downloadAnchorNode.setAttribute("download", "backtest_report.json");
-                            document.body.appendChild(downloadAnchorNode); // Required for Firefox
+                            document.body.appendChild(downloadAnchorNode);
                             downloadAnchorNode.click();
                             downloadAnchorNode.remove();
                         }}
                     >
                         <ArrowDown size={16} /> Save Report
                     </button>
+                    <button
+                        title="Open analyzer panel"
+                        onClick={() => handleOpenPanel(null, null)}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/30 rounded-xl transition-all text-sm font-semibold text-emerald-400"
+                    >
+                        <ChartBar size={16} /> Analyze
+                    </button>
                 </div>
             </div>
 
+            
             <div className="summary-cards">
                 <div className="stat-card">
                     <div className="stat-icon"><TrendingUp size={24} /></div>
@@ -549,11 +572,22 @@ const Dashboard = ({ report, onBack }) => {
                         </thead>
                         <tbody>
                             {paginatedTrades.map((trade, idx) => (
-                                <tr key={idx} className={
+                                <tr key={idx} className={`group ${
                                     trade.symbol === bestSymbol ? 'row-best' :
                                     trade.symbol === worstSymbol ? 'row-worst' : ''
-                                }>
-                                    <td className="symbol-cell">{trade.symbol}</td>
+                                }`}>
+                                    <td className="symbol-cell">
+                                        <span className="flex items-center gap-1.5">
+                                            <span>{trade.symbol}</span>
+                                            <button
+                                                title="Analyze this trade"
+                                                onClick={(e) => { e.stopPropagation(); handleOpenPanel(trade.symbol, trade.entry_price); }}
+                                                className="opacity-0 group-hover:opacity-100 hover:text-emerald-400 transition-opacity p-0.5 rounded"
+                                            >
+                                                <ExternalLink size={13} />
+                                            </button>
+                                        </span>
+                                    </td>
                                     <td>{trade.signal_date}</td>
                                     <td>{trade.signal_close_price ? formatCurrency(trade.signal_close_price) : '-'}</td>
                                     <td>{getEntryDate(trade)}</td>
@@ -700,6 +734,18 @@ const Dashboard = ({ report, onBack }) => {
                     })()}
                 </div>
             </details>
+
+            {panelOpen && (
+                <AnalyzerPanel
+                    report={report}
+                    capital={Number(capital) || 100000}
+                    onCapitalChange={setCapital}
+                    panelSymbol={panelSymbol}
+                    entryPrice={selectedEntryPrice}
+                    onClose={() => setPanelOpen(false)}
+                    freshStocks={freshStocks}
+                />
+            )}
         </motion.div>
     );
 };
