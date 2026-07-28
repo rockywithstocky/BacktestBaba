@@ -330,7 +330,16 @@ class Backtester:
 
             if cached_result is not None:
                 res = SignalResult(**cached_result)
-                logger.debug("Row-hash HIT for %s (%s)", resolved_symbol, date_str)
+                all_filled = all(
+                    getattr(res, f"return_{h}d", None) is not None
+                    for h in horizons
+                    if h <= duration
+                )
+                if all_filled:
+                    logger.debug("Row-hash HIT for %s (%s)", resolved_symbol, date_str)
+                else:
+                    logger.debug("Row-hash incomplete for %s (%s), recomputing", resolved_symbol, date_str)
+                    cached_result = None
             else:
                 # Data path: Phase B populated per-symbol cache via persist_symbol_data().
                 # get_ticker_data() checks this cache first (0 API cost on cache hit),
@@ -445,7 +454,13 @@ class Backtester:
                         if pd.notna(max_low_idx):
                             res.max_low_date = max_low_idx.strftime("%Y-%m-%d")
 
-                DataProvider.set_cached_result(row_hash, res.model_dump())
+                all_filled = all(
+                    getattr(res, f"return_{h}d", None) is not None
+                    for h in horizons
+                    if h <= duration
+                )
+                if all_filled:
+                    DataProvider.set_cached_result(row_hash, res.model_dump())
 
             # Aggregation for cached results (computed results already updated above)
             if cached_result is not None:

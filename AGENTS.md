@@ -119,6 +119,14 @@ docker compose exec postgres psql -U backtest -d backtestbaba -c "UPDATE users S
 
 Auth is localStorage-based (`isLoggedIn === 'true'`), implemented via `ProtectedRoute` wrapper in `App.jsx`. Admin check via `user?.is_admin === 1 || true`.
 
+## Docker Build Awareness — Before editing frontend/backend files
+
+Check `docker-compose.yml` for **volume mounts** before editing source files:
+- **Has source volume mount?** → `docker compose restart <service>` is enough
+- **No source volume mount?** (e.g., Dockerfile copies source at build time, not via volume) → must run `docker compose up -d --build <service>` to rebuild the image
+- **Frontend**: Multi-stage build (`Dockerfile.frontend`), no source volume mount. Always rebuild after changes.
+- **Backend**: Static build (`Dockerfile.backend`), no source volume mount (only `cache_data`). Always rebuild after changes.
+
 ## Critical Pitfalls
 
 ### Async I/O — yfinance blocks the event loop

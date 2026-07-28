@@ -727,6 +727,7 @@ async def ai_proxy(req: AIProxyRequest, authorization: str = Header(None), x_for
     if not _check_rate_limit(client_ip):
         raise HTTPException(status_code=429, detail=f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s.")
 
+    # ── Direct LLM call ─────────────────────────────────────────────────────
     url = _resolve_endpoint(req.provider, req.baseUrl)
     headers = {**AI_OPENAI_HEADERS, "Authorization": f"Bearer {req.apiKey}"}
     body = {
