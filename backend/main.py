@@ -7,7 +7,6 @@ import re
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -339,10 +338,10 @@ async def _handle_backtest(
         # ── L1 freshness check: refresh latest prices if stale ──
         try:
             from backend.core.data_provider import DataProvider
-            cached_latest_date = cached.get("latest_price_date")
+            cached_latest_ts = cached.get("latest_price_ts")
             if progress_callback:
                 await progress_callback(0, 1, "Refreshing latest prices...")
-            if cached_latest_date is None or cached_latest_date < datetime.now().strftime("%Y-%m-%d"):
+            if cached_latest_ts is None or time.time() - cached_latest_ts > 300:
                 logger.info("L1 cache stale — refreshing latest prices")
                 all_symbols = list(set(t.get("symbol") for t in cached.get("trades", []) if t.get("status") == "Success"))
                 if all_symbols:
@@ -368,6 +367,7 @@ async def _handle_backtest(
                                 latest_dates.append(date_str)
                     if latest_dates:
                         cached["latest_price_date"] = max(latest_dates)
+                        cached["latest_price_ts"] = time.time()
                     cached["cache_source"] = "l1_diskcache"
                     FileHashCache.set(file_hash, entry_mode, cached)
         except Exception:
@@ -477,8 +477,10 @@ async def _handle_backtest(
                     )
 
                     # Invalidate + rewrite L1 cache
+                    report_dict = report.model_dump()
+                    report_dict["latest_price_ts"] = time.time()
                     FileHashCache.delete(file_hash, entry_mode)
-                    FileHashCache.set(file_hash, entry_mode, report.model_dump())
+                    FileHashCache.set(file_hash, entry_mode, report_dict)
 
                     if progress_callback is not None:
                         batch_size = Limits.BATCH_SIZE
@@ -534,6 +536,7 @@ async def _handle_backtest(
 
     report_dict = report.model_dump()
     report.cache_source = "l3_compute"
+    report_dict["latest_price_ts"] = time.time()
     FileHashCache.set(file_hash, entry_mode, report_dict)
     job_store.cleanup()
 

@@ -240,6 +240,7 @@ async def test_cache_hit_sends_progress_before_freshness_check(monkeypatch):
         "total_signals": 1, "successful_signals": 1, "failed_signals": 0,
         "entry_mode": "next_close", "trades": FAKE_TRADES,
         "latest_price_date": "2023-01-01",
+        "latest_price_ts": 0,
     }
 
     monkeypatch.setattr("backend.main.FileHashCache.get",
