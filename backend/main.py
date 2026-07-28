@@ -1,17 +1,21 @@
 import asyncio
+import json
 import logging
 import os
 import math
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+from pydantic import BaseModel
 
 from fastapi import FastAPI, UploadFile, File, Form, Header, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+import httpx
 import pandas as pd
 import io
 from typing import List, Dict, Optional
@@ -185,6 +189,19 @@ def parse_upload_data(data: bytes) -> List[Dict]:
 @app.get("/")
 def read_root():
     return {"message": "Stock Screener Backtester Pro API is running"}
+
+
+@app.get("/api/latest-price/{symbol}")
+async def get_latest_price_route(symbol: str):
+    """Return the latest close price for a symbol (lightweight, cache-first)."""
+    try:
+        price = await asyncio.wait_for(
+            asyncio.to_thread(DataProvider.get_latest_price, symbol), timeout=10
+        )
+        return {"symbol": symbol, "price": price}
+    except Exception as e:
+        logger.warning("get_latest_price_route failed for %s: %s", symbol, e)
+        return {"symbol": symbol, "price": None}
 
 
 @app.get("/api/prices/{symbol}")
@@ -564,14 +581,18 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
                 "type": "progress",
                 "current": current,
                 "total": total,
-                "symbol": symbol
+                "symbol": symbol,
+                "total_signals": kwargs.get("total_signals"),
+                "signals_processed": kwargs.get("signals_processed"),
             }
             if "trades" in kwargs:
                 msg = {
                     "type": "trade_batch",
                     "batch": kwargs["trades"],
                     "current": current,
-                    "total": total
+                    "total": total,
+                    "total_signals": kwargs.get("total_signals"),
+                    "signals_processed": kwargs.get("signals_processed"),
                 }
             try:
                 await websocket.send_json(_clean_nan(msg))
@@ -612,6 +633,136 @@ async def websocket_endpoint(websocket: WebSocket, entry_mode: str = "next_close
     finally:
         stop_event.set()
         keepalive_task.cancel()
+
+
+# ── AI Proxy ─────────────────────────────────────────────────────────────────
+# Security: domain allowlist, auth gate, rate limiting, sanitized errors
+
+from urllib.parse import urlparse
+
+AI_PROXY_ALLOWLIST = {
+    "opencode.ai",
+    "api.openai.com",
+    "api.anthropic.com",
+    "api.deepseek.com",
+    "api.groq.com",
+    "generativelanguage.googleapis.com",
+}
+_extra = os.environ.get("AI_PROXY_ALLOWLIST", "")
+if _extra:
+    for d in _extra.split(","):
+        d = d.strip()
+        if d:
+            AI_PROXY_ALLOWLIST.add(d)
+
+AI_KNOWN_ENDPOINTS = {
+    "openai": "https://api.openai.com/v1/chat/completions",
+    "anthropic": "https://api.anthropic.com/v1/messages",
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "deepseek": "https://api.deepseek.com/v1/chat/completions",
+    "groq": "https://api.groq.com/openai/v1/chat/completions",
+}
+
+AI_OPENAI_HEADERS = {"Content-Type": "application/json"}
+AI_ANTHROPIC_HEADERS = {"Content-Type": "application/json", "anthropic-version": "2023-06-01"}
+
+# ── Rate limiter ────────────────────────────────────────────────────────────
+
+_RATE_LIMITS: dict[str, list[float]] = {}
+RATE_LIMIT_MAX = 30
+RATE_LIMIT_WINDOW = 60
+
+def _check_rate_limit(client_ip: str) -> bool:
+    now = time.time()
+    timestamps = _RATE_LIMITS.get(client_ip, [])
+    _RATE_LIMITS[client_ip] = [t for t in timestamps if now - t < RATE_LIMIT_WINDOW]
+    if len(_RATE_LIMITS[client_ip]) >= RATE_LIMIT_MAX:
+        return False
+    _RATE_LIMITS[client_ip].append(now)
+    return True
+
+def _resolve_endpoint(provider: str, base_url: str) -> str:
+    if base_url:
+        parsed = urlparse(base_url)
+        if parsed.hostname not in AI_PROXY_ALLOWLIST:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Domain '{parsed.hostname}' is not in the AI proxy allowlist. "
+                       f"Allowed: {', '.join(sorted(AI_PROXY_ALLOWLIST))}. "
+                       f"To add domains, set the AI_PROXY_ALLOWLIST env var."
+            )
+        return base_url
+    if provider in AI_KNOWN_ENDPOINTS:
+        return AI_KNOWN_ENDPOINTS[provider]
+    raise HTTPException(
+        status_code=400,
+        detail=f"Unknown provider '{provider}'. Known: {', '.join(AI_KNOWN_ENDPOINTS)}. "
+               f"Use a custom base URL for other providers."
+    )
+
+# ── Proxy endpoint ──────────────────────────────────────────────────────────
+
+class AIProxyRequest(BaseModel):
+    provider: str
+    model: str
+    messages: list[dict]
+    apiKey: str
+    baseUrl: str = ""
+
+@app.post("/api/ai/chat")
+async def ai_proxy(req: AIProxyRequest, authorization: str = Header(None), x_forwarded_for: str = Header(None)):
+    if not req.apiKey:
+        raise HTTPException(status_code=400, detail="API key is required")
+    if not req.model:
+        raise HTTPException(status_code=400, detail="Model is required")
+
+    auth_token = None
+    if authorization and authorization.startswith("Bearer "):
+        auth_token = authorization.removeprefix("Bearer ")
+    user = await _validate_token(auth_token) if auth_token else None
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required. Log in to use the AI proxy.")
+
+    client_ip = (x_forwarded_for or "").split(",")[0].strip() or "unknown"
+    if not _check_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail=f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s.")
+
+    # ── Direct LLM call ─────────────────────────────────────────────────────
+    url = _resolve_endpoint(req.provider, req.baseUrl)
+    headers = {**AI_OPENAI_HEADERS, "Authorization": f"Bearer {req.apiKey}"}
+    body = {
+        "model": req.model,
+        "messages": [{"role": m["role"], "content": m["content"]} for m in req.messages],
+        "max_tokens": 4096,
+        "temperature": 0.1,
+    }
+
+    if req.provider == "anthropic":
+        headers = {**AI_ANTHROPIC_HEADERS, "x-api-key": req.apiKey}
+        system_msg = next((m for m in req.messages if m["role"] == "system"), None)
+        other = [m for m in req.messages if m["role"] != "system"]
+        body = {
+            "model": req.model,
+            "max_tokens": 4096,
+            "system": system_msg["content"] if system_msg else "",
+            "messages": [{"role": m["role"], "content": m["content"]} for m in other],
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(url, json=body, headers=headers)
+    except httpx.RequestError as e:
+        logger.warning("AI proxy upstream error for %s: %s", url, e)
+        raise HTTPException(status_code=502, detail="Upstream AI provider is unreachable. Check the endpoint URL.")
+
+    if resp.status_code != 200:
+        logger.warning("AI proxy upstream returned %s for %s", resp.status_code, url)
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Upstream AI provider returned HTTP {resp.status_code}. Verify your API key and model name."
+        )
+
+    return resp.json()
 
 
 @app.post("/api/backtest", response_model=BacktestReport)

@@ -56,7 +56,8 @@ frontend/.env
 frontend/.env.local
 frontend/.env.production
 
-# Backend
+# Environment files (secrets)
+.env
 backend/.env
 backend/.env.local
 backend/.env.production

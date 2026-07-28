@@ -1,6 +1,6 @@
 Date,Symbol,Marketcapname,Sector
 01-01-2020,BANARISUG,Smallcap,FMCG
-01-01-2020,ERIS,Midcap,Healthcare
+01-01-2020,ERIS,Largecap/Largecap/Midcap,Healthcare
 01-01-2020,INDRAMEDCO,Smallcap,Healthcare
 01-01-2020,JINDALSAW,Midcap,Industrials
 01-01-2020,MANINDS,Smallcap,Metals & Mining
@@ -46,7 +46,7 @@ Date,Symbol,Marketcapname,Sector
 01-04-2022,MANALIPETC,Smallcap,Energy
 01-04-2022,MMFL,Smallcap,Industrials
 01-04-2022,NTPC,Largecap,Power & Utilities
-01-04-2022,OPTIEMUS,Smallcap,Telecom
+01-04-2022,OPTIEMUS,Midcap/Midcap/Smallcap,Telecom
 01-04-2022,SCHNEIDER,Largecap,Industrials
 01-04-2022,THOMASCOOK,Smallcap,Miscellaneous
 01-04-2024,ABCAPITAL,Largecap,Financials
@@ -68,7 +68,7 @@ Date,Symbol,Marketcapname,Sector
 01-04-2024,IGPL,Smallcap,Chemicals
 01-04-2024,INDRAMEDCO,Smallcap,Healthcare
 01-04-2024,JUBLINGREA,Midcap,Chemicals
-01-04-2024,JUSTDIAL,Smallcap,I.T
+01-04-2024,JUSTDIAL,Midcap/Midcap/Smallcap,I.T
 01-04-2024,LAURUSLABS,Largecap,Healthcare
 01-04-2024,MAHLOG,Smallcap,Transportation
 01-04-2024,MAZDOCK,Largecap,Aerospace & Defence
@@ -117,7 +117,7 @@ Date,Symbol,Marketcapname,Sector
 01-06-2023,VTL,Midcap,Textiles
 01-06-2026,JASH,Smallcap,Industrials
 01-06-2026,QUADFUTURE,Smallcap,Industrials
-01-07-2020,RESPONIND,Midcap,Plastic products
+01-07-2020,RESPONIND,Midcap/Smallcap,Plastic products
 01-07-2021,BDL,Largecap,Aerospace & Defence
 01-07-2021,INDNIPPON,Smallcap,Auto
 01-07-2021,JYOTHYLAB,Midcap,FMCG
@@ -146,7 +146,7 @@ Date,Symbol,Marketcapname,Sector
 01-08-2022,EVEREADY,Smallcap,Industrials
 01-08-2022,EXCELINDUS,Smallcap,Chemicals
 01-08-2022,GABRIEL,Largecap,Auto
-01-08-2022,GULFOILLUB,Midcap,Chemicals
+01-08-2022,GULFOILLUB,Midcap/Midcap/Smallcap,Chemicals
 01-08-2022,JSWENERGY,Largecap,Power & Utilities
 01-08-2022,NRBBEARING,Smallcap,Industrials
 01-08-2022,PANAMAPET,Smallcap,Energy
@@ -203,14 +203,14 @@ Date,Symbol,Marketcapname,Sector
 01-11-2023,IOC,Largecap,Energy
 01-12-2020,ARVSMART,Smallcap,Realty
 01-12-2020,DMART,Largecap,Consumer Discretionary
-01-12-2020,ICRA,Midcap,Financials
+01-12-2020,ICRA,Midcap/Midcap/Smallcap,Financials
 01-12-2020,JWL,Midcap,Industrials
 01-12-2020,MADRASFERT,Smallcap,Chemicals
 01-12-2020,SIGMAADV,Midcap,Aerospace & Defence
 01-12-2020,SIMPLEXINF,Smallcap,Realty
 01-12-2020,SUMICHEM,Largecap,Chemicals
 01-12-2020,SUNPHARMA,Largecap,Healthcare
-01-12-2020,SWSOLAR,Midcap,Realty
+01-12-2020,SWSOLAR,Midcap/Midcap/Smallcap,Realty
 01-12-2020,TCIEXP,Smallcap,Transportation
 01-12-2020,UNITECH,Smallcap,Realty
 01-12-2020,VHL,Smallcap,Financials
@@ -321,7 +321,7 @@ Date,Symbol,Marketcapname,Sector
 02-06-2021,GMBREW,Smallcap,FMCG
 02-06-2021,GOCLCORP,Smallcap,Miscellaneous
 02-06-2021,VESUVIUS,Midcap,Building Materials
-02-06-2021,ZOTA,Midcap,Healthcare
+02-06-2021,ZOTA,Midcap/Smallcap/Smallcap,Healthcare
 02-06-2022,ELECON,Midcap,Industrials
 02-06-2023,AJANTPHARM,Largecap,Healthcare
 02-06-2023,GATEWAY,Smallcap,Transportation
@@ -331,7 +331,7 @@ Date,Symbol,Marketcapname,Sector
 02-06-2023,KDDL,Smallcap,Consumer Discretionary
 02-06-2023,PARAS,Midcap,Aerospace & Defence
 02-06-2023,SASKEN,Smallcap,I.T
-02-06-2023,ZOTA,Midcap,Healthcare
+02-06-2023,ZOTA,Midcap/Smallcap/Smallcap,Healthcare
 02-06-2025,ASTRAZEN,Largecap,Healthcare
 02-06-2025,HERITGFOOD,Smallcap,FMCG
 02-06-2025,INDOBORAX,Smallcap,Chemicals
@@ -364,7 +364,8 @@ Date,Symbol,Marketcapname,Sector
 02-07-2026,IFGLEXPOR,Smallcap,Building Materials
 02-07-2026,IKIO,Smallcap,Consumer Discretionary
 02-07-2026,INDOCO,Smallcap,Healthcare
-02-07-2026,JUSTDIAL,Smallcap,I.T
+02-07-2026,JUSTDIAL,Midcap/Midcap/Smallcap,I.T
+02-07-2026,MAHLOG,Smallcap,Transportation
 02-07-2026,NDRAUTO,Smallcap,Auto
 02-07-2026,PICCADIL,Midcap,FMCG
 02-07-2026,SINDHUTRAD,Smallcap,Transportation
@@ -387,6 +388,7 @@ Date,Symbol,Marketcapname,Sector
 02-09-2024,INDOBORAX,Smallcap,Chemicals
 02-09-2024,SBICARD,Largecap,Financials
 02-09-2025,ASKAUTOLTD,Midcap,Auto
+02-09-2025,E2E,Midcap,I.T
 02-09-2025,HEMIPROP,Smallcap,Realty
 02-09-2025,IFBIND,Midcap,Consumer Discretionary
 02-09-2025,METROBRAND,Largecap,Consumer Discretionary
@@ -400,7 +402,7 @@ Date,Symbol,Marketcapname,Sector
 02-11-2020,BAJFINANCE,Largecap,Financials
 02-11-2020,CENTRUM,Smallcap,Financials
 02-11-2020,FINPIPE,Midcap,Plastic products
-02-11-2020,GULFOILLUB,Midcap,Chemicals
+02-11-2020,GULFOILLUB,Midcap/Midcap/Smallcap,Chemicals
 02-11-2020,ICICIBANK,Largecap,Bank
 02-11-2020,INDUSINDBK,Largecap,Bank
 02-11-2020,KERNEX,Smallcap,Consumer Discretionary
@@ -413,14 +415,14 @@ Date,Symbol,Marketcapname,Sector
 02-11-2022,EIMCOELECO,Smallcap,Industrials
 02-11-2022,FACT,Largecap,Chemicals
 02-11-2022,GANDHITUBE,Smallcap,Metals & Mining
-02-11-2022,IFCI,Largecap,Financials
+02-11-2022,IFCI,Largecap/Midcap,Financials
 02-11-2022,JAGRAN,Smallcap,Media
 02-11-2022,PRECWIRE,Midcap,Metals & Mining
 02-11-2022,REDINGTON,Largecap,Services
 02-11-2022,SHRIPISTON,Midcap,Auto
 02-11-2022,TECHNOE,Midcap,Realty
 02-11-2022,VIJAYA,Midcap,Healthcare
-02-11-2023,BLISSGVS,Midcap,Healthcare
+02-11-2023,BLISSGVS,Midcap/Midcap/Smallcap,Healthcare
 02-11-2023,CARYSIL,Smallcap,Consumer Discretionary
 02-11-2023,RADICO,Largecap,FMCG
 02-12-2019,NMDC,Largecap,Metals & Mining
@@ -446,7 +448,7 @@ Date,Symbol,Marketcapname,Sector
 02-12-2025,MASFIN,Midcap,Financials
 03-01-2020,BAYERCROP,Midcap,Chemicals
 03-01-2022,AUBANK,Largecap,Bank
-03-01-2022,DEEPAKFERT,Largecap,Chemicals
+03-01-2022,DEEPAKFERT,Largecap/Largecap/Midcap,Chemicals
 03-01-2022,GRASIM,Largecap,Textiles
 03-01-2022,GREAVESCOT,Midcap,Industrials
 03-01-2022,INDNIPPON,Smallcap,Auto
@@ -491,7 +493,7 @@ Date,Symbol,Marketcapname,Sector
 03-04-2023,CSBBANK,Midcap,Bank
 03-04-2023,DEEPINDS,Smallcap,Energy
 03-04-2023,ICEMAKE,Smallcap,Industrials
-03-04-2023,IOLCP,Smallcap,Healthcare
+03-04-2023,IOLCP,Midcap/Smallcap/Smallcap,Healthcare
 03-04-2023,JWL,Midcap,Industrials
 03-04-2023,LINCOLN,Smallcap,Healthcare
 03-04-2023,REFEX,Smallcap,Services
@@ -546,7 +548,7 @@ Date,Symbol,Marketcapname,Sector
 03-06-2024,TIINDIA,Largecap,Industrials
 03-06-2024,UPL,Largecap,Chemicals
 03-06-2024,VSTTILLERS,Smallcap,Auto
-03-06-2024,ZOTA,Midcap,Healthcare
+03-06-2024,ZOTA,Midcap/Smallcap/Smallcap,Healthcare
 03-06-2025,ABBOTINDIA,Largecap,Healthcare
 03-06-2026,CARTRADE,Midcap,Consumer Discretionary
 03-06-2026,GREENPLY,Smallcap,Building Materials
@@ -554,7 +556,7 @@ Date,Symbol,Marketcapname,Sector
 03-06-2026,SSWL,Smallcap,Auto
 03-07-2020,AMBUJACEM,Largecap,Building Materials
 03-07-2020,HCLTECH,Largecap,I.T
-03-07-2020,RESPONIND,Midcap,Plastic products
+03-07-2020,RESPONIND,Midcap/Smallcap,Plastic products
 03-07-2023,ASAHIINDIA,Largecap,Building Materials
 03-07-2023,CANBK,Largecap,Bank
 03-07-2023,GNA,Smallcap,Auto
@@ -598,19 +600,19 @@ Date,Symbol,Marketcapname,Sector
 03-08-2023,DPABHUSHAN,Smallcap,Consumer Discretionary
 03-08-2023,INDIAGLYCO,Midcap,FMCG
 03-08-2023,MANGLMCEM,Smallcap,Building Materials
-03-08-2023,OPTIEMUS,Smallcap,Telecom
+03-08-2023,OPTIEMUS,Midcap/Midcap/Smallcap,Telecom
 03-08-2023,SAKAR,Smallcap,Healthcare
 03-09-2019,CGCL,Largecap,Financials
 03-09-2019,GLAXO,Largecap,Healthcare
 03-09-2019,WHIRLPOOL,Midcap,Consumer Discretionary
 03-09-2020,ELECTCAST,Smallcap,Industrials
-03-09-2024,ICRA,Midcap,Financials
+03-09-2024,ICRA,Midcap/Midcap/Smallcap,Financials
 03-09-2024,PRSMJOHNSN,Midcap,Building Materials
 03-09-2025,AVALON,Midcap,Consumer Discretionary
 03-09-2025,JINDALSTEL,Largecap,Metals & Mining
 03-09-2025,JSWSTEEL,Largecap,Metals & Mining
 03-09-2025,KEI,Largecap,Industrials
-03-09-2025,LGBBROSLTD,Midcap,Auto
+03-09-2025,LGBBROSLTD,Midcap/Smallcap,Auto
 03-09-2025,NEULANDLAB,Largecap,Healthcare
 03-09-2025,NSIL,Smallcap,Financials
 03-09-2025,NSLNISP,Midcap,Metals & Mining
@@ -632,14 +634,14 @@ Date,Symbol,Marketcapname,Sector
 03-10-2023,BHAGCHEM,Smallcap,Chemicals
 03-10-2023,DOLATALGO,Smallcap,Financials
 03-10-2023,HEIDELBERG,Smallcap,Building Materials
-03-10-2023,MACPOWER,Midcap,Industrials
+03-10-2023,MACPOWER,Midcap/Smallcap/Smallcap,Industrials
 03-10-2023,ORIENTHOT,Smallcap,Services
-03-10-2024,CARERATING,Smallcap,Financials
+03-10-2024,CARERATING,Midcap/Smallcap,Financials
 03-10-2025,ADOR,Smallcap,Industrials
 03-10-2025,ASTRAMICRO,Midcap,Aerospace & Defence
 03-10-2025,BEML,Midcap,Aerospace & Defence
 03-10-2025,BORORENEW,Midcap,Building Materials
-03-10-2025,GESHIP,Largecap,Transportation
+03-10-2025,GESHIP,Largecap/Largecap/Midcap,Transportation
 03-10-2025,GMBREW,Smallcap,FMCG
 03-10-2025,KALAMANDIR,Smallcap,Consumer Discretionary
 03-10-2025,NAVNETEDUL,Smallcap,Miscellaneous
@@ -652,10 +654,10 @@ Date,Symbol,Marketcapname,Sector
 03-11-2020,ARMANFIN,Smallcap,Financials
 03-11-2020,BANDHANBNK,Largecap,Bank
 03-11-2020,BRIGADE,Midcap,Realty
-03-11-2020,CUB,Midcap,Bank
+03-11-2020,CUB,Largecap/Midcap/Midcap,Bank
 03-11-2020,HINDALCO,Largecap,Metals & Mining
 03-11-2020,NMDC,Largecap,Metals & Mining
-03-11-2020,ORCHPHARMA,Smallcap,Healthcare
+03-11-2020,ORCHPHARMA,Midcap/Midcap/Smallcap,Healthcare
 03-11-2020,POONAWALLA,Largecap,Financials
 03-11-2020,PREMEXPLN,Smallcap,Aerospace & Defence
 03-11-2020,RBLBANK,Largecap,Bank
@@ -679,7 +681,7 @@ Date,Symbol,Marketcapname,Sector
 03-12-2020,INDOSTAR,Smallcap,Financials
 03-12-2020,JPOLYINVST,Smallcap,Financials
 03-12-2020,KICL,Smallcap,Financials
-03-12-2020,LUMAXIND,Smallcap,Auto
+03-12-2020,LUMAXIND,Midcap/Smallcap/Smallcap,Auto
 03-12-2020,MIRCELECTR,Smallcap,Consumer Discretionary
 03-12-2020,ONIDA,Smallcap,Consumer Discretionary
 03-12-2020,PGHH,Largecap,FMCG
@@ -700,7 +702,7 @@ Date,Symbol,Marketcapname,Sector
 04-01-2024,FINPIPE,Midcap,Plastic products
 04-01-2024,FUSION,Smallcap,Financials
 04-01-2024,INDORAMA,Smallcap,Textiles
-04-01-2024,PFOCUS,Midcap,Realty
+04-01-2024,PFOCUS,Largecap/Largecap/Midcap,Realty
 04-02-2020,BOROLTD,Smallcap,Building Materials
 04-02-2021,IRCTC,Largecap,Transportation
 04-02-2021,KIRLOSENG,Largecap,Industrials
@@ -711,7 +713,7 @@ Date,Symbol,Marketcapname,Sector
 04-03-2025,ASTRAZEN,Largecap,Healthcare
 04-03-2025,AVANTIFEED,Midcap,FMCG
 04-03-2025,MPSLTD,Smallcap,I.T
-04-03-2025,NACLIND,Midcap,Chemicals
+04-03-2025,NACLIND,Midcap/Midcap/Smallcap,Chemicals
 04-03-2025,STEELCAS,Smallcap,Industrials
 04-03-2025,VADILALIND,Smallcap,FMCG
 04-04-2019,GVPIL,Midcap,Realty
@@ -748,11 +750,11 @@ Date,Symbol,Marketcapname,Sector
 04-06-2019,MASFIN,Midcap,Financials
 04-06-2019,VOLTAS,Largecap,Consumer Discretionary
 04-06-2020,BBOX,Midcap,I.T
-04-06-2021,NETWORK18,Midcap,Media
+04-06-2021,NETWORK18,Midcap/Smallcap/Smallcap,Media
 04-06-2021,RAJESHEXPO,Smallcap,Consumer Discretionary
 04-06-2021,RANEHOLDIN,Smallcap,Financials
 04-06-2021,WAAREEINDO,Smallcap,Industrials
-04-06-2024,SUNTV,Largecap,Media
+04-06-2024,SUNTV,Largecap/Midcap/Midcap,Media
 04-06-2024,UTIAMC,Midcap,Financials
 04-06-2026,AURUM,Smallcap,I.T
 04-06-2026,IPCALAB,Largecap,Healthcare
@@ -782,7 +784,7 @@ Date,Symbol,Marketcapname,Sector
 04-07-2023,MOIL,Midcap,Metals & Mining
 04-07-2023,PETRONET,Largecap,Energy
 04-07-2023,SOBHA,Midcap,Realty
-04-07-2023,SUNTV,Largecap,Media
+04-07-2023,SUNTV,Largecap/Midcap/Midcap,Media
 04-07-2023,TFCILTD,Smallcap,Financials
 04-07-2024,ADVENZYMES,Smallcap,Healthcare
 04-07-2024,EVEREADY,Smallcap,Industrials
@@ -792,7 +794,7 @@ Date,Symbol,Marketcapname,Sector
 04-07-2024,RUBYMILLS,Smallcap,Textiles
 04-07-2024,SWANCORP,Midcap,Textiles
 04-07-2024,VIMTALABS,Smallcap,Healthcare
-04-07-2025,DATAMATICS,Smallcap,I.T
+04-07-2025,DATAMATICS,Midcap/Smallcap,I.T
 04-08-2020,DBL,Midcap,Realty
 04-08-2020,FLUOROCHEM,Largecap,Chemicals
 04-08-2020,GPIL,Midcap,Metals & Mining
@@ -801,7 +803,7 @@ Date,Symbol,Marketcapname,Sector
 04-08-2020,MAHASTEEL,Smallcap,Metals & Mining
 04-08-2020,MAITHANALL,Smallcap,Metals & Mining
 04-08-2020,MANINDS,Smallcap,Metals & Mining
-04-08-2020,OPTIEMUS,Smallcap,Telecom
+04-08-2020,OPTIEMUS,Midcap/Midcap/Smallcap,Telecom
 04-08-2020,PRAKASH,Smallcap,Metals & Mining
 04-08-2020,RTNPOWER,Smallcap,Power & Utilities
 04-08-2020,SARDAEN,Midcap,Metals & Mining
@@ -852,7 +854,7 @@ Date,Symbol,Marketcapname,Sector
 04-10-2022,HITECH,Smallcap,Metals & Mining
 04-10-2022,HPL,Smallcap,Industrials
 04-10-2022,MCX,Largecap,Financials
-04-10-2022,SUNTV,Largecap,Media
+04-10-2022,SUNTV,Largecap/Midcap/Midcap,Media
 04-10-2022,TATACOMM,Largecap,Telecom-Service
 04-10-2022,VSTIND,Smallcap,FMCG
 04-10-2023,CIGNITITEC,Smallcap,I.T
@@ -863,11 +865,11 @@ Date,Symbol,Marketcapname,Sector
 04-11-2019,UNITECH,Smallcap,Realty
 04-11-2020,AYMSYNTEX,Smallcap,Textiles
 04-11-2020,BAJAJFINSV,Largecap,Financials
-04-11-2020,CARERATING,Smallcap,Financials
+04-11-2020,CARERATING,Midcap/Smallcap,Financials
 04-11-2020,FCL,Smallcap,Chemicals
 04-11-2020,GAYAPROJ,Smallcap,Realty
 04-11-2020,KSB,Midcap,Industrials
-04-11-2020,SUNDRMFAST,Midcap,Auto
+04-11-2020,SUNDRMFAST,Largecap/Largecap/Midcap,Auto
 04-11-2021,SIRCA,Smallcap,Building Materials
 04-11-2022,DHANBANK,Smallcap,Bank
 04-11-2024,AZAD,Midcap,Aerospace & Defence
@@ -877,7 +879,7 @@ Date,Symbol,Marketcapname,Sector
 04-12-2023,GREAVESCOT,Midcap,Industrials
 04-12-2023,GRINDWELL,Largecap,Industrials
 04-12-2023,JUBLINGREA,Midcap,Chemicals
-04-12-2023,JUSTDIAL,Smallcap,I.T
+04-12-2023,JUSTDIAL,Midcap/Midcap/Smallcap,I.T
 04-12-2023,KOTAKBANK,Largecap,Bank
 04-12-2023,SANGAMIND,Smallcap,Textiles
 04-12-2025,SMCGLOBAL,Smallcap,Financials
@@ -890,14 +892,14 @@ Date,Symbol,Marketcapname,Sector
 05-02-2020,PDSL,Midcap,Textiles
 05-02-2020,SHRIRAMFIN,Largecap,Financials
 05-02-2020,SWANCORP,Midcap,Textiles
-05-02-2020,THANGAMAYL,Midcap,Consumer Discretionary
+05-02-2020,THANGAMAYL,Largecap/Midcap,Consumer Discretionary
 05-02-2024,JINDWORLD,Smallcap,Textiles
 05-02-2025,ABBOTINDIA,Largecap,Healthcare
 05-03-2019,BOSCH-HCIL,Smallcap,Consumer Discretionary
 05-03-2019,COROMANDEL,Largecap,Chemicals
 05-03-2019,EIHOTEL,Largecap,Services
 05-03-2019,HCC,Midcap,Realty
-05-03-2019,J&KBANK,Midcap,Bank
+05-03-2019,J&KBANK,Largecap/Midcap/Midcap,Bank
 05-03-2019,KNRCON,Smallcap,Realty
 05-03-2019,SUPRAJIT,Midcap,Auto
 05-03-2019,USHAMART,Midcap,Metals & Mining
@@ -921,7 +923,7 @@ Date,Symbol,Marketcapname,Sector
 05-04-2023,BLKASHYAP,Smallcap,Realty
 05-04-2023,DLF,Largecap,Realty
 05-04-2023,HONDAPOWER,Smallcap,Industrials
-05-04-2023,ICRA,Midcap,Financials
+05-04-2023,ICRA,Midcap/Midcap/Smallcap,Financials
 05-04-2023,IGL,Largecap,Energy
 05-04-2023,WESTLIFE,Midcap,Consumer Discretionary
 05-04-2024,NGLFINE,Smallcap,Healthcare
@@ -954,7 +956,7 @@ Date,Symbol,Marketcapname,Sector
 05-06-2023,JKIL,Smallcap,Realty
 05-06-2023,JSWSTEEL,Largecap,Metals & Mining
 05-06-2023,KPRMILL,Largecap,Consumer Discretionary
-05-06-2023,LUMAXIND,Smallcap,Auto
+05-06-2023,LUMAXIND,Midcap/Smallcap/Smallcap,Auto
 05-06-2023,SANGAMIND,Smallcap,Textiles
 05-06-2023,SHARDACROP,Midcap,Chemicals
 05-06-2024,ABBOTINDIA,Largecap,Healthcare
@@ -972,7 +974,7 @@ Date,Symbol,Marketcapname,Sector
 05-06-2024,NAVA,Midcap,Miscellaneous
 05-06-2024,PAGEIND,Largecap,Consumer Discretionary
 05-06-2024,RALLIS,Smallcap,Chemicals
-05-06-2024,THANGAMAYL,Midcap,Consumer Discretionary
+05-06-2024,THANGAMAYL,Largecap/Midcap,Consumer Discretionary
 05-06-2024,TTKPRESTIG,Midcap,Consumer Discretionary
 05-06-2024,UPL,Largecap,Chemicals
 05-06-2024,VARROC,Midcap,Auto
@@ -1011,7 +1013,7 @@ Date,Symbol,Marketcapname,Sector
 05-07-2024,PFS,Smallcap,Financials
 05-07-2024,YESBANK,Largecap,Bank
 05-08-2019,BATAINDIA,Midcap,Consumer Discretionary
-05-08-2020,ANANTRAJ,Midcap,Realty
+05-08-2020,ANANTRAJ,Largecap/Largecap/Midcap,Realty
 05-08-2020,ELGIEQUIP,Midcap,Industrials
 05-08-2020,IGPL,Smallcap,Chemicals
 05-08-2020,IMFA,Midcap,Metals & Mining
@@ -1030,7 +1032,7 @@ Date,Symbol,Marketcapname,Sector
 05-08-2025,ONIDA,Smallcap,Consumer Discretionary
 05-08-2025,SANGHVIMOV,Smallcap,Miscellaneous
 05-08-2025,STYLEBAAZA,Smallcap,Consumer Discretionary
-05-08-2025,THANGAMAYL,Midcap,Consumer Discretionary
+05-08-2025,THANGAMAYL,Largecap/Midcap,Consumer Discretionary
 05-09-2019,AXISCADES,Midcap,Aerospace & Defence
 05-09-2019,CROMPTON,Midcap,Consumer Discretionary
 05-09-2022,ESABINDIA,Midcap,Industrials
@@ -1077,7 +1079,7 @@ Date,Symbol,Marketcapname,Sector
 05-11-2020,PAGEIND,Largecap,Consumer Discretionary
 05-11-2020,RPSGVENT,Smallcap,I.T
 05-11-2020,SAIL,Largecap,Metals & Mining
-05-11-2020,SHARDAMOTR,Midcap,Auto
+05-11-2020,SHARDAMOTR,Midcap/Smallcap/Smallcap,Auto
 05-11-2020,STYRENIX,Smallcap,Energy
 05-11-2024,IMFA,Midcap,Metals & Mining
 05-11-2024,RAMCOIND,Smallcap,Building Materials
@@ -1099,18 +1101,18 @@ Date,Symbol,Marketcapname,Sector
 06-01-2020,AHLUCONT,Midcap,Realty
 06-01-2020,WEBELSOLAR,Smallcap,Industrials
 06-01-2021,CENTRUM,Smallcap,Financials
-06-01-2021,TRITURBINE,Largecap,Industrials
+06-01-2021,TRITURBINE,Largecap/Midcap/Midcap,Industrials
 06-01-2022,VHL,Smallcap,Financials
 06-01-2023,DSSL,Smallcap,I.T
 06-02-2019,MANAPPURAM,Largecap,Financials
 06-02-2019,PRIVISCL,Midcap,Chemicals
 06-02-2019,SRF,Largecap,Chemicals
 06-02-2023,ABB,Largecap,Industrials
-06-02-2023,ORCHPHARMA,Smallcap,Healthcare
+06-02-2023,ORCHPHARMA,Midcap/Midcap/Smallcap,Healthcare
 06-02-2023,POLICYBZR,Largecap,I.T
 06-02-2023,WONDERLA,Smallcap,Media
 06-02-2024,MFSL,Largecap,Miscellaneous
-06-02-2024,TRITURBINE,Largecap,Industrials
+06-02-2024,TRITURBINE,Largecap/Midcap/Midcap,Industrials
 06-02-2025,REDINGTON,Largecap,Services
 06-02-2026,DATAPATTNS,Largecap,Aerospace & Defence
 06-03-2019,AARTIDRUGS,Smallcap,Healthcare
@@ -1157,7 +1159,7 @@ Date,Symbol,Marketcapname,Sector
 06-04-2026,JINDALSAW,Midcap,Industrials
 06-04-2026,KERNEX,Smallcap,Consumer Discretionary
 06-04-2026,LUXIND,Smallcap,Textiles
-06-04-2026,MACPOWER,Midcap,Industrials
+06-04-2026,MACPOWER,Midcap/Smallcap/Smallcap,Industrials
 06-04-2026,MAHABANK,Largecap,Bank
 06-04-2026,MANINDS,Smallcap,Metals & Mining
 06-04-2026,NMDC,Largecap,Metals & Mining
@@ -1228,7 +1230,7 @@ Date,Symbol,Marketcapname,Sector
 06-06-2025,SHRIRAMFIN,Largecap,Financials
 06-07-2021,DHANBANK,Smallcap,Bank
 06-07-2021,FORCEMOT,Largecap,Auto
-06-07-2021,ICRA,Midcap,Financials
+06-07-2021,ICRA,Midcap/Midcap/Smallcap,Financials
 06-07-2021,SMLMAH,Midcap,Auto
 06-07-2022,ARTEMISMED,Smallcap,Healthcare
 06-07-2022,JYOTHYLAB,Midcap,FMCG
@@ -1241,7 +1243,7 @@ Date,Symbol,Marketcapname,Sector
 06-07-2023,MCX,Largecap,Financials
 06-07-2023,PREMEXPLN,Smallcap,Aerospace & Defence
 06-07-2023,RPOWER,Midcap,Power & Utilities
-06-07-2023,SHARDAMOTR,Midcap,Auto
+06-07-2023,SHARDAMOTR,Midcap/Smallcap/Smallcap,Auto
 06-07-2023,SOTL,Smallcap,Energy
 06-07-2023,STEL,Smallcap,Financials
 06-07-2026,DATAMATICS,Midcap,I.T
@@ -1252,7 +1254,7 @@ Date,Symbol,Marketcapname,Sector
 06-07-2026,RAJRATAN,Smallcap,Metals & Mining
 06-08-2019,PRESTIGE,Largecap,Realty
 06-08-2020,CROMPTON,Midcap,Consumer Discretionary
-06-08-2020,DATAMATICS,Smallcap,I.T
+06-08-2020,DATAMATICS,Midcap/Smallcap,I.T
 06-08-2020,NIITLTD,Smallcap,I.T
 06-08-2024,BLS,Midcap,I.T
 06-08-2024,SAFARI,Midcap,Plastic products
@@ -1261,10 +1263,10 @@ Date,Symbol,Marketcapname,Sector
 06-09-2022,AQYLON,Smallcap,Media
 06-09-2022,DEVYANI,Midcap,Consumer Discretionary
 06-09-2023,AFFLE,Largecap,I.T
-06-10-2020,GOLDIAM,Midcap,Consumer Discretionary
+06-10-2020,GOLDIAM,Midcap/Smallcap/Smallcap,Consumer Discretionary
 06-10-2022,CENTUM,Midcap,Consumer Discretionary
 06-10-2022,DEEPAKNTR,Largecap,Chemicals
-06-10-2022,DLINKINDIA,Smallcap,Services
+06-10-2022,DLINKINDIA,Smallcap,I.T/Services/Services
 06-10-2022,GRAVITA,Midcap,Metals & Mining
 06-10-2022,IIFL,Largecap,Financials
 06-10-2022,JSWENERGY,Largecap,Power & Utilities
@@ -1288,7 +1290,7 @@ Date,Symbol,Marketcapname,Sector
 06-11-2020,AYMSYNTEX,Smallcap,Textiles
 06-11-2020,DLF,Largecap,Realty
 06-11-2020,FACT,Largecap,Chemicals
-06-11-2020,GULFOILLUB,Midcap,Chemicals
+06-11-2020,GULFOILLUB,Midcap/Midcap/Smallcap,Chemicals
 06-11-2020,SPANDANA,Smallcap,Financials
 06-11-2020,THOMASCOOK,Smallcap,Miscellaneous
 06-11-2020,WEBELSOLAR,Smallcap,Industrials
@@ -1296,19 +1298,19 @@ Date,Symbol,Marketcapname,Sector
 06-11-2023,GREENPLY,Smallcap,Building Materials
 06-11-2023,JKCEMENT,Largecap,Building Materials
 06-11-2023,MUNJALAU,Smallcap,Auto
-06-11-2023,NETWORK18,Midcap,Media
+06-11-2023,NETWORK18,Midcap/Smallcap/Smallcap,Media
 06-11-2023,QUESS,Smallcap,Miscellaneous
 06-11-2023,SUMEETINDS,Smallcap,Textiles
 06-11-2024,BFINVEST,Smallcap,Financials
 06-11-2024,DCMSHRIRAM,Midcap,Miscellaneous
 06-11-2024,WENDT,Smallcap,Industrials
 06-12-2019,EIDPARRY,Midcap,FMCG
-06-12-2021,ANANTRAJ,Midcap,Realty
+06-12-2021,ANANTRAJ,Largecap/Largecap/Midcap,Realty
 06-12-2021,ARTEMISMED,Smallcap,Healthcare
 06-12-2021,MTNL,Smallcap,Telecom
 06-12-2022,HIKAL,Smallcap,Healthcare
-06-12-2023,DLINKINDIA,Smallcap,Services
-06-12-2023,ICRA,Midcap,Financials
+06-12-2023,DLINKINDIA,Smallcap,I.T/Services/Services
+06-12-2023,ICRA,Midcap/Midcap/Smallcap,Financials
 06-12-2023,IMAGICAA,Smallcap,Media
 06-12-2023,VOLTAS,Largecap,Consumer Discretionary
 07-01-2019,ABBOTINDIA,Largecap,Healthcare
@@ -1318,7 +1320,7 @@ Date,Symbol,Marketcapname,Sector
 07-01-2022,REDINGTON,Largecap,Services
 07-01-2022,RUPA,Smallcap,Textiles
 07-02-2019,JBCHEPHARM,Largecap,Healthcare
-07-02-2020,IOLCP,Smallcap,Healthcare
+07-02-2020,IOLCP,Midcap/Smallcap/Smallcap,Healthcare
 07-02-2020,TDPOWERSYS,Midcap,Industrials
 07-02-2022,ADANIPOWER,Largecap,Power & Utilities
 07-02-2022,TCPLPACK,Smallcap,Industrials
@@ -1338,7 +1340,7 @@ Date,Symbol,Marketcapname,Sector
 07-03-2025,MANAPPURAM,Largecap,Financials
 07-03-2025,SDBL,Smallcap,FMCG
 07-04-2020,ZYDUSLIFE,Largecap,Healthcare
-07-04-2021,CARERATING,Smallcap,Financials
+07-04-2021,CARERATING,Midcap/Smallcap,Financials
 07-04-2021,CSBBANK,Midcap,Bank
 07-04-2021,PIIND,Largecap,Chemicals
 07-04-2021,RENUKA,Smallcap,FMCG
@@ -1349,7 +1351,7 @@ Date,Symbol,Marketcapname,Sector
 07-04-2026,DSSL,Smallcap,I.T
 07-04-2026,GRSE,Largecap,Aerospace & Defence
 07-04-2026,IGPL,Smallcap,Chemicals
-07-04-2026,J&KBANK,Midcap,Bank
+07-04-2026,J&KBANK,Largecap/Midcap/Midcap,Bank
 07-04-2026,JINDALSTEL,Largecap,Metals & Mining
 07-04-2026,MEDPLUS,Midcap,Consumer Discretionary
 07-04-2026,PFC,Largecap,Financials
@@ -1371,7 +1373,7 @@ Date,Symbol,Marketcapname,Sector
 07-05-2025,NAHARSPING,Smallcap,Textiles
 07-05-2025,SUVEN,Midcap,Healthcare
 07-05-2026,APOLLOHOSP,Largecap,Healthcare
-07-05-2026,IFCI,Largecap,Financials
+07-05-2026,IFCI,Largecap/Midcap,Financials
 07-05-2026,MAYURUNIQ,Smallcap,Consumer Discretionary
 07-05-2026,MINDACORP,Midcap,Auto
 07-05-2026,RAIN,Midcap,Miscellaneous
@@ -1388,13 +1390,13 @@ Date,Symbol,Marketcapname,Sector
 07-06-2023,RANEHOLDIN,Smallcap,Financials
 07-06-2023,SALASAR,Smallcap,Metals & Mining
 07-06-2024,AFFLE,Largecap,I.T
-07-06-2024,CAPLIPOINT,Midcap,Healthcare
+07-06-2024,CAPLIPOINT,Largecap/Midcap,Healthcare
 07-06-2024,GABRIEL,Largecap,Auto
 07-06-2024,JKCEMENT,Largecap,Building Materials
 07-06-2024,LTF,Largecap,Financials
-07-06-2024,LUMAXIND,Smallcap,Auto
+07-06-2024,LUMAXIND,Midcap/Smallcap/Smallcap,Auto
 07-06-2024,SHARDACROP,Midcap,Chemicals
-07-06-2024,ZOTA,Midcap,Healthcare
+07-06-2024,ZOTA,Midcap/Smallcap/Smallcap,Healthcare
 07-07-2020,COFORGE,Largecap,I.T
 07-07-2020,DABUR,Largecap,FMCG
 07-07-2020,NAUKRI,Largecap,I.T
@@ -1437,7 +1439,7 @@ Date,Symbol,Marketcapname,Sector
 07-09-2022,TARSONS,Smallcap,Healthcare
 07-09-2023,GTLINFRA,Smallcap,Telecom
 07-09-2023,RANEHOLDIN,Smallcap,Financials
-07-10-2020,JUSTDIAL,Smallcap,I.T
+07-10-2020,JUSTDIAL,Midcap/Midcap/Smallcap,I.T
 07-10-2020,SHALBY,Smallcap,Healthcare
 07-10-2021,AAVAS,Midcap,Financials
 07-10-2021,GRSE,Largecap,Aerospace & Defence
@@ -1455,7 +1457,7 @@ Date,Symbol,Marketcapname,Sector
 07-11-2018,GALLANTT,Midcap,Metals & Mining
 07-11-2019,FMGOETZE,Smallcap,Auto
 07-11-2022,ADFFOODS,Smallcap,FMCG
-07-11-2022,CARERATING,Smallcap,Financials
+07-11-2022,CARERATING,Midcap/Smallcap,Financials
 07-11-2022,KOVAI,Midcap,Healthcare
 07-11-2022,MANAPPURAM,Largecap,Financials
 07-11-2022,SANSERA,Largecap,Auto
@@ -1471,7 +1473,7 @@ Date,Symbol,Marketcapname,Sector
 07-12-2020,SPMLINFRA,Smallcap,Realty
 07-12-2020,TIIL,Midcap,Metals & Mining
 07-12-2021,BANARISUG,Smallcap,FMCG
-07-12-2021,DLINKINDIA,Smallcap,Services
+07-12-2021,DLINKINDIA,Smallcap,I.T/Services/Services
 07-12-2021,GTLINFRA,Smallcap,Telecom
 07-12-2021,GUFICBIO,Smallcap,Healthcare
 07-12-2021,PENIND,Smallcap,Metals & Mining
@@ -1575,7 +1577,9 @@ Date,Symbol,Marketcapname,Sector
 08-07-2024,THEMISMED,Smallcap,Healthcare
 08-07-2025,ACI,Midcap,Chemicals
 08-07-2025,EVEREADY,Smallcap,Industrials
+08-07-2025,PRECOT,Smallcap,Textiles
 08-07-2026,ALKYLAMINE,Midcap,Chemicals
+08-07-2026,DPABHUSHAN,Smallcap,Consumer Discretionary
 08-07-2026,OAL,Smallcap,Chemicals
 08-07-2026,VAIBHAVGBL,Smallcap,Consumer Discretionary
 08-08-2019,MOLDTKPAC,Smallcap,Industrials
@@ -1592,7 +1596,7 @@ Date,Symbol,Marketcapname,Sector
 08-09-2020,CANTABIL,Smallcap,Textiles
 08-09-2020,SANDHAR,Smallcap,Auto
 08-09-2021,PFC,Largecap,Financials
-08-09-2022,SUNDRMFAST,Midcap,Auto
+08-09-2022,SUNDRMFAST,Largecap/Largecap/Midcap,Auto
 08-09-2022,THEMISMED,Smallcap,Healthcare
 08-09-2023,CCAVENUE,Midcap,I.T
 08-09-2025,APCOTEXIND,Smallcap,Chemicals
@@ -1614,7 +1618,7 @@ Date,Symbol,Marketcapname,Sector
 08-11-2023,APOLLOTYRE,Largecap,Auto
 08-11-2023,ARVSMART,Smallcap,Realty
 08-11-2023,CUMMINSIND,Largecap,Industrials
-08-11-2023,GOLDIAM,Midcap,Consumer Discretionary
+08-11-2023,GOLDIAM,Midcap/Smallcap/Smallcap,Consumer Discretionary
 08-11-2023,GPPL,Midcap,Transportation
 08-11-2023,MANYAVAR,Midcap,Consumer Discretionary
 08-11-2023,NESCO,Midcap,Realty
@@ -1637,7 +1641,7 @@ Date,Symbol,Marketcapname,Sector
 09-01-2020,CHAMBLFERT,Midcap,Chemicals
 09-01-2020,ICIL,Midcap,Textiles
 09-01-2020,JUBLPHARMA,Midcap,Healthcare
-09-01-2020,LUMAXIND,Smallcap,Auto
+09-01-2020,LUMAXIND,Midcap/Smallcap/Smallcap,Auto
 09-01-2020,RADICO,Largecap,FMCG
 09-01-2020,RALLIS,Smallcap,Chemicals
 09-01-2020,SUPREMEIND,Largecap,Plastic products
@@ -1670,7 +1674,7 @@ Date,Symbol,Marketcapname,Sector
 09-03-2022,WSTCSTPAPR,Smallcap,Building Materials
 09-03-2023,IZMO,Smallcap,I.T
 09-04-2021,INDRAMEDCO,Smallcap,Healthcare
-09-04-2025,DEEPAKFERT,Largecap,Chemicals
+09-04-2025,DEEPAKFERT,Largecap/Largecap/Midcap,Chemicals
 09-04-2025,HOMEFIRST,Midcap,Financials
 09-04-2026,SENORES,Midcap,Healthcare
 09-05-2023,AXISBANK,Largecap,Bank
@@ -1736,7 +1740,7 @@ Date,Symbol,Marketcapname,Sector
 09-11-2020,BANCOINDIA,Midcap,Auto
 09-11-2020,ELGIEQUIP,Midcap,Industrials
 09-11-2020,GOCLCORP,Smallcap,Miscellaneous
-09-11-2020,GOODLUCK,Smallcap,Metals & Mining
+09-11-2020,GOODLUCK,Midcap/Midcap/Smallcap,Metals & Mining
 09-11-2020,IFGLEXPOR,Smallcap,Building Materials
 09-11-2020,KSL,Smallcap,Metals & Mining
 09-11-2020,LEMONTREE,Midcap,Services
@@ -1753,9 +1757,9 @@ Date,Symbol,Marketcapname,Sector
 09-11-2021,AFFLE,Largecap,I.T
 09-11-2021,GUJENERGY,Largecap,Energy
 09-11-2021,GUJGASLTD,Largecap,Energy
-09-11-2023,LUMAXIND,Smallcap,Auto
+09-11-2023,LUMAXIND,Midcap/Smallcap/Smallcap,Auto
 09-12-2019,JBMA,Midcap,Auto
-09-12-2020,PFOCUS,Midcap,Realty
+09-12-2020,PFOCUS,Largecap/Largecap/Midcap,Realty
 09-12-2020,SEAMECLTD,Smallcap,Miscellaneous
 09-12-2021,ARTEMISMED,Smallcap,Healthcare
 09-12-2022,LLOYDSENGG,Midcap,Industrials
@@ -1767,7 +1771,7 @@ Date,Symbol,Marketcapname,Sector
 10-01-2020,PAGEIND,Largecap,Consumer Discretionary
 10-01-2022,AJMERA,Smallcap,Realty
 10-01-2022,GHCL,Smallcap,Chemicals
-10-01-2023,GOLDIAM,Midcap,Consumer Discretionary
+10-01-2023,GOLDIAM,Midcap/Smallcap/Smallcap,Consumer Discretionary
 10-01-2023,OIL,Largecap,Energy
 10-01-2024,ALICON,Smallcap,Industrials
 10-01-2024,DELHIVERY,Largecap,Transportation
@@ -1816,12 +1820,12 @@ Date,Symbol,Marketcapname,Sector
 10-05-2021,TIRUMALCHM,Smallcap,Chemicals
 10-05-2021,UNITECH,Smallcap,Realty
 10-05-2023,GODREJCP,Largecap,FMCG
-10-05-2023,GULFOILLUB,Midcap,Chemicals
+10-05-2023,GULFOILLUB,Midcap/Midcap/Smallcap,Chemicals
 10-05-2023,INDUSINDBK,Largecap,Bank
 10-05-2023,ISGEC,Midcap,Realty
 10-05-2023,MANORAMA,Midcap,FMCG
 10-05-2023,SANOFI,Midcap,Healthcare
-10-05-2023,THANGAMAYL,Midcap,Consumer Discretionary
+10-05-2023,THANGAMAYL,Largecap/Midcap,Consumer Discretionary
 10-05-2023,ZFCVINDIA,Largecap,Auto
 10-06-2020,GRSE,Largecap,Aerospace & Defence
 10-06-2020,UNICHEMLAB,Smallcap,Healthcare
@@ -1856,7 +1860,7 @@ Date,Symbol,Marketcapname,Sector
 10-07-2023,SEPC,Smallcap,Realty
 10-07-2023,TATASTEEL,Largecap,Metals & Mining
 10-07-2024,HITECH,Smallcap,Metals & Mining
-10-07-2024,INDIGOPNTS,Midcap,Building Materials
+10-07-2024,INDIGOPNTS,Midcap/Midcap/Smallcap,Building Materials
 10-07-2025,BIL,Smallcap,Consumer Discretionary
 10-07-2025,KSB,Midcap,Industrials
 10-07-2026,ARMANFIN,Smallcap,Financials
@@ -1900,7 +1904,7 @@ Date,Symbol,Marketcapname,Sector
 10-09-2025,GAYAPROJ,Smallcap,Realty
 10-09-2025,HAL,Largecap,Aerospace & Defence
 10-09-2025,HEALTHX,Smallcap,Financials
-10-09-2025,MTARTECH,Largecap,Aerospace & Defence
+10-09-2025,MTARTECH,Largecap/Midcap/Midcap,Aerospace & Defence
 10-09-2025,TATACONSUM,Largecap,FMCG
 10-09-2025,VEEDOL,Smallcap,Chemicals
 10-10-2018,ADANIPOWER,Largecap,Power & Utilities
@@ -1935,7 +1939,7 @@ Date,Symbol,Marketcapname,Sector
 10-11-2025,AQYLON,Smallcap,Media
 10-11-2025,AUROPHARMA,Largecap,Healthcare
 10-11-2025,GRSE,Largecap,Aerospace & Defence
-10-11-2025,INDIGOPNTS,Midcap,Building Materials
+10-11-2025,INDIGOPNTS,Midcap/Midcap/Smallcap,Building Materials
 10-11-2025,JAMNAAUTO,Midcap,Auto
 10-11-2025,JBCHEPHARM,Largecap,Healthcare
 10-11-2025,LUPIN,Largecap,Healthcare
@@ -1984,7 +1988,7 @@ Date,Symbol,Marketcapname,Sector
 11-05-2021,VEEDOL,Smallcap,Chemicals
 11-05-2022,TDPOWERSYS,Midcap,Industrials
 11-05-2023,CMSINFO,Smallcap,Miscellaneous
-11-05-2023,ORCHPHARMA,Smallcap,Healthcare
+11-05-2023,ORCHPHARMA,Midcap/Midcap/Smallcap,Healthcare
 11-05-2023,PRAKASH,Smallcap,Metals & Mining
 11-05-2023,RICOAUTO,Smallcap,Auto
 11-05-2023,SANSERA,Largecap,Auto
@@ -2015,6 +2019,7 @@ Date,Symbol,Marketcapname,Sector
 11-07-2024,PCBL,Midcap,Chemicals
 11-07-2024,PTC,Midcap,Power & Utilities
 11-07-2025,JAGSNPHARM,Smallcap,Healthcare
+11-07-2025,PRECOT,Smallcap,Textiles
 11-08-2020,AXISCADES,Midcap,Aerospace & Defence
 11-08-2020,JASH,Smallcap,Industrials
 11-08-2020,JSWHL,Midcap,Financials
@@ -2080,19 +2085,19 @@ Date,Symbol,Marketcapname,Sector
 11-11-2024,FILATEX,Smallcap,Textiles
 11-11-2025,APEX,Smallcap,FMCG
 11-11-2025,ARTEMISMED,Smallcap,Healthcare
-11-11-2025,BLISSGVS,Midcap,Healthcare
+11-11-2025,BLISSGVS,Midcap/Midcap/Smallcap,Healthcare
 11-11-2025,COFORGE,Largecap,I.T
 11-11-2025,DATAPATTNS,Largecap,Aerospace & Defence
 11-11-2025,ESABINDIA,Midcap,Industrials
 11-11-2025,INDIGO,Largecap,Transportation
 11-12-2020,IMPAL,Smallcap,Auto
 11-12-2020,KIOCL,Largecap,Metals & Mining
-11-12-2020,ZOTA,Midcap,Healthcare
+11-12-2020,ZOTA,Midcap/Smallcap/Smallcap,Healthcare
 11-12-2023,FLUOROCHEM,Largecap,Chemicals
 11-12-2023,MAYURUNIQ,Smallcap,Consumer Discretionary
 11-12-2024,EMUDHRA,Smallcap,I.T
 11-12-2025,KOTAKBANK,Largecap,Bank
-11-12-2025,RPTECH,Smallcap,Services
+11-12-2025,RPTECH,Midcap/Smallcap,Services
 12-01-2022,GHCL,Smallcap,Chemicals
 12-01-2022,MENONBE,Smallcap,Auto
 12-02-2020,RTNPOWER,Smallcap,Power & Utilities
@@ -2103,7 +2108,7 @@ Date,Symbol,Marketcapname,Sector
 12-03-2025,GODFRYPHLP,Largecap,FMCG
 12-04-2019,63MOONS,Smallcap,I.T
 12-04-2019,ASTRAL,Largecap,Plastic products
-12-04-2022,OPTIEMUS,Smallcap,Telecom
+12-04-2022,OPTIEMUS,Midcap/Midcap/Smallcap,Telecom
 12-04-2024,ISGEC,Midcap,Realty
 12-04-2024,JINDALSAW,Midcap,Industrials
 12-04-2024,REPCOHOME,Smallcap,Financials
@@ -2134,7 +2139,7 @@ Date,Symbol,Marketcapname,Sector
 12-05-2025,HIRECT,Smallcap,Consumer Discretionary
 12-05-2025,HPL,Smallcap,Industrials
 12-05-2025,IDBI,Largecap,Bank
-12-05-2025,IFCI,Largecap,Financials
+12-05-2025,IFCI,Largecap/Midcap,Financials
 12-05-2025,INOXINDIA,Midcap,Industrials
 12-05-2025,INTERARCH,Smallcap,Metals & Mining
 12-05-2025,IPL,Smallcap,Chemicals
@@ -2142,7 +2147,7 @@ Date,Symbol,Marketcapname,Sector
 12-05-2025,KRBL,Midcap,FMCG
 12-05-2025,LICI,Largecap,Financials
 12-05-2025,LTF,Largecap,Financials
-12-05-2025,LUMAXIND,Smallcap,Auto
+12-05-2025,LUMAXIND,Midcap/Smallcap/Smallcap,Auto
 12-05-2025,MANINDS,Smallcap,Metals & Mining
 12-05-2025,MMTC,Midcap,Services
 12-05-2025,MOIL,Midcap,Metals & Mining
@@ -2197,7 +2202,7 @@ Date,Symbol,Marketcapname,Sector
 12-07-2021,TANLA,Midcap,I.T
 12-07-2022,ITI,Largecap,Aerospace & Defence
 12-07-2022,SAKAR,Smallcap,Healthcare
-12-07-2023,BLISSGVS,Midcap,Healthcare
+12-07-2023,BLISSGVS,Midcap/Midcap/Smallcap,Healthcare
 12-07-2023,NATIONALUM,Largecap,Metals & Mining
 12-07-2024,NYKAA,Largecap,I.T
 12-07-2024,SYNCOMF,Smallcap,Healthcare
@@ -2210,7 +2215,7 @@ Date,Symbol,Marketcapname,Sector
 12-09-2019,ARMANFIN,Smallcap,Financials
 12-09-2019,MANGLMCEM,Smallcap,Building Materials
 12-09-2022,EIDPARRY,Midcap,FMCG
-12-09-2022,THANGAMAYL,Midcap,Consumer Discretionary
+12-09-2022,THANGAMAYL,Largecap/Midcap,Consumer Discretionary
 12-09-2024,AVALON,Midcap,Consumer Discretionary
 12-09-2024,AXISBANK,Largecap,Bank
 12-09-2024,LTF,Largecap,Financials
@@ -2220,7 +2225,7 @@ Date,Symbol,Marketcapname,Sector
 12-10-2021,SWARAJENG,Smallcap,Industrials
 12-10-2021,TANLA,Midcap,I.T
 12-10-2022,MAXHEALTH,Largecap,Healthcare
-12-10-2022,ORCHPHARMA,Smallcap,Healthcare
+12-10-2022,ORCHPHARMA,Midcap/Midcap/Smallcap,Healthcare
 12-10-2023,ASIANHOTNR,Smallcap,Services
 12-10-2023,SMCGLOBAL,Smallcap,Financials
 12-11-2018,REFEX,Smallcap,Services
@@ -2253,7 +2258,7 @@ Date,Symbol,Marketcapname,Sector
 12-12-2022,CSBBANK,Midcap,Bank
 12-12-2022,SJS,Midcap,Auto
 12-12-2022,SURYODAY,Smallcap,Bank
-12-12-2023,DEEPAKFERT,Largecap,Chemicals
+12-12-2023,DEEPAKFERT,Largecap/Largecap/Midcap,Chemicals
 12-12-2024,CENTUM,Midcap,Consumer Discretionary
 12-12-2024,STARCEMENT,Midcap,Building Materials
 12-12-2025,NMDC,Largecap,Metals & Mining
@@ -2300,7 +2305,7 @@ Date,Symbol,Marketcapname,Sector
 13-05-2025,INDOSTAR,Smallcap,Financials
 13-05-2025,INOXGREEN,Midcap,Miscellaneous
 13-05-2025,INSECTICID,Smallcap,Chemicals
-13-05-2025,IOLCP,Smallcap,Healthcare
+13-05-2025,IOLCP,Midcap/Smallcap/Smallcap,Healthcare
 13-05-2025,JUBLPHARMA,Midcap,Healthcare
 13-05-2025,KOLTEPATIL,Smallcap,Realty
 13-05-2025,LINDEINDIA,Largecap,Chemicals
@@ -2335,7 +2340,7 @@ Date,Symbol,Marketcapname,Sector
 13-06-2025,PSPPROJECT,Smallcap,Realty
 13-07-2020,ANDHRSUGAR,Smallcap,Chemicals
 13-07-2020,APOLLOHOSP,Largecap,Healthcare
-13-07-2020,CAPLIPOINT,Midcap,Healthcare
+13-07-2020,CAPLIPOINT,Largecap/Midcap,Healthcare
 13-07-2020,RPGLIFE,Smallcap,Healthcare
 13-07-2021,GAYAPROJ,Smallcap,Realty
 13-07-2022,INGERRAND,Midcap,Industrials
@@ -2349,7 +2354,7 @@ Date,Symbol,Marketcapname,Sector
 13-07-2026,BFUTILITIE,Smallcap,Power & Utilities
 13-07-2026,BLKASHYAP,Smallcap,Realty
 13-07-2026,DALMIASUG,Smallcap,FMCG
-13-07-2026,LXCHEM,Smallcap,Chemicals
+13-07-2026,LXCHEM,Midcap/Smallcap/Smallcap,Chemicals
 13-07-2026,MUKANDLTD,Smallcap,Metals & Mining
 13-07-2026,NILKAMAL,Smallcap,Plastic products
 13-07-2026,PCBL,Midcap,Chemicals
@@ -2473,7 +2478,7 @@ Date,Symbol,Marketcapname,Sector
 14-09-2020,DCW,Smallcap,Energy
 14-09-2020,GODREJAGRO,Midcap,FMCG
 14-09-2020,LALPATHLAB,Largecap,Healthcare
-14-09-2020,MSTCLTD,Midcap,I.T
+14-09-2020,MSTCLTD,Midcap/Smallcap/Smallcap,I.T
 14-09-2020,NH,Largecap,Healthcare
 14-09-2020,RAMCOCEM,Largecap,Building Materials
 14-09-2020,SUDARSCHEM,Midcap,Chemicals
@@ -2514,7 +2519,7 @@ Date,Symbol,Marketcapname,Sector
 14-11-2022,HEROMOTOCO,Largecap,Auto
 14-11-2022,KIRLOSBROS,Midcap,Industrials
 14-11-2022,KOTAKBANK,Largecap,Bank
-14-11-2022,MSTCLTD,Midcap,I.T
+14-11-2022,MSTCLTD,Midcap/Smallcap/Smallcap,I.T
 14-11-2022,PFIZER,Largecap,Healthcare
 14-11-2022,REDINGTON,Largecap,Services
 14-11-2024,DCAL,Smallcap,Healthcare
@@ -2557,7 +2562,7 @@ Date,Symbol,Marketcapname,Sector
 15-04-2026,RRKABEL,Largecap,Industrials
 15-04-2026,STARHEALTH,Largecap,Financials
 15-04-2026,STYLEBAAZA,Smallcap,Consumer Discretionary
-15-04-2026,TRITURBINE,Largecap,Industrials
+15-04-2026,TRITURBINE,Largecap/Midcap/Midcap,Industrials
 15-05-2020,GARFIBRES,Midcap,Textiles
 15-05-2020,MCX,Largecap,Financials
 15-05-2023,AJMERA,Smallcap,Realty
@@ -2571,7 +2576,7 @@ Date,Symbol,Marketcapname,Sector
 15-05-2025,LODHA,Largecap,Realty
 15-05-2025,STYRENIX,Smallcap,Energy
 15-05-2026,ASIANENE,Smallcap,Energy
-15-06-2020,DEEPAKFERT,Largecap,Chemicals
+15-06-2020,DEEPAKFERT,Largecap/Largecap/Midcap,Chemicals
 15-06-2020,SOLARA,Smallcap,Healthcare
 15-06-2020,SPIC,Smallcap,Chemicals
 15-06-2021,HINDUNILVR,Largecap,FMCG
@@ -2593,7 +2598,7 @@ Date,Symbol,Marketcapname,Sector
 15-06-2026,HNDFDS,Midcap,FMCG
 15-06-2026,KAJARIACER,Midcap,Building Materials
 15-06-2026,KIRLOSIND,Smallcap,Financials
-15-06-2026,MACPOWER,Midcap,Industrials
+15-06-2026,MACPOWER,Midcap/Smallcap/Smallcap,Industrials
 15-06-2026,PAGEIND,Largecap,Consumer Discretionary
 15-06-2026,PDSL,Midcap,Textiles
 15-06-2026,PGIL,Midcap,Consumer Discretionary
@@ -2626,12 +2631,12 @@ Date,Symbol,Marketcapname,Sector
 15-09-2021,BANARISUG,Smallcap,FMCG
 15-09-2021,CANBK,Largecap,Bank
 15-09-2021,GMRAIRPORT,Largecap,Miscellaneous
-15-09-2022,THANGAMAYL,Midcap,Consumer Discretionary
+15-09-2022,THANGAMAYL,Largecap/Midcap,Consumer Discretionary
 15-09-2022,TI,Midcap,FMCG
 15-09-2023,KSCL,Smallcap,FMCG
 15-09-2023,MANYAVAR,Midcap,Consumer Discretionary
 15-09-2023,PNBGILTS,Smallcap,Financials
-15-09-2025,ANANTRAJ,Midcap,Realty
+15-09-2025,ANANTRAJ,Largecap/Largecap/Midcap,Realty
 15-09-2025,BANKBARODA,Largecap,Bank
 15-09-2025,INOXINDIA,Midcap,Industrials
 15-09-2025,PILANIINVS,Smallcap,Financials
@@ -2643,10 +2648,10 @@ Date,Symbol,Marketcapname,Sector
 15-10-2019,KPRMILL,Largecap,Consumer Discretionary
 15-10-2019,MIDHANI,Midcap,Aerospace & Defence
 15-10-2019,NAVINFLUOR,Largecap,Chemicals
-15-10-2019,PFOCUS,Midcap,Realty
+15-10-2019,PFOCUS,Largecap/Largecap/Midcap,Realty
 15-10-2019,TVSMOTOR,Largecap,Auto
 15-10-2024,ASTERDM,Largecap,Healthcare
-15-10-2024,INDIGOPNTS,Midcap,Building Materials
+15-10-2024,INDIGOPNTS,Midcap/Midcap/Smallcap,Building Materials
 15-10-2025,BAJAJFINSV,Largecap,Financials
 15-10-2025,ICICIGI,Largecap,Financials
 15-10-2025,MAHLIFE,Midcap,Realty
@@ -2679,13 +2684,13 @@ Date,Symbol,Marketcapname,Sector
 15-12-2025,AIIL,Largecap,Financials
 15-12-2025,BRITANNIA,Largecap,FMCG
 16-01-2020,GRINDWELL,Largecap,Industrials
-16-01-2020,NACLIND,Midcap,Chemicals
+16-01-2020,NACLIND,Midcap/Midcap/Smallcap,Chemicals
 16-01-2025,LTTS,Largecap,I.T
 16-01-2025,SBICARD,Largecap,Financials
 16-02-2021,CENTRALBK,Largecap,Bank
 16-02-2021,INDNIPPON,Smallcap,Auto
 16-02-2021,IOB,Largecap,Bank
-16-02-2021,LUMAXIND,Smallcap,Auto
+16-02-2021,LUMAXIND,Midcap/Smallcap/Smallcap,Auto
 16-02-2021,ONGC,Largecap,Energy
 16-02-2022,EVEREADY,Smallcap,Industrials
 16-02-2022,JAGSNPHARM,Smallcap,Healthcare
@@ -2737,7 +2742,7 @@ Date,Symbol,Marketcapname,Sector
 16-06-2023,ORISSAMINE,Smallcap,Metals & Mining
 16-06-2023,SHALBY,Smallcap,Healthcare
 16-06-2023,VIDHIING,Smallcap,Chemicals
-16-06-2026,NACLIND,Midcap,Chemicals
+16-06-2026,NACLIND,Midcap/Midcap/Smallcap,Chemicals
 16-06-2026,NELCO,Smallcap,Telecom
 16-06-2026,TARSONS,Smallcap,Healthcare
 16-06-2026,TIIL,Midcap,Metals & Mining
@@ -2768,7 +2773,7 @@ Date,Symbol,Marketcapname,Sector
 16-08-2024,MIRCELECTR,Smallcap,Consumer Discretionary
 16-08-2024,ONIDA,Smallcap,Consumer Discretionary
 16-09-2019,AMRUTANJAN,Smallcap,Healthcare
-16-09-2019,CUB,Midcap,Bank
+16-09-2019,CUB,Largecap/Midcap/Midcap,Bank
 16-09-2019,ESABINDIA,Midcap,Industrials
 16-09-2019,MASFIN,Midcap,Financials
 16-09-2020,APOLLOHOSP,Largecap,Healthcare
@@ -2792,7 +2797,7 @@ Date,Symbol,Marketcapname,Sector
 16-10-2025,HUHTAMAKI,Smallcap,Industrials
 16-10-2025,RELIANCE,Largecap,Energy
 16-10-2025,WHIRLPOOL,Midcap,Consumer Discretionary
-16-11-2018,GOLDIAM,Midcap,Consumer Discretionary
+16-11-2018,GOLDIAM,Midcap/Smallcap/Smallcap,Consumer Discretionary
 16-11-2018,INDHOTEL,Largecap,Services
 16-11-2022,BAJAJHCARE,Smallcap,Healthcare
 16-11-2022,HCC,Midcap,Realty
@@ -2824,7 +2829,7 @@ Date,Symbol,Marketcapname,Sector
 17-02-2021,JAGRAN,Smallcap,Media
 17-02-2021,UNIONBANK,Largecap,Bank
 17-02-2026,AEROFLEX,Midcap,Metals & Mining
-17-02-2026,SUNTV,Largecap,Media
+17-02-2026,SUNTV,Largecap/Midcap/Midcap,Media
 17-03-2021,ITC,Largecap,FMCG
 17-03-2022,CARYSIL,Smallcap,Consumer Discretionary
 17-03-2022,JSWSTEEL,Largecap,Metals & Mining
@@ -2851,7 +2856,7 @@ Date,Symbol,Marketcapname,Sector
 17-05-2021,MUTHOOTFIN,Largecap,Financials
 17-05-2021,NELCAST,Smallcap,Industrials
 17-05-2021,RIIL,Smallcap,Transportation
-17-05-2021,SAMMAANCAP,Largecap,Financials
+17-05-2021,SAMMAANCAP,Largecap/Midcap/Midcap,Financials
 17-05-2021,TRENT,Largecap,Consumer Discretionary
 17-05-2021,VINDHYATEL,Smallcap,Realty
 17-05-2021,WESTLIFE,Midcap,Consumer Discretionary
@@ -2865,7 +2870,7 @@ Date,Symbol,Marketcapname,Sector
 17-06-2020,GUFICBIO,Smallcap,Healthcare
 17-06-2020,ITI,Largecap,Aerospace & Defence
 17-06-2020,JAGSNPHARM,Smallcap,Healthcare
-17-06-2020,NACLIND,Midcap,Chemicals
+17-06-2020,NACLIND,Midcap/Midcap/Smallcap,Chemicals
 17-06-2020,NEULANDLAB,Largecap,Healthcare
 17-06-2021,NDRAUTO,Smallcap,Auto
 17-06-2022,PITTIENG,Smallcap,Industrials
@@ -2879,14 +2884,15 @@ Date,Symbol,Marketcapname,Sector
 17-06-2026,SUNPHARMA,Largecap,Healthcare
 17-07-2020,APOLLOHOSP,Largecap,Healthcare
 17-07-2023,ADVENZYMES,Smallcap,Healthcare
-17-07-2023,GOODLUCK,Smallcap,Metals & Mining
+17-07-2023,E2E,Midcap,I.T
+17-07-2023,GOODLUCK,Midcap/Midcap/Smallcap,Metals & Mining
 17-07-2023,GRASIM,Largecap,Textiles
 17-07-2023,IDEA,Largecap,Telecom-Service
 17-07-2023,JAYNECOIND,Midcap,Metals & Mining
 17-07-2023,NELCAST,Smallcap,Industrials
 17-07-2023,RPSGVENT,Smallcap,I.T
 17-07-2023,SBIN,Largecap,Bank
-17-07-2023,SWSOLAR,Midcap,Realty
+17-07-2023,SWSOLAR,Midcap/Midcap/Smallcap,Realty
 17-07-2023,VAIBHAVGBL,Smallcap,Consumer Discretionary
 17-07-2023,VENKEYS,Smallcap,FMCG
 17-07-2025,ARVINDFASN,Midcap,Consumer Discretionary
@@ -3022,7 +3028,7 @@ Date,Symbol,Marketcapname,Sector
 18-06-2026,ARROWGREEN,Smallcap,Plastic products
 18-06-2026,GANDHAR,Smallcap,Energy
 18-06-2026,GPTINFRA,Smallcap,Realty
-18-06-2026,MACPOWER,Midcap,Industrials
+18-06-2026,MACPOWER,Midcap/Smallcap/Smallcap,Industrials
 18-06-2026,NITCO,Smallcap,Building Materials
 18-06-2026,PGIL,Midcap,Consumer Discretionary
 18-06-2026,SPAL,Smallcap,Consumer Discretionary
@@ -3067,7 +3073,7 @@ Date,Symbol,Marketcapname,Sector
 18-10-2019,LINDEINDIA,Largecap,Chemicals
 18-10-2021,RVNL,Largecap,Realty
 18-10-2022,GOKULAGRO,Midcap,FMCG
-18-10-2022,J&KBANK,Midcap,Bank
+18-10-2022,J&KBANK,Largecap/Midcap/Midcap,Bank
 18-10-2022,POLYCAB,Largecap,Industrials
 18-10-2023,HEALTHX,Smallcap,Financials
 18-11-2019,CHALET,Midcap,Services
@@ -3107,18 +3113,18 @@ Date,Symbol,Marketcapname,Sector
 19-02-2019,TFCILTD,Smallcap,Financials
 19-02-2021,SATIN,Smallcap,Financials
 19-02-2024,AVTNPL,Smallcap,FMCG
-19-02-2024,ICRA,Midcap,Financials
+19-02-2024,ICRA,Midcap/Midcap/Smallcap,Financials
 19-02-2024,INDIANHUME,Smallcap,Realty
 19-02-2024,MOL,Smallcap,Chemicals
 19-02-2025,COHANCE,Midcap,Healthcare
 19-02-2025,TAJGVK,Smallcap,Services
 19-02-2026,NITINSPIN,Smallcap,Textiles
 19-03-2019,ALKYLAMINE,Midcap,Chemicals
-19-03-2019,CUB,Midcap,Bank
+19-03-2019,CUB,Largecap/Midcap/Midcap,Bank
 19-03-2019,DRREDDY,Largecap,Healthcare
 19-03-2019,IGL,Largecap,Energy
 19-03-2021,HINDUNILVR,Largecap,FMCG
-19-03-2021,ICRA,Midcap,Financials
+19-03-2021,ICRA,Midcap/Midcap/Smallcap,Financials
 19-03-2024,CARBORUNIV,Largecap,Industrials
 19-03-2024,CGPOWER,Largecap,Industrials
 19-03-2024,KPRMILL,Largecap,Consumer Discretionary
@@ -3152,12 +3158,13 @@ Date,Symbol,Marketcapname,Sector
 19-06-2025,M&M,Largecap,Auto
 19-06-2025,WAAREEINDO,Smallcap,Industrials
 19-06-2026,JTLIND,Smallcap,Metals & Mining
-19-06-2026,NACLIND,Midcap,Chemicals
+19-06-2026,NACLIND,Midcap/Midcap/Smallcap,Chemicals
 19-06-2026,TIIL,Midcap,Metals & Mining
 19-07-2022,HONDAPOWER,Smallcap,Industrials
 19-07-2022,INDUSINDBK,Largecap,Bank
 19-07-2022,NAVNETEDUL,Smallcap,Miscellaneous
 19-07-2022,PCBL,Midcap,Chemicals
+19-07-2023,E2E,Midcap,I.T
 19-07-2023,GRASIM,Largecap,Textiles
 19-07-2023,PARACABLES,Smallcap,Industrials
 19-07-2023,SBIN,Largecap,Bank
@@ -3241,14 +3248,14 @@ Date,Symbol,Marketcapname,Sector
 20-05-2019,BANKBARODA,Largecap,Bank
 20-05-2019,BEML,Midcap,Aerospace & Defence
 20-05-2019,BRIGADE,Midcap,Realty
-20-05-2019,DLINKINDIA,Smallcap,Services
+20-05-2019,DLINKINDIA,Smallcap,I.T/Services/Services
 20-05-2019,EDELWEISS,Midcap,Financials
 20-05-2019,GANDHITUBE,Smallcap,Metals & Mining
 20-05-2019,GHCL,Smallcap,Chemicals
 20-05-2019,GOKEX,Midcap,Consumer Discretionary
 20-05-2019,INSECTICID,Smallcap,Chemicals
 20-05-2019,INTELLECT,Midcap,I.T
-20-05-2019,IOLCP,Smallcap,Healthcare
+20-05-2019,IOLCP,Midcap/Smallcap/Smallcap,Healthcare
 20-05-2019,KEC,Midcap,Realty
 20-05-2019,MAHLIFE,Midcap,Realty
 20-05-2019,MOTILALOFS,Largecap,Financials
@@ -3297,6 +3304,7 @@ Date,Symbol,Marketcapname,Sector
 20-07-2023,INDOSTAR,Smallcap,Financials
 20-07-2023,IRFC,Largecap,Financials
 20-07-2023,MCX,Largecap,Financials
+20-07-2026,JKPAPER,Midcap,Building Materials
 20-08-2020,ASHAPURMIN,Midcap,Metals & Mining
 20-08-2020,ATGL,Largecap,Energy
 20-08-2020,CROMPTON,Midcap,Consumer Discretionary
@@ -3319,7 +3327,7 @@ Date,Symbol,Marketcapname,Sector
 20-09-2019,BAJAJFINSV,Largecap,Financials
 20-09-2019,BLUESTARCO,Largecap,Consumer Discretionary
 20-09-2019,CHOLAFIN,Largecap,Financials
-20-09-2019,CUB,Midcap,Bank
+20-09-2019,CUB,Largecap/Midcap/Midcap,Bank
 20-09-2019,ELGIEQUIP,Midcap,Industrials
 20-09-2019,ESABINDIA,Midcap,Industrials
 20-09-2019,HDFCBANK,Largecap,Bank
@@ -3345,14 +3353,15 @@ Date,Symbol,Marketcapname,Sector
 20-09-2022,SUNPHARMA,Largecap,Healthcare
 20-09-2024,TIINDIA,Largecap,Industrials
 20-10-2020,GODREJPROP,Largecap,Realty
-20-10-2020,GOLDIAM,Midcap,Consumer Discretionary
+20-10-2020,GOLDIAM,Midcap/Smallcap/Smallcap,Consumer Discretionary
 20-10-2020,KINGFA,Midcap,Plastic products
 20-10-2020,PNCINFRA,Midcap,Realty
+20-10-2020,PRECOT,Smallcap,Textiles
 20-10-2020,SOBHA,Midcap,Realty
 20-10-2020,WELENT,Midcap,Realty
 20-10-2022,HPL,Smallcap,Industrials
 20-10-2025,APOLLOTYRE,Largecap,Auto
-20-10-2025,CELLO,Midcap,Services
+20-10-2025,CELLO,Midcap,Consumer Discretionary/Services/Services
 20-10-2025,DCBBANK,Midcap,Bank
 20-10-2025,GMMPFAUDLR,Smallcap,Industrials
 20-10-2025,GMRAIRPORT,Largecap,Miscellaneous
@@ -3381,7 +3390,7 @@ Date,Symbol,Marketcapname,Sector
 20-12-2019,JSL,Largecap,Metals & Mining
 21-01-2020,CANFINHOME,Midcap,Financials
 21-01-2025,SWANDEF,Midcap,Transportation
-21-01-2026,NORTHARC,Smallcap,Financials
+21-01-2026,NORTHARC,Midcap/Smallcap,Financials
 21-02-2024,MARATHON,Smallcap,Realty
 21-02-2024,SURYODAY,Smallcap,Bank
 21-03-2022,ANTELOPUS,Smallcap,Energy
@@ -3417,11 +3426,11 @@ Date,Symbol,Marketcapname,Sector
 21-05-2021,SCHNEIDER,Largecap,Industrials
 21-05-2021,VARROC,Midcap,Auto
 21-05-2025,CARYSIL,Smallcap,Consumer Discretionary
-21-05-2025,ERIS,Midcap,Healthcare
+21-05-2025,ERIS,Largecap/Largecap/Midcap,Healthcare
 21-05-2026,ATGL,Largecap,Energy
 21-05-2026,AVANTEL,Smallcap,Aerospace & Defence
 21-05-2026,MINDACORP,Midcap,Auto
-21-05-2026,SAMMAANCAP,Largecap,Financials
+21-05-2026,SAMMAANCAP,Largecap/Midcap/Midcap,Financials
 21-05-2026,TIINDIA,Largecap,Industrials
 21-06-2019,PFIZER,Largecap,Healthcare
 21-06-2022,ASAHIINDIA,Largecap,Building Materials
@@ -3445,6 +3454,8 @@ Date,Symbol,Marketcapname,Sector
 21-07-2023,OIL,Largecap,Energy
 21-07-2025,ETERNAL,Largecap,I.T
 21-07-2025,SHANTIGEAR,Smallcap,Industrials
+21-07-2026,LOTUSDEV,Midcap,Realty
+21-07-2026,SANATHAN,Smallcap,Textiles
 21-08-2020,MANALIPETC,Smallcap,Energy
 21-08-2020,NELCAST,Smallcap,Industrials
 21-08-2020,RENUKA,Smallcap,FMCG
@@ -3492,7 +3503,7 @@ Date,Symbol,Marketcapname,Sector
 21-11-2023,ASHOKLEY,Largecap,Auto
 21-11-2023,ENGINERSIN,Midcap,Realty
 21-11-2023,JSWSTEEL,Largecap,Metals & Mining
-21-11-2023,ORCHPHARMA,Smallcap,Healthcare
+21-11-2023,ORCHPHARMA,Midcap/Midcap/Smallcap,Healthcare
 21-11-2023,RALLIS,Smallcap,Chemicals
 21-11-2023,RHIM,Midcap,Building Materials
 21-11-2025,KTKBANK,Midcap,Bank
@@ -3551,14 +3562,14 @@ Date,Symbol,Marketcapname,Sector
 22-05-2019,RATNAMANI,Midcap,Industrials
 22-05-2023,HCLTECH,Largecap,I.T
 22-05-2023,MUTHOOTFIN,Largecap,Financials
-22-05-2023,NACLIND,Midcap,Chemicals
+22-05-2023,NACLIND,Midcap/Midcap/Smallcap,Chemicals
 22-05-2023,SUZLON,Largecap,Industrials
 22-05-2025,MBAPL,Smallcap,Chemicals
 22-05-2026,CGCL,Largecap,Financials
 22-05-2026,GOCLCORP,Smallcap,Miscellaneous
 22-06-2020,STYRENIX,Smallcap,Energy
 22-06-2020,XPROINDIA,Smallcap,Industrials
-22-06-2021,ZOTA,Midcap,Healthcare
+22-06-2021,ZOTA,Midcap/Smallcap/Smallcap,Healthcare
 22-06-2023,AWHCL,Smallcap,Miscellaneous
 22-06-2023,MMFL,Smallcap,Industrials
 22-06-2026,DRREDDY,Largecap,Healthcare
@@ -3585,7 +3596,7 @@ Date,Symbol,Marketcapname,Sector
 22-08-2023,NIACL,Largecap,Financials
 22-08-2023,TTML,Midcap,Telecom-Service
 22-08-2024,CENTURYPLY,Midcap,Building Materials
-22-08-2024,LXCHEM,Smallcap,Chemicals
+22-08-2024,LXCHEM,Midcap/Smallcap/Smallcap,Chemicals
 22-09-2021,ASTRAMICRO,Midcap,Aerospace & Defence
 22-09-2021,CHALET,Midcap,Services
 22-09-2021,EIHAHOTELS,Smallcap,Services
@@ -3632,20 +3643,20 @@ Date,Symbol,Marketcapname,Sector
 23-01-2024,LLOYDSENGG,Midcap,Industrials
 23-01-2025,EICHERMOT,Largecap,Auto
 23-01-2025,ZENSARTECH,Midcap,I.T
-23-02-2021,DEEPAKFERT,Largecap,Chemicals
+23-02-2021,DEEPAKFERT,Largecap/Largecap/Midcap,Chemicals
 23-02-2021,DREDGECORP,Smallcap,Miscellaneous
 23-02-2021,GPPL,Midcap,Transportation
 23-02-2021,JINDRILL,Smallcap,Energy
 23-02-2021,MRPL,Largecap,Energy
 23-02-2023,GAIL,Largecap,Energy
-23-02-2024,ICRA,Midcap,Financials
-23-02-2026,J&KBANK,Midcap,Bank
+23-02-2024,ICRA,Midcap/Midcap/Smallcap,Financials
+23-02-2026,J&KBANK,Largecap/Midcap/Midcap,Bank
 23-02-2026,RRKABEL,Largecap,Industrials
 23-02-2026,SCHAEFFLER,Largecap,Industrials
 23-02-2026,TIMKEN,Largecap,Industrials
 23-03-2021,RELINFRA,Smallcap,Realty
 23-03-2022,HCG,Midcap,Healthcare
-23-03-2022,ICRA,Midcap,Financials
+23-03-2022,ICRA,Midcap/Midcap/Smallcap,Financials
 23-03-2022,NAVA,Midcap,Miscellaneous
 23-03-2023,AHLUCONT,Midcap,Realty
 23-03-2023,TTKHLTCARE,Smallcap,Miscellaneous
@@ -3668,7 +3679,7 @@ Date,Symbol,Marketcapname,Sector
 23-05-2019,AGI,Smallcap,Industrials
 23-05-2019,BRIGADE,Midcap,Realty
 23-05-2019,HDFCLIFE,Largecap,Financials
-23-05-2019,IOLCP,Smallcap,Healthcare
+23-05-2019,IOLCP,Midcap/Smallcap/Smallcap,Healthcare
 23-05-2019,KEC,Midcap,Realty
 23-05-2019,TDPOWERSYS,Midcap,Industrials
 23-05-2022,AIAENG,Largecap,Industrials
@@ -3696,9 +3707,9 @@ Date,Symbol,Marketcapname,Sector
 23-07-2024,TEAMLEASE,Smallcap,Miscellaneous
 23-07-2024,YATHARTH,Midcap,Healthcare
 23-08-2019,MOLDTKPAC,Smallcap,Industrials
-23-08-2021,PFOCUS,Midcap,Realty
+23-08-2021,PFOCUS,Largecap/Largecap/Midcap,Realty
 23-08-2021,RELIANCE,Largecap,Energy
-23-08-2022,ANANTRAJ,Midcap,Realty
+23-08-2022,ANANTRAJ,Largecap/Largecap/Midcap,Realty
 23-08-2022,EXCELINDUS,Smallcap,Chemicals
 23-08-2023,GODREJIND,Largecap,Chemicals
 23-08-2023,GREENPANEL,Smallcap,Building Materials
@@ -3757,7 +3768,7 @@ Date,Symbol,Marketcapname,Sector
 23-11-2023,JSWSTEEL,Largecap,Metals & Mining
 23-11-2023,LICI,Largecap,Financials
 23-11-2023,RAMRAT,Smallcap,Metals & Mining
-23-11-2023,TRITURBINE,Largecap,Industrials
+23-11-2023,TRITURBINE,Largecap/Midcap/Midcap,Industrials
 23-12-2019,LINCOLN,Smallcap,Healthcare
 23-12-2019,SIS,Midcap,Miscellaneous
 23-12-2019,THEMISMED,Smallcap,Healthcare
@@ -3827,8 +3838,8 @@ Date,Symbol,Marketcapname,Sector
 24-05-2019,VAIBHAVGBL,Smallcap,Consumer Discretionary
 24-05-2021,EICHERMOT,Largecap,Auto
 24-05-2021,FIEMIND,Midcap,Auto
-24-05-2021,MACPOWER,Midcap,Industrials
-24-05-2021,SHARDAMOTR,Midcap,Auto
+24-05-2021,MACPOWER,Midcap/Smallcap/Smallcap,Industrials
+24-05-2021,SHARDAMOTR,Midcap/Smallcap/Smallcap,Auto
 24-05-2023,RSYSTEMS,Smallcap,I.T
 24-05-2023,SUDARSCHEM,Midcap,Chemicals
 24-06-2019,NTPC,Largecap,Power & Utilities
@@ -3851,7 +3862,7 @@ Date,Symbol,Marketcapname,Sector
 24-06-2025,BRITANNIA,Largecap,FMCG
 24-06-2025,FINEORG,Midcap,Chemicals
 24-06-2025,IOC,Largecap,Energy
-24-06-2025,J&KBANK,Midcap,Bank
+24-06-2025,J&KBANK,Largecap/Midcap/Midcap,Bank
 24-06-2025,MUKANDLTD,Smallcap,Metals & Mining
 24-06-2025,PAGEIND,Largecap,Consumer Discretionary
 24-06-2025,SHRIRAMFIN,Largecap,Financials
@@ -3874,7 +3885,7 @@ Date,Symbol,Marketcapname,Sector
 24-07-2024,MRF,Largecap,Auto
 24-07-2024,NYKAA,Largecap,I.T
 24-07-2024,PDSL,Midcap,Textiles
-24-07-2024,PFOCUS,Midcap,Realty
+24-07-2024,PFOCUS,Largecap/Largecap/Midcap,Realty
 24-07-2024,PSB,Midcap,Bank
 24-07-2024,TARSONS,Smallcap,Healthcare
 24-07-2024,THEMISMED,Smallcap,Healthcare
@@ -3896,7 +3907,7 @@ Date,Symbol,Marketcapname,Sector
 24-08-2023,TIRUMALCHM,Smallcap,Chemicals
 24-09-2019,RITES,Midcap,Miscellaneous
 24-09-2019,SUDARSCHEM,Midcap,Chemicals
-24-09-2021,DLINKINDIA,Smallcap,Services
+24-09-2021,DLINKINDIA,Smallcap,I.T/Services/Services
 24-09-2021,GSFC,Midcap,Chemicals
 24-09-2024,CEATLTD,Midcap,Auto
 24-09-2024,GRINFRA,Midcap,Realty
@@ -3916,7 +3927,7 @@ Date,Symbol,Marketcapname,Sector
 24-11-2020,AVANTIFEED,Midcap,FMCG
 24-11-2020,BHARATRAS,Smallcap,Chemicals
 24-11-2020,DIAMONDYD,Smallcap,FMCG
-24-11-2020,DLINKINDIA,Smallcap,Services
+24-11-2020,DLINKINDIA,Smallcap,I.T/Services/Services
 24-11-2020,GHCL,Smallcap,Chemicals
 24-11-2020,IEX,Midcap,Financials
 24-11-2020,SIS,Midcap,Miscellaneous
@@ -3933,13 +3944,13 @@ Date,Symbol,Marketcapname,Sector
 24-11-2023,SIS,Midcap,Miscellaneous
 24-11-2023,SUPRIYA,Midcap,Healthcare
 24-11-2023,THYROCARE,Midcap,Healthcare
-24-11-2025,BLISSGVS,Midcap,Healthcare
+24-11-2025,BLISSGVS,Midcap/Midcap/Smallcap,Healthcare
 24-12-2019,SIGMAADV,Midcap,Aerospace & Defence
 24-12-2020,ALLDIGI,Smallcap,I.T
 24-12-2020,TDPOWERSYS,Midcap,Industrials
 24-12-2020,TTKPRESTIG,Midcap,Consumer Discretionary
 24-12-2021,APOLLO,Midcap,Aerospace & Defence
-24-12-2021,DLINKINDIA,Smallcap,Services
+24-12-2021,DLINKINDIA,Smallcap,I.T/Services/Services
 24-12-2021,GUFICBIO,Smallcap,Healthcare
 24-12-2021,KINGFA,Midcap,Plastic products
 24-12-2021,TEXINFRA,Smallcap,Realty
@@ -3978,7 +3989,7 @@ Date,Symbol,Marketcapname,Sector
 25-06-2019,TORNTPOWER,Largecap,Power & Utilities
 25-06-2020,FACT,Largecap,Chemicals
 25-06-2020,TI,Midcap,FMCG
-25-06-2021,ZOTA,Midcap,Healthcare
+25-06-2021,ZOTA,Midcap/Smallcap/Smallcap,Healthcare
 25-06-2024,ATULAUTO,Smallcap,Auto
 25-06-2024,BANCOINDIA,Midcap,Auto
 25-06-2024,DRREDDY,Largecap,Healthcare
@@ -4016,9 +4027,9 @@ Date,Symbol,Marketcapname,Sector
 25-08-2021,ADANIPORTS,Largecap,Transportation
 25-08-2021,HIRECT,Smallcap,Consumer Discretionary
 25-08-2021,INDIGO,Largecap,Transportation
-25-08-2021,OPTIEMUS,Smallcap,Telecom
+25-08-2021,OPTIEMUS,Midcap/Midcap/Smallcap,Telecom
 25-08-2021,SBICARD,Largecap,Financials
-25-08-2021,SWSOLAR,Midcap,Realty
+25-08-2021,SWSOLAR,Midcap/Midcap/Smallcap,Realty
 25-08-2022,HNDFDS,Midcap,FMCG
 25-08-2022,PNCINFRA,Midcap,Realty
 25-08-2022,SJS,Midcap,Auto
@@ -4039,7 +4050,7 @@ Date,Symbol,Marketcapname,Sector
 25-10-2022,RAILTEL,Midcap,Transportation
 25-10-2022,SYNGENE,Midcap,Healthcare
 25-10-2022,UNITDSPR,Largecap,FMCG
-25-11-2019,CUB,Midcap,Bank
+25-11-2019,CUB,Largecap/Midcap/Midcap,Bank
 25-11-2019,NATCOPHARM,Midcap,Healthcare
 25-11-2020,CENTRUM,Smallcap,Financials
 25-11-2020,FLUOROCHEM,Largecap,Chemicals
@@ -4051,7 +4062,7 @@ Date,Symbol,Marketcapname,Sector
 25-11-2020,SANGAMIND,Smallcap,Textiles
 25-11-2021,AFFLE,Largecap,I.T
 25-11-2021,JINDALPOLY,Smallcap,Textiles
-25-11-2022,CARERATING,Smallcap,Financials
+25-11-2022,CARERATING,Midcap/Smallcap,Financials
 25-11-2022,GOODYEAR,Smallcap,Auto
 25-11-2022,KINGFA,Midcap,Plastic products
 25-11-2022,LTF,Largecap,Financials
@@ -4086,7 +4097,7 @@ Date,Symbol,Marketcapname,Sector
 26-04-2022,RAMKY,Smallcap,Realty
 26-04-2023,CIEINDIA,Midcap,Industrials
 26-04-2023,CRISIL,Largecap,Financials
-26-04-2023,DATAMATICS,Smallcap,I.T
+26-04-2023,DATAMATICS,Midcap/Smallcap,I.T
 26-04-2023,GIPCL,Smallcap,Power & Utilities
 26-04-2023,GSPL,Midcap,Energy
 26-04-2024,COROMANDEL,Largecap,Chemicals
@@ -4100,8 +4111,8 @@ Date,Symbol,Marketcapname,Sector
 26-05-2023,PSPPROJECT,Smallcap,Realty
 26-05-2025,RELTD,Smallcap,Industrials
 26-05-2026,EXIDEIND,Largecap,Auto
-26-05-2026,IFCI,Largecap,Financials
-26-06-2019,CAPLIPOINT,Midcap,Healthcare
+26-05-2026,IFCI,Largecap/Midcap,Financials
+26-06-2019,CAPLIPOINT,Largecap/Midcap,Healthcare
 26-06-2019,GRASIM,Largecap,Textiles
 26-06-2019,JKIL,Smallcap,Realty
 26-06-2019,SUPREMEIND,Largecap,Plastic products
@@ -4115,20 +4126,20 @@ Date,Symbol,Marketcapname,Sector
 26-06-2024,AMBER,Largecap,Consumer Discretionary
 26-06-2024,GHCLTEXTIL,Smallcap,Textiles
 26-06-2024,INDSWFTLAB,Smallcap,Healthcare
-26-06-2024,LGBBROSLTD,Midcap,Auto
+26-06-2024,LGBBROSLTD,Midcap/Smallcap,Auto
 26-06-2024,ORIENTCEM,Smallcap,Building Materials
 26-06-2024,SASKEN,Smallcap,I.T
 26-06-2025,APOLLOHOSP,Largecap,Healthcare
 26-06-2025,IOC,Largecap,Energy
 26-06-2025,PNB,Largecap,Bank
 26-07-2019,ADANIGREEN,Largecap,Power & Utilities
-26-07-2021,SUNTV,Largecap,Media
+26-07-2021,SUNTV,Largecap/Midcap/Midcap,Media
 26-07-2023,COHANCE,Midcap,Healthcare
 26-07-2023,LICHSGFIN,Largecap,Financials
 26-07-2023,LUXIND,Smallcap,Textiles
 26-07-2023,RUPA,Smallcap,Textiles
-26-07-2023,SAMMAANCAP,Largecap,Financials
-26-07-2023,SHARDAMOTR,Midcap,Auto
+26-07-2023,SAMMAANCAP,Largecap/Midcap/Midcap,Financials
+26-07-2023,SHARDAMOTR,Midcap/Smallcap/Smallcap,Auto
 26-07-2023,TATAINVEST,Largecap,Financials
 26-07-2023,WEBELSOLAR,Smallcap,Industrials
 26-07-2024,ASIANTILES,Smallcap,Building Materials
@@ -4156,7 +4167,7 @@ Date,Symbol,Marketcapname,Sector
 26-08-2021,ESABINDIA,Midcap,Industrials
 26-08-2022,KPIL,Largecap,Realty
 26-08-2022,SJVN,Largecap,Power & Utilities
-26-08-2024,GOODLUCK,Smallcap,Metals & Mining
+26-08-2024,GOODLUCK,Midcap/Midcap/Smallcap,Metals & Mining
 26-08-2024,HONASA,Midcap,Services
 26-08-2024,JAGSNPHARM,Smallcap,Healthcare
 26-08-2025,RTNINDIA,Smallcap,Financials
@@ -4226,12 +4237,12 @@ Date,Symbol,Marketcapname,Sector
 27-04-2020,TATACONSUM,Largecap,FMCG
 27-04-2020,TORNTPOWER,Largecap,Power & Utilities
 27-04-2021,BHARATRAS,Smallcap,Chemicals
-27-04-2021,CARERATING,Smallcap,Financials
+27-04-2021,CARERATING,Midcap/Smallcap,Financials
 27-04-2021,JINDALSAW,Midcap,Industrials
 27-04-2021,KIOCL,Largecap,Metals & Mining
 27-04-2021,OFSS,Largecap,I.T
 27-04-2021,SUDARSCHEM,Midcap,Chemicals
-27-04-2021,SUNTV,Largecap,Media
+27-04-2021,SUNTV,Largecap/Midcap/Midcap,Media
 27-04-2022,OMAXE,Smallcap,Realty
 27-04-2023,BANKINDIA,Largecap,Bank
 27-04-2023,COFORGE,Largecap,I.T
@@ -4251,7 +4262,7 @@ Date,Symbol,Marketcapname,Sector
 27-05-2020,TIPSMUSIC,Midcap,Media
 27-05-2021,CANTABIL,Smallcap,Textiles
 27-05-2021,ORISSAMINE,Smallcap,Metals & Mining
-27-05-2021,SHARDAMOTR,Midcap,Auto
+27-05-2021,SHARDAMOTR,Midcap/Smallcap/Smallcap,Auto
 27-05-2024,ZFCVINDIA,Largecap,Auto
 27-05-2025,SMLMAH,Midcap,Auto
 27-05-2026,CAMS,Midcap,Financials
@@ -4268,7 +4279,7 @@ Date,Symbol,Marketcapname,Sector
 27-06-2024,DRREDDY,Largecap,Healthcare
 27-06-2024,FSL,Midcap,I.T
 27-06-2024,UGROCAP,Smallcap,Financials
-27-06-2025,PFOCUS,Midcap,Realty
+27-06-2025,PFOCUS,Largecap/Largecap/Midcap,Realty
 27-06-2025,SANGAMIND,Smallcap,Textiles
 27-07-2020,EPL,Midcap,Industrials
 27-07-2021,GABRIEL,Largecap,Auto
@@ -4308,7 +4319,7 @@ Date,Symbol,Marketcapname,Sector
 27-10-2022,WEALTH,Smallcap,Financials
 27-10-2025,BHARTIHEXA,Largecap,Telecom-Service
 27-10-2025,CIGNITITEC,Smallcap,I.T
-27-10-2025,GESHIP,Largecap,Transportation
+27-10-2025,GESHIP,Largecap/Largecap/Midcap,Transportation
 27-10-2025,GRAPHITE,Midcap,Industrials
 27-10-2025,GRASIM,Largecap,Textiles
 27-10-2025,HATSUN,Largecap,FMCG
@@ -4325,13 +4336,13 @@ Date,Symbol,Marketcapname,Sector
 27-11-2020,TITAGARH,Midcap,Industrials
 27-11-2025,MSPL,Smallcap,Metals & Mining
 27-12-2018,OLECTRA,Midcap,Auto
-27-12-2019,DLINKINDIA,Smallcap,Services
+27-12-2019,DLINKINDIA,Smallcap,I.T/Services/Services
 27-12-2019,RHIM,Midcap,Building Materials
 27-12-2021,BALRAMCHIN,Midcap,FMCG
 27-12-2021,DEEPAKNTR,Largecap,Chemicals
 27-12-2021,DSSL,Smallcap,I.T
 27-12-2021,IMPAL,Smallcap,Auto
-27-12-2021,RESPONIND,Midcap,Plastic products
+27-12-2021,RESPONIND,Midcap/Smallcap,Plastic products
 27-12-2021,SJVN,Largecap,Power & Utilities
 27-12-2022,ASHOKA,Smallcap,Realty
 27-12-2022,BAJAJELEC,Smallcap,Consumer Discretionary
@@ -4398,8 +4409,8 @@ Date,Symbol,Marketcapname,Sector
 28-07-2023,JMFINANCIL,Midcap,Financials
 28-07-2023,PETRONET,Largecap,Energy
 28-07-2023,PSPPROJECT,Smallcap,Realty
-28-07-2023,RBA,Midcap,Consumer Discretionary
-28-07-2023,SHARDAMOTR,Midcap,Auto
+28-07-2023,RBA,Midcap/Smallcap,Consumer Discretionary
+28-07-2023,SHARDAMOTR,Midcap/Smallcap/Smallcap,Auto
 28-07-2023,TATACHEM,Midcap,Chemicals
 28-08-2023,CARTRADE,Midcap,Consumer Discretionary
 28-08-2023,DEEPAKNTR,Largecap,Chemicals
@@ -4423,7 +4434,7 @@ Date,Symbol,Marketcapname,Sector
 28-10-2025,UPL,Largecap,Chemicals
 28-11-2018,RELIANCE,Largecap,Energy
 28-11-2022,PFIZER,Largecap,Healthcare
-28-11-2022,PFOCUS,Midcap,Realty
+28-11-2022,PFOCUS,Largecap/Largecap/Midcap,Realty
 28-11-2023,GAYAPROJ,Smallcap,Realty
 28-11-2023,JUBLPHARMA,Midcap,Healthcare
 28-11-2023,SAIL,Largecap,Metals & Mining
@@ -4433,14 +4444,14 @@ Date,Symbol,Marketcapname,Sector
 28-12-2020,GLAXO,Largecap,Healthcare
 28-12-2020,INFOBEAN,Smallcap,I.T
 28-12-2020,JWL,Midcap,Industrials
-28-12-2020,LGBBROSLTD,Midcap,Auto
-28-12-2020,NACLIND,Midcap,Chemicals
+28-12-2020,LGBBROSLTD,Midcap/Smallcap,Auto
+28-12-2020,NACLIND,Midcap/Midcap/Smallcap,Chemicals
 28-12-2020,NAVA,Midcap,Miscellaneous
 28-12-2020,RTNINDIA,Smallcap,Financials
 28-12-2020,SIRCA,Smallcap,Building Materials
 28-12-2020,STEL,Smallcap,Financials
 28-12-2021,ALLDIGI,Smallcap,I.T
-28-12-2021,ANANTRAJ,Midcap,Realty
+28-12-2021,ANANTRAJ,Largecap/Largecap/Midcap,Realty
 28-12-2021,BGRENERGY,Smallcap,Realty
 28-12-2021,CENTENKA,Smallcap,Textiles
 28-12-2021,FCL,Smallcap,Chemicals
@@ -4471,7 +4482,7 @@ Date,Symbol,Marketcapname,Sector
 29-03-2019,VBL,Largecap,FMCG
 29-03-2022,GREENPLY,Smallcap,Building Materials
 29-03-2022,MARATHON,Smallcap,Realty
-29-03-2022,PFOCUS,Midcap,Realty
+29-03-2022,PFOCUS,Largecap/Largecap/Midcap,Realty
 29-03-2022,PRICOLLTD,Midcap,Auto
 29-03-2023,BDL,Largecap,Aerospace & Defence
 29-03-2023,NITINSPIN,Smallcap,Textiles
@@ -4500,7 +4511,7 @@ Date,Symbol,Marketcapname,Sector
 29-06-2020,BHARATRAS,Smallcap,Chemicals
 29-06-2021,VESUVIUS,Midcap,Building Materials
 29-06-2026,AVADHSUGAR,Smallcap,FMCG
-29-06-2026,BANSALWIRE,Midcap,Metals & Mining
+29-06-2026,BANSALWIRE,Midcap/Smallcap,Metals & Mining
 29-06-2026,KABRAEXTRU,Smallcap,Industrials
 29-06-2026,KSL,Smallcap,Metals & Mining
 29-07-2019,ZYDUSWELL,Midcap,FMCG
@@ -4524,7 +4535,7 @@ Date,Symbol,Marketcapname,Sector
 29-08-2025,JINDALPHOT,Smallcap,Financials
 29-09-2020,CEATLTD,Midcap,Auto
 29-09-2020,NH,Largecap,Healthcare
-29-09-2020,PFOCUS,Midcap,Realty
+29-09-2020,PFOCUS,Largecap/Largecap/Midcap,Realty
 29-09-2020,SAGCEM,Smallcap,Building Materials
 29-09-2020,TITAN,Largecap,Consumer Discretionary
 29-09-2021,AXISCADES,Midcap,Aerospace & Defence
@@ -4556,7 +4567,7 @@ Date,Symbol,Marketcapname,Sector
 29-11-2018,JWL,Midcap,Industrials
 29-11-2021,DIAMONDYD,Smallcap,FMCG
 29-11-2022,DRREDDY,Largecap,Healthcare
-29-11-2022,ICRA,Midcap,Financials
+29-11-2022,ICRA,Midcap/Midcap/Smallcap,Financials
 29-11-2022,LUPIN,Largecap,Healthcare
 29-11-2022,PIDILITIND,Largecap,Chemicals
 29-11-2023,AARTIPHARM,Midcap,Healthcare
@@ -4575,22 +4586,22 @@ Date,Symbol,Marketcapname,Sector
 29-12-2020,INGERRAND,Midcap,Industrials
 29-12-2020,KIRLOSENG,Largecap,Industrials
 29-12-2020,RICOAUTO,Smallcap,Auto
-29-12-2020,ZOTA,Midcap,Healthcare
+29-12-2020,ZOTA,Midcap/Smallcap/Smallcap,Healthcare
 29-12-2021,JBCHEPHARM,Largecap,Healthcare
 29-12-2021,KEC,Midcap,Realty
 29-12-2021,MSPL,Smallcap,Metals & Mining
 29-12-2021,RAIN,Midcap,Miscellaneous
-29-12-2021,RESPONIND,Midcap,Plastic products
+29-12-2021,RESPONIND,Midcap/Smallcap,Plastic products
 29-12-2021,SPARC,Midcap,Healthcare
 29-12-2022,GPIL,Midcap,Metals & Mining
 29-12-2022,HINDZINC,Largecap,Metals & Mining
 29-12-2022,KEC,Midcap,Realty
-29-12-2022,SAMMAANCAP,Largecap,Financials
+29-12-2022,SAMMAANCAP,Largecap/Midcap/Midcap,Financials
 29-12-2022,SJS,Midcap,Auto
 29-12-2022,SURYODAY,Smallcap,Bank
 29-12-2022,TALBROAUTO,Smallcap,Auto
 29-12-2022,WEL,Smallcap,Consumer Discretionary
-29-12-2023,ICRA,Midcap,Financials
+29-12-2023,ICRA,Midcap/Midcap/Smallcap,Financials
 29-12-2023,MAYURUNIQ,Smallcap,Consumer Discretionary
 29-12-2025,TATASTEEL,Largecap,Metals & Mining
 30-01-2019,VBL,Largecap,FMCG
@@ -4599,7 +4610,7 @@ Date,Symbol,Marketcapname,Sector
 30-01-2023,RADICO,Largecap,FMCG
 30-01-2024,JAMNAAUTO,Midcap,Auto
 30-01-2024,MSUMI,Largecap,Auto
-30-01-2024,PFOCUS,Midcap,Realty
+30-01-2024,PFOCUS,Largecap/Largecap/Midcap,Realty
 30-01-2024,SERVOTECH,Smallcap,Industrials
 30-01-2025,KARURVYSYA,Largecap,Bank
 30-01-2025,SWARAJENG,Smallcap,Industrials
@@ -4610,7 +4621,7 @@ Date,Symbol,Marketcapname,Sector
 30-03-2022,HOMEFIRST,Midcap,Financials
 30-03-2022,SAFARI,Midcap,Plastic products
 30-03-2022,SAREGAMA,Midcap,Media
-30-04-2019,GOLDIAM,Midcap,Consumer Discretionary
+30-04-2019,GOLDIAM,Midcap/Smallcap/Smallcap,Consumer Discretionary
 30-04-2019,GREAVESCOT,Midcap,Industrials
 30-04-2020,BHARTIARTL,Largecap,Telecom-Service
 30-04-2020,DHANUKA,Smallcap,Chemicals
@@ -4645,12 +4656,12 @@ Date,Symbol,Marketcapname,Sector
 30-06-2025,SATIN,Smallcap,Financials
 30-06-2025,UPL,Largecap,Chemicals
 30-06-2026,MANKIND,Largecap,Healthcare
-30-06-2026,OLAELEC,Largecap,Auto
+30-06-2026,OLAELEC,Largecap/Midcap/Midcap,Auto
 30-06-2026,SMSPHARMA,Smallcap,Healthcare
 30-06-2026,TITAN,Largecap,Consumer Discretionary
 30-06-2026,WENDT,Smallcap,Industrials
 30-07-2020,DABUR,Largecap,FMCG
-30-07-2021,SUNTV,Largecap,Media
+30-07-2021,SUNTV,Largecap/Midcap/Midcap,Media
 30-07-2024,DEEPINDS,Smallcap,Energy
 30-07-2024,RUBYMILLS,Smallcap,Textiles
 30-07-2025,ACUTAAS,Largecap,Healthcare
@@ -4677,7 +4688,7 @@ Date,Symbol,Marketcapname,Sector
 30-09-2024,RRKABEL,Largecap,Industrials
 30-09-2025,ASTRAZEN,Largecap,Healthcare
 30-09-2025,BANKINDIA,Largecap,Bank
-30-09-2025,CUB,Midcap,Bank
+30-09-2025,CUB,Largecap/Midcap/Midcap,Bank
 30-09-2025,IFGLEXPOR,Smallcap,Building Materials
 30-09-2025,JINDALSTEL,Largecap,Metals & Mining
 30-09-2025,MOIL,Midcap,Metals & Mining
@@ -4693,6 +4704,7 @@ Date,Symbol,Marketcapname,Sector
 30-10-2024,BANCOINDIA,Midcap,Auto
 30-10-2024,PDSL,Midcap,Textiles
 30-10-2024,PRECAM,Smallcap,Auto
+30-10-2024,PRECOT,Smallcap,Textiles
 30-10-2025,AJMERA,Smallcap,Realty
 30-10-2025,MEDIASSIST,Smallcap,Miscellaneous
 30-11-2021,TALBROAUTO,Smallcap,Auto
@@ -4704,7 +4716,7 @@ Date,Symbol,Marketcapname,Sector
 30-12-2020,CONTROLPR,Smallcap,I.T
 30-12-2020,IIFLCAPS,Midcap,Financials
 30-12-2020,INDIAGLYCO,Midcap,FMCG
-30-12-2020,NACLIND,Midcap,Chemicals
+30-12-2020,NACLIND,Midcap/Midcap/Smallcap,Chemicals
 30-12-2020,STARCEMENT,Midcap,Building Materials
 30-12-2021,CENTENKA,Smallcap,Textiles
 30-12-2021,IMPAL,Smallcap,Auto
@@ -4765,8 +4777,8 @@ Date,Symbol,Marketcapname,Sector
 31-12-2020,DYNAMATECH,Midcap,Industrials
 31-12-2020,GLAXO,Largecap,Healthcare
 31-12-2020,SMLMAH,Midcap,Auto
-31-12-2020,SWSOLAR,Midcap,Realty
-31-12-2021,ANANTRAJ,Midcap,Realty
+31-12-2020,SWSOLAR,Midcap/Midcap/Smallcap,Realty
+31-12-2021,ANANTRAJ,Largecap/Largecap/Midcap,Realty
 31-12-2021,HINDALCO,Largecap,Metals & Mining
 31-12-2021,PIDILITIND,Largecap,Chemicals
 31-12-2024,APEX,Smallcap,FMCG

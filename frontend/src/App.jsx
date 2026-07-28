@@ -9,6 +9,7 @@ import DashboardHub from './pages/DashboardHub';
 import BacktesterPage from './pages/BacktesterPage';
 import FundamentalAnalysis from './pages/FundamentalAnalysis';
 import AdminPage from './pages/AdminPage';
+import AITradeCheck from './analyzer/AITradeCheck';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -80,6 +81,7 @@ function App() {
         </Routes>
       </div>
       <Footer />
+      <AITradeCheck />
     </div>
   );
 }

@@ -159,7 +159,7 @@ const UploadCard = ({ onUpload, isLoading, progress, entryMode, onEntryModeChang
                         </div>
                         {!isIndeterminate && (
                             <div className="progress-stats">
-                                {progress.current} / {progress.total} signals processed
+                                {progress.signals_processed ?? progress.current} / {progress.total_signals ?? progress.total} signals processed
                             </div>
                         )}
                     </motion.div>

@@ -21,7 +21,11 @@ const runBacktestHTTPFallback = async (file, onProgress, onComplete, onError, en
             timeout: HTTP_TIMEOUT,
             headers,
         }).then(response => {
-            onComplete(response.data);
+            const report = response.data;
+            if (!Array.isArray(report?.trades)) {
+                report.trades = [];
+            }
+            onComplete(report);
         });
     } catch (error) {
         console.error('[HTTP Fallback] Error:', error);
@@ -113,6 +117,8 @@ export const runBacktestWS = (file, onProgress, onComplete, onError, entryMode =
             settled = true;
             clearTimeout(watchdogTimer);
             document.removeEventListener('visibilitychange', handleVisibility);
+
+            if (!Array.isArray(trades)) trades = [];
 
             if (data.latest_prices && typeof data.latest_prices === 'object') {
                 trades = trades.map(t => ({
