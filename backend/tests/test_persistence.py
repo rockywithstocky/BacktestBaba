@@ -19,27 +19,32 @@ from backend.persistence import (
 
 class TestComputeRowHash:
     def test_deterministic(self):
-        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close")
-        b = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close")
+        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close", entry_price=0.0)
+        b = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close", entry_price=0.0)
         assert a == b
 
     def test_different_symbols_differ(self):
-        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close")
-        b = compute_row_hash("TCS.NS", "2026-01-15", "next_close")
+        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close", entry_price=0.0)
+        b = compute_row_hash("TCS.NS", "2026-01-15", "next_close", entry_price=0.0)
         assert a != b
 
     def test_different_dates_differ(self):
-        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close")
-        b = compute_row_hash("RELIANCE.NS", "2026-01-16", "next_close")
+        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close", entry_price=0.0)
+        b = compute_row_hash("RELIANCE.NS", "2026-01-16", "next_close", entry_price=0.0)
         assert a != b
 
     def test_different_modes_differ(self):
-        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close")
-        b = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_open")
+        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close", entry_price=0.0)
+        b = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_open", entry_price=0.0)
         assert a != b
 
+    def test_different_entry_prices_differ(self):
+        a = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close", entry_price=100.0)
+        b = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close", entry_price=200.0)
+        assert a != b, "Different entry prices must produce different hashes"
+
     def test_output_is_hex(self):
-        h = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close")
+        h = compute_row_hash("RELIANCE.NS", "2026-01-15", "next_close", entry_price=0.0)
         assert len(h) == 64
         int(h, 16)  # raises if not valid hex
 

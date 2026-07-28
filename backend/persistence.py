@@ -13,8 +13,8 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-def compute_row_hash(symbol: str, signal_date: str, entry_mode: str, duration: int = 90) -> str:
-    raw = f"{symbol}|{signal_date}|{entry_mode}|{duration}"
+def compute_row_hash(symbol: str, signal_date: str, entry_mode: str, duration: int = 90, entry_price: float = 0.0) -> str:
+    raw = f"{symbol}|{signal_date}|{entry_mode}|{duration}|{entry_price}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

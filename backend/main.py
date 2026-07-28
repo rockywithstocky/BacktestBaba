@@ -266,7 +266,7 @@ async def _persist_upload(
         trade_records = []
         for t in report.trades:
             trade_records.append(TradeRecord(
-                row_hash=compute_row_hash(t.symbol, t.signal_date, entry_mode, duration),
+                row_hash=compute_row_hash(t.symbol, t.signal_date, entry_mode, duration, t.entry_price),
                 symbol=t.symbol,
                 signal_date=t.signal_date,
                 entry_date=t.entry_date,
@@ -289,7 +289,7 @@ async def _persist_upload(
                     signal_data.append({
                         "id": str(uuid.uuid4()),
                         "user_id": user_id,
-                        "row_hash": compute_row_hash(t.symbol, t.signal_date, entry_mode, duration),
+                        "row_hash": compute_row_hash(t.symbol, t.signal_date, entry_mode, duration, t.entry_price),
                         "upload_id": upload_id,
                         "symbol": t.symbol,
                         "signal_date": t.signal_date,
