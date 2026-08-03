@@ -498,6 +498,54 @@ const Dashboard = ({ report, onBack }) => {
                         <div className="flex h-48 items-center justify-center text-gray-500">Not enough market cap data available.</div>
                     )}
                 </div>
+
+                <div className="chart-card">
+                    <h3 className="section-title">Return Heatmap</h3>
+                    <p className="text-xs text-gray-400 mb-4">Darker = stronger move. Click a horizon cell for the chart. ({sortedTrades.length} trades)</p>
+                    {sortedTrades.length > 0 ? (
+                        <div className="heatmap-scroll">
+                            <table className="heatmap-table heat-table">
+                                <thead>
+                                    <tr>
+                                        <th className="heatmap-symbol">Symbol</th>
+                                        <th>Latest</th>
+                                        <th>1W</th>
+                                        <th>1M</th>
+                                        <th>3M</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sortedTrades.map((trade, idx) => (
+                                        <tr key={idx}>
+                                            <td className="heatmap-symbol">{trade.symbol}</td>
+                                            <td className={getReturnClass(trade.latest_price_return)}
+                                                title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}>
+                                                {formatPercent(trade.latest_price_return)}
+                                            </td>
+                                            <td className={`heat-click ${getReturnClass(trade.return_7d)}`}
+                                                onClick={() => handleCellClick(trade, '7d')}
+                                                title={`${trade.symbol} · 1W: ${formatPercent(trade.return_7d)}`}>
+                                                {formatPercent(trade.return_7d)}
+                                            </td>
+                                            <td className={`heat-click ${getReturnClass(trade.return_30d)}`}
+                                                onClick={() => handleCellClick(trade, '30d')}
+                                                title={`${trade.symbol} · 1M: ${formatPercent(trade.return_30d)}`}>
+                                                {formatPercent(trade.return_30d)}
+                                            </td>
+                                            <td className={`heat-click ${getReturnClass(trade.return_90d)}`}
+                                                onClick={() => handleCellClick(trade, '90d')}
+                                                title={`${trade.symbol} · 3M: ${formatPercent(trade.return_90d)}`}>
+                                                {formatPercent(trade.return_90d)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="flex h-48 items-center justify-center text-gray-500">No trade data available.</div>
+                    )}
+                </div>
             </div>
 
             <div className="stats-table-card">
