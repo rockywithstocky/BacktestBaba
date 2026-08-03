@@ -119,8 +119,6 @@ const Dashboard = ({ report, onBack }) => {
         };
     }, [successfulTrades]);
 
-    const capMatrix = useMemo(() => buildCapMatrix(successfulTrades), [successfulTrades]);
-
     const distributionData = useMemo(() => {
         const returns = successfulTrades.map(t => t.return_30d).filter(v => v !== null && v !== undefined);
         if (returns.length === 0) return [];
@@ -233,6 +231,7 @@ const Dashboard = ({ report, onBack }) => {
             .filter(b => b.count >= 3)
             .sort((a, b) => (b.return_30d ?? -Infinity) - (a.return_30d ?? -Infinity));
     };
+    const capMatrix = useMemo(() => buildCapMatrix(successfulTrades), [successfulTrades]);
     const getTradingViewUrl = (symbol) => {
         if (!symbol) return '#';
         let tvSymbol = symbol;
