@@ -588,29 +588,29 @@ const Dashboard = ({ report, onBack }) => {
 
                                     </span>
                                 </th>
-                                <th onClick={() => handleSort('entry_date')}>
+                                <th onClick={() => handleSort('entry_date')} className="col-entry-date">
                                     Entry Date {sortConfig.key === 'entry_date' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('entry_price')}>
+                                <th onClick={() => handleSort('entry_price')} className="col-entry">
                                     Entry {sortConfig.key === 'entry_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('latest_price')}>
+                                <th onClick={() => handleSort('latest_price')} className="col-latest">
                                     Latest Price {sortConfig.key === 'latest_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
 
-                                <th onClick={() => handleSort('return_7d')}>
+                                <th onClick={() => handleSort('return_7d')} className="col-return-7d">
                                     1 Week Return {sortConfig.key === 'return_7d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('return_30d')}>
+                                <th onClick={() => handleSort('return_30d')} className="col-return-30d">
                                     1 Month Return {sortConfig.key === 'return_30d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('return_90d')}>
+                                <th onClick={() => handleSort('return_90d')} className="col-return-90d">
                                     3 Month Return {sortConfig.key === 'return_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('max_high_90d')}>
+                                <th onClick={() => handleSort('max_high_90d')} className="col-max-high">
                                     Max High {sortConfig.key === 'max_high_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('max_low_90d')}>
+                                <th onClick={() => handleSort('max_low_90d')} className="col-max-low">
                                     Max Low {sortConfig.key === 'max_low_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
                             </tr>
@@ -635,8 +635,8 @@ const Dashboard = ({ report, onBack }) => {
                                     </td>
                                     <td>{trade.signal_date}</td>
                                     <td>{trade.signal_close_price ? formatCurrency(trade.signal_close_price) : '-'}</td>
-                                    <td>{getEntryDate(trade)}</td>
-                                    <td>
+                                    <td className="col-entry-date">{getEntryDate(trade)}</td>
+                                    <td className="col-entry">
                                         {trade.entry_price && trade.symbol ? (
                                             <a href={getScreenerUrl(trade.symbol)}
                                                target="_blank" rel="noopener noreferrer"
@@ -646,7 +646,7 @@ const Dashboard = ({ report, onBack }) => {
                                         ) : formatCurrency(trade.entry_price)}
                                     </td>
                                     <td
-                                        className={getColorClass(trade.latest_price_return)}
+                                        className={`col-latest ${getColorClass(trade.latest_price_return)}`}
                                         title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}
                                     >
                                         {trade.latest_price && trade.symbol ? (
@@ -659,28 +659,28 @@ const Dashboard = ({ report, onBack }) => {
                                     </td>
 
                                     <td
-                                        className={`clickable-cell ${getColorClass(trade.return_7d)}`}
+                                        className={`clickable-cell col-return-7d ${getColorClass(trade.return_7d)}`}
                                         onClick={() => handleCellClick(trade, '7d')}
                                         title={getTooltipContent(trade, '7d')}
                                     >
                                         {formatPercent(trade.return_7d)}
                                     </td>
                                     <td
-                                        className={`clickable-cell ${getColorClass(trade.return_30d)}`}
+                                        className={`clickable-cell col-return-30d ${getColorClass(trade.return_30d)}`}
                                         onClick={() => handleCellClick(trade, '30d')}
                                         title={getTooltipContent(trade, '30d')}
                                     >
                                         {formatPercent(trade.return_30d)}
                                     </td>
                                     <td
-                                        className={`clickable-cell ${getColorClass(trade.return_90d)}`}
+                                        className={`clickable-cell col-return-90d ${getColorClass(trade.return_90d)}`}
                                         onClick={() => handleCellClick(trade, '90d')}
                                         title={getTooltipContent(trade, '90d')}
                                     >
                                         {formatPercent(trade.return_90d)}
                                     </td>
-                                    <td className="positive" title={`Max High Date: ${trade.max_high_date || 'N/A'}`}>{formatCurrency(trade.max_high_90d)}</td>
-                                    <td className="negative" title={`Max Low Date: ${trade.max_low_date || 'N/A'}`}>{formatCurrency(trade.max_low_90d)}</td>
+                                    <td className="col-max-high positive" title={`Max High Date: ${trade.max_high_date || 'N/A'}`}>{formatCurrency(trade.max_high_90d)}</td>
+                                    <td className="col-max-low negative" title={`Max Low Date: ${trade.max_low_date || 'N/A'}`}>{formatCurrency(trade.max_low_90d)}</td>
                                 </tr>
                             ))}
                         </tbody>

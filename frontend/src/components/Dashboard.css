@@ -712,6 +712,56 @@
     margin-left: 6px;
 }
 
+/* ===============================================
+   Trade Lane — Column Identity (Entry → Max Low)
+   =============================================== */
+
+/* Newly-styled value text (previously unstyled in this table) */
+.trade-table .positive { color: #34d399; font-weight: 600; }
+.trade-table .negative { color: #f87171; font-weight: 600; }
+.trade-table .neutral { color: #9ca3af; }
+
+/* Colored header labels + solid underlines */
+.trade-table th.col-entry-date { color: #818cf8; box-shadow: inset 0 -2px 0 #818cf8; }
+.trade-table th.col-entry { color: #38bdf8; box-shadow: inset 0 -2px 0 #38bdf8; }
+.trade-table th.col-latest { color: #22d3ee; box-shadow: inset 0 -2px 0 #22d3ee; }
+.trade-table th.col-max-high { color: #10b981; box-shadow: inset 0 -2px 0 #10b981; }
+.trade-table th.col-max-low { color: #f43f5e; box-shadow: inset 0 -2px 0 #f43f5e; }
+
+/* Return headers: green→red split gradient underline (pseudo-element, box-shadow is solid-only) */
+.trade-table th.col-return-7d,
+.trade-table th.col-return-30d,
+.trade-table th.col-return-90d { position: relative; }
+.trade-table th.col-return-7d::after,
+.trade-table th.col-return-30d::after,
+.trade-table th.col-return-90d::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #10b981, #ef4444);
+}
+
+/* Header hover — pinned: brighter glass + underline glow. NO filter (backdrop-filter quirk). */
+.trade-table th.col-entry-date:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #818cf8, 0 0 12px rgba(129, 140, 248, 0.35); }
+.trade-table th.col-entry:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #38bdf8, 0 0 12px rgba(56, 189, 248, 0.35); }
+.trade-table th.col-latest:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #22d3ee, 0 0 12px rgba(34, 211, 238, 0.35); }
+.trade-table th.col-return-7d:hover,
+.trade-table th.col-return-30d:hover,
+.trade-table th.col-return-90d:hover { background: rgba(255, 255, 255, 0.08); }
+.trade-table th.col-max-high:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #10b981, 0 0 12px rgba(16, 185, 129, 0.35); }
+.trade-table th.col-max-low:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #f43f5e, 0 0 12px rgba(244, 63, 94, 0.35); }
+
+/* Subtle cell tints via background-image (hover background-color layers beneath) */
+.trade-table td.col-entry { background-image: linear-gradient(rgba(56, 189, 248, 0.08), rgba(56, 189, 248, 0.08)); color: #7dd3fc; }
+.trade-table td.col-max-high { background-image: linear-gradient(rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.08)); }
+.trade-table td.col-max-low { background-image: linear-gradient(rgba(244, 63, 94, 0.08), rgba(244, 63, 94, 0.08)); }
+
+/* Row hover overlay (renders UNDER background-image tints) */
+.trade-table tbody tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
+
 .hint-text {
     font-size: 0.75rem;
     color: #6b7280;
