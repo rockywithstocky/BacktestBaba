@@ -1,8 +1,15 @@
 # Design: Trade Lane Column Colors + Return Heatmap + Cap × Horizon Matrix
 
-**Date:** 2026-08-03 (v3.2 — user-approved)
+**Date:** 2026-08-03 (v3.3 — user-approved; v3.2 + post-build polish)
 **Branch:** `feature/trade-lane-column-colors`
 **Scope:** Frontend only — `frontend/src/components/Dashboard.jsx`, `frontend/src/components/Dashboard.css`, `frontend/src/__tests__/test_latest_return.test.js`, `frontend/src/__tests__/test_dashboard_columns.test.js` (or new `test_cap_matrix.test.js`)
+
+## v3.3 Changes (user-directed, after v3.2 shipped)
+
+1. **Cap matrix bucket normalization** — `market_cap` arrives as raw CSV text (`"Midcap"`, `"MID CAP"`, `"mid-cap"`) or yfinance ₹ numbers (`"2483000000000"`), causing duplicate-looking buckets and numeric buckets vanishing under the N≥3 filter. New `normalizeCapLabel()` + `parseCapNumber()` helpers canonicalize to `Largecap`/`Midcap`/`Smallcap`/`Microcap`/`Unknown` (₹ thresholds: ≥₹20k Cr Large, ≥₹2k Cr Mid, ≥₹250 Cr Small, else Micro). Duplicate spellings merge into one bucket.
+2. **Layman tooltips** — ℹ️ title on both new card headers, `title` on each `<th>`, and per-cell tooltips now lead with a plain sentence ("How Midcap signals did in 1 month: avg +2.10% (17 signals)") before the stats.
+3. **Return Heatmap decoupled from Trade Log sort** — v3.2 mirrored the table `sortConfig`; v3.3 sorts by `signal_date` **descending** (newest first, nulls last, tie → symbol asc) via `sortHeatmapRows()`, and adds a **Signal Date** column.
+4. **150-row cap** — `sortHeatmapRows` slices to 150 newest rows (search-filtered). Subtitle shows "Showing latest N of M signals". This is the Trade Log sort-performance fix: the unbounded heatmap was re-rendering thousands of DOM rows synchronously on every table sort.
 
 ## Problem
 
