@@ -79,3 +79,6 @@ worker/node_modules/
 # Deployment
 .vercel
 .render
+
+# SDD scratch workspace
+.superpowers/
