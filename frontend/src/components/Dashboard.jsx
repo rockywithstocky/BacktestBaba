@@ -193,6 +193,17 @@ const Dashboard = ({ report, onBack }) => {
     const formatPercent = (val) => val !== null && val !== undefined ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%` : 'N/A';
     const formatCurrency = (val) => val !== null && val !== undefined && val !== '' ? `₹${Number(val).toFixed(2)}` : 'N/A';
     const getColorClass = (val) => val > 0 ? 'positive' : val < 0 ? 'negative' : 'neutral';
+    const HEAT_TIER_1 = 2;
+    const HEAT_TIER_2 = 5;
+    const HEAT_TIER_3 = 10;
+
+    const getReturnClass = (val) => {
+        if (val === null || val === undefined || isNaN(val) || val === 0) return 'neutral';
+        const sign = val > 0 ? 'pos' : 'neg';
+        const abs = Math.abs(val);
+        const tier = abs >= HEAT_TIER_3 ? 4 : abs >= HEAT_TIER_2 ? 3 : abs >= HEAT_TIER_1 ? 2 : 1;
+        return `heat-${sign}-${tier}`;
+    };
     const getTradingViewUrl = (symbol) => {
         if (!symbol) return '#';
         let tvSymbol = symbol;
