@@ -762,6 +762,38 @@
 /* Row hover overlay (renders UNDER background-image tints) */
 .trade-table tbody tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
 
+/* ===============================================
+   Cap × Horizon Matrix
+   =============================================== */
+.cap-matrix-scroll { max-height: 400px; overflow-y: auto; }
+
+.cap-matrix { width: 100%; border-collapse: collapse; }
+.cap-matrix th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #9ca3af;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+}
+.cap-matrix td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: left;
+    white-space: nowrap;
+}
+.cap-matrix .cap-matrix-bucket { font-weight: 600; color: #e5e7eb; }
+.cap-matrix .cap-matrix-count { color: #6b7280; font-weight: 400; font-size: 0.75rem; }
+.cap-matrix .cap-matrix-na { color: #6b7280; }
+.cap-matrix tbody tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
+
 .hint-text {
     font-size: 0.75rem;
     color: #6b7280;

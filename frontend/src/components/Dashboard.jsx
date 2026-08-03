@@ -95,7 +95,6 @@ const Dashboard = ({ report, onBack }) => {
 
     const enrichmentStats = useMemo(() => {
         const sectorMap = {};
-        const capMap = {};
         const periodKey = 'return_30d'; // 30d baseline for edge analysis
 
         successfulTrades.forEach(t => {
@@ -103,15 +102,10 @@ const Dashboard = ({ report, onBack }) => {
             if (ret === null || ret === undefined) return;
 
             const sector = t.sector || 'Unknown';
-            const cap = t.market_cap || 'Unknown';
 
             if (!sectorMap[sector]) sectorMap[sector] = { sum: 0, count: 0 };
             sectorMap[sector].sum += ret;
             sectorMap[sector].count += 1;
-
-            if (!capMap[cap]) capMap[cap] = { sum: 0, count: 0 };
-            capMap[cap].sum += ret;
-            capMap[cap].count += 1;
         });
 
         const formatAgg = (map) => Object.keys(map)
@@ -121,10 +115,11 @@ const Dashboard = ({ report, onBack }) => {
             .slice(0, 10);
 
         return {
-            sectors: formatAgg(sectorMap),
-            marketCaps: formatAgg(capMap)
+            sectors: formatAgg(sectorMap)
         };
     }, [successfulTrades]);
+
+    const capMatrix = useMemo(() => buildCapMatrix(successfulTrades), [successfulTrades]);
 
     const distributionData = useMemo(() => {
         const returns = successfulTrades.map(t => t.return_30d).filter(v => v !== null && v !== undefined);
@@ -465,24 +460,40 @@ const Dashboard = ({ report, onBack }) => {
 
                 <div className="chart-card">
                     <h3 className="section-title">Strategy Edge by Market Cap (1 Month)</h3>
-                    <p className="text-xs text-gray-400 mb-4">Market Caps with min. 3 signals.</p>
-                    {enrichmentStats.marketCaps.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={enrichmentStats.marketCaps} layout="vertical" margin={{ left: 50 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
-                                <XAxis type="number" stroke="#9ca3af" tickFormatter={(val) => `${val}%`} tick={{ fontSize: 12 }} />
-                                <YAxis type="category" dataKey="name" stroke="#9ca3af" width={110} tick={{ fontSize: 11 }} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                                    formatter={(value, name, props) => [`${value.toFixed(2)}% (N=${props.payload.count})`, 'Avg Return']}
-                                />
-                                <Bar dataKey="avgReturn" radius={[0, 4, 4, 0]}>
-                                    {enrichmentStats.marketCaps.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.avgReturn > 0 ? '#10b981' : '#ef4444'} />
+                    <p className="text-xs text-gray-400 mb-4">Avg return by cap bucket across horizons. Min. 3 signals.</p>
+                    {capMatrix.length > 0 ? (
+                        <div className="cap-matrix-scroll">
+                            <table className="cap-matrix heat-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bucket</th>
+                                        <th>1W</th>
+                                        <th>1M</th>
+                                        <th>3M</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {capMatrix.map(b => (
+                                        <tr key={b.name}>
+                                            <td className="cap-matrix-bucket">{b.name} <span className="cap-matrix-count">(N={b.count})</span></td>
+                                            <td className={b.return_7d == null ? 'cap-matrix-na' : getReturnClass(b.return_7d)}
+                                                title={b.return_7d == null ? 'No data' : `Avg 1W: ${formatPercent(b.return_7d)} (N=${b.count})`}>
+                                                {b.return_7d == null ? '—' : formatPercent(b.return_7d)}
+                                            </td>
+                                            <td className={b.return_30d == null ? 'cap-matrix-na' : getReturnClass(b.return_30d)}
+                                                title={b.return_30d == null ? 'No data'
+                                                    : `N: ${b.count} · Win rate: ${b.winRate == null ? 'N/A' : b.winRate.toFixed(0) + '%'} · Avg win: ${b.avgWin == null ? 'N/A' : formatPercent(b.avgWin)} · Avg loss: ${b.avgLoss == null ? 'N/A' : formatPercent(b.avgLoss)} · Consistency: ${b.consistency === 999 ? 'MAX' : b.consistency === -999 ? 'MIN' : b.consistency.toFixed(2)}`}>
+                                                {b.return_30d == null ? '—' : formatPercent(b.return_30d)}
+                                            </td>
+                                            <td className={b.return_90d == null ? 'cap-matrix-na' : getReturnClass(b.return_90d)}
+                                                title={b.return_90d == null ? 'No data' : `Avg 3M: ${formatPercent(b.return_90d)} (N=${b.count})`}>
+                                                {b.return_90d == null ? '—' : formatPercent(b.return_90d)}
+                                            </td>
+                                        </tr>
                                     ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                                </tbody>
+                            </table>
+                        </div>
                     ) : (
                         <div className="flex h-48 items-center justify-center text-gray-500">Not enough market cap data available.</div>
                     )}
