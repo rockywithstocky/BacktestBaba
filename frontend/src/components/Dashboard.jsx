@@ -204,6 +204,40 @@ const Dashboard = ({ report, onBack }) => {
         const tier = abs >= HEAT_TIER_3 ? 4 : abs >= HEAT_TIER_2 ? 3 : abs >= HEAT_TIER_1 ? 2 : 1;
         return `heat-${sign}-${tier}`;
     };
+    const buildCapMatrix = (trades) => {
+        const buckets = {};
+        trades.forEach(t => {
+            const name = t.market_cap || 'Unknown';
+            if (!buckets[name]) buckets[name] = [];
+            buckets[name].push(t);
+        });
+        return Object.keys(buckets)
+            .map(name => {
+                const bucketTrades = buckets[name];
+                const calc = (key) => {
+                    const vals = bucketTrades.map(t => t[key]).filter(v => v !== null && v !== undefined && !isNaN(v));
+                    return vals.length === 0 ? null : vals.reduce((s, v) => s + v, 0) / vals.length;
+                };
+                const avg30 = calc('return_30d');
+                const r30 = bucketTrades.map(t => t.return_30d).filter(v => v !== null && v !== undefined && !isNaN(v));
+                const winRate = r30.length === 0 ? null : (r30.filter(v => v > 0).length / r30.length) * 100;
+                const wins = r30.filter(v => v > 0);
+                const losses = r30.filter(v => v < 0);
+                const avgWin = wins.length ? wins.reduce((s, v) => s + v, 0) / wins.length : null;
+                const avgLoss = losses.length ? losses.reduce((s, v) => s + v, 0) / losses.length : null;
+                const std = r30.length > 1 ? Math.sqrt(r30.reduce((s, v) => s + (v - avg30) ** 2, 0) / r30.length) : 0;
+                const consistency = std > 0 ? avg30 / std : (avg30 > 0 ? 999 : -999);
+                return {
+                    name, count: bucketTrades.length,
+                    return_7d: calc('return_7d'),
+                    return_30d: avg30,
+                    return_90d: calc('return_90d'),
+                    winRate, avgWin, avgLoss, consistency
+                };
+            })
+            .filter(b => b.count >= 3)
+            .sort((a, b) => (b.return_30d ?? -Infinity) - (a.return_30d ?? -Infinity));
+    };
     const getTradingViewUrl = (symbol) => {
         if (!symbol) return '#';
         let tvSymbol = symbol;
