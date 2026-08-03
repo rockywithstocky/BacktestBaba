@@ -197,10 +197,39 @@ const Dashboard = ({ report, onBack }) => {
         const tier = abs >= HEAT_TIER_3 ? 4 : abs >= HEAT_TIER_2 ? 3 : abs >= HEAT_TIER_1 ? 2 : 1;
         return `heat-${sign}-${tier}`;
     };
+    const parseCapNumber = (s) => {
+        let text = String(s).replace(/[₹,\s]/g, '');
+        const match = text.match(/^([\d.]+)\s*(cr|crore|lakh|lac)?/i);
+        if (!match) return null;
+        const value = parseFloat(match[1]);
+        if (isNaN(value)) return null;
+        const unit = (match[2] || '').toLowerCase();
+        if (unit === 'cr' || unit === 'crore') return value * 1e7;
+        if (unit === 'lakh' || unit === 'lac') return value * 1e5;
+        return value;
+    };
+    const normalizeCapLabel = (raw) => {
+        if (raw === null || raw === undefined) return 'Unknown';
+        let s = String(raw).trim();
+        if (!s) return 'Unknown';
+        const compact = s.toLowerCase().replace(/[^a-z0-9.]/g, '');
+        if (compact.includes('large')) return 'Largecap';
+        if (compact.includes('micro')) return 'Microcap';
+        if (compact.includes('mid')) return 'Midcap';
+        if (compact.includes('small')) return 'Smallcap';
+        const num = parseCapNumber(s);
+        if (num !== null) {
+            if (num >= 2e11) return 'Largecap';
+            if (num >= 2e10) return 'Midcap';
+            if (num >= 2.5e9) return 'Smallcap';
+            return 'Microcap';
+        }
+        return 'Unknown';
+    };
     const buildCapMatrix = (trades) => {
         const buckets = {};
         trades.forEach(t => {
-            const name = t.market_cap || 'Unknown';
+            const name = normalizeCapLabel(t.market_cap);
             if (!buckets[name]) buckets[name] = [];
             buckets[name].push(t);
         });
@@ -231,7 +260,18 @@ const Dashboard = ({ report, onBack }) => {
             .filter(b => b.count >= 3)
             .sort((a, b) => (b.return_30d ?? -Infinity) - (a.return_30d ?? -Infinity));
     };
+    const sortHeatmapRows = (trades, cap = 150) => {
+        return [...trades]
+            .sort((a, b) => {
+                const aDate = a.signal_date ? new Date(a.signal_date).getTime() : -Infinity;
+                const bDate = b.signal_date ? new Date(b.signal_date).getTime() : -Infinity;
+                if (bDate !== aDate) return bDate - aDate;
+                return a.symbol.localeCompare(b.symbol);
+            })
+            .slice(0, cap);
+    };
     const capMatrix = useMemo(() => buildCapMatrix(successfulTrades), [successfulTrades]);
+    const heatmapRows = useMemo(() => sortHeatmapRows(filteredTrades), [filteredTrades]);
     const getTradingViewUrl = (symbol) => {
         if (!symbol) return '#';
         let tvSymbol = symbol;
@@ -458,17 +498,17 @@ const Dashboard = ({ report, onBack }) => {
                 </div>
 
                 <div className="chart-card">
-                    <h3 className="section-title">Strategy Edge by Market Cap (1 Month)</h3>
-                    <p className="text-xs text-gray-400 mb-4">Avg return by cap bucket across horizons. Min. 3 signals.</p>
+                    <h3 className="section-title">Strategy Edge by Market Cap (1 Month) <span title="Each row = a company-size group (market cap). Cells show that group's average return 1 week / 1 month / 3 months after a signal. Green = gained, red = lost, darker = bigger move. Rows with fewer than 3 signals are hidden.">ℹ️</span></h3>
+                    <p className="text-xs text-gray-400 mb-4">How company size affects returns after a signal — avg % move per cap group, min. 3 signals.</p>
                     {capMatrix.length > 0 ? (
                         <div className="cap-matrix-scroll">
                             <table className="cap-matrix heat-table">
                                 <thead>
                                     <tr>
-                                        <th>Bucket</th>
-                                        <th>1W</th>
-                                        <th>1M</th>
-                                        <th>3M</th>
+                                        <th title="Company size group (market cap)">Bucket</th>
+                                        <th title="Average % change within 1 week after the signal date">1W</th>
+                                        <th title="Average % change within 1 month after the signal date. Hover a cell for win rate and consistency details.">1M</th>
+                                        <th title="Average % change within 3 months after the signal date">3M</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -476,16 +516,16 @@ const Dashboard = ({ report, onBack }) => {
                                         <tr key={b.name}>
                                             <td className="cap-matrix-bucket">{b.name} <span className="cap-matrix-count">(N={b.count})</span></td>
                                             <td className={b.return_7d == null ? 'cap-matrix-na' : getReturnClass(b.return_7d)}
-                                                title={b.return_7d == null ? 'No data' : `Avg 1W: ${formatPercent(b.return_7d)} (N=${b.count})`}>
+                                                title={b.return_7d == null ? 'No data' : `How ${b.name} signals did in 1 week: avg ${formatPercent(b.return_7d)} (${b.count} signals)`}>
                                                 {b.return_7d == null ? '—' : formatPercent(b.return_7d)}
                                             </td>
                                             <td className={b.return_30d == null ? 'cap-matrix-na' : getReturnClass(b.return_30d)}
                                                 title={b.return_30d == null ? 'No data'
-                                                    : `N: ${b.count} · Win rate: ${b.winRate == null ? 'N/A' : b.winRate.toFixed(0) + '%'} · Avg win: ${b.avgWin == null ? 'N/A' : formatPercent(b.avgWin)} · Avg loss: ${b.avgLoss == null ? 'N/A' : formatPercent(b.avgLoss)} · Consistency: ${b.consistency === 999 ? 'MAX' : b.consistency === -999 ? 'MIN' : b.consistency.toFixed(2)}`}>
+                                                    : `How ${b.name} signals did in 1 month: avg ${formatPercent(b.return_30d)} (${b.count} signals). Win rate: ${b.winRate == null ? 'N/A' : b.winRate.toFixed(0) + '%'} · Avg win: ${b.avgWin == null ? 'N/A' : formatPercent(b.avgWin)} · Avg loss: ${b.avgLoss == null ? 'N/A' : formatPercent(b.avgLoss)} · Consistency: ${b.consistency === 999 ? 'MAX' : b.consistency === -999 ? 'MIN' : b.consistency.toFixed(2)}`}>
                                                 {b.return_30d == null ? '—' : formatPercent(b.return_30d)}
                                             </td>
                                             <td className={b.return_90d == null ? 'cap-matrix-na' : getReturnClass(b.return_90d)}
-                                                title={b.return_90d == null ? 'No data' : `Avg 3M: ${formatPercent(b.return_90d)} (N=${b.count})`}>
+                                                title={b.return_90d == null ? 'No data' : `How ${b.name} signals did in 3 months: avg ${formatPercent(b.return_90d)} (${b.count} signals)`}>
                                                 {b.return_90d == null ? '—' : formatPercent(b.return_90d)}
                                             </td>
                                         </tr>
@@ -499,24 +539,26 @@ const Dashboard = ({ report, onBack }) => {
                 </div>
 
                 <div className="chart-card">
-                    <h3 className="section-title">Return Heatmap</h3>
-                    <p className="text-xs text-gray-400 mb-4">Darker = stronger move. Click a horizon cell for the chart. ({sortedTrades.length} trades)</p>
-                    {sortedTrades.length > 0 ? (
+                    <h3 className="section-title">Return Heatmap <span title="One row per signal, newest first. Each cell = that signal's return after 1 week / 1 month / 3 months, plus the latest return since the signal date. Green = profit, red = loss, darker = bigger move. Click a horizon cell for the price chart.">ℹ️</span></h3>
+                    <p className="text-xs text-gray-400 mb-4">Darker = stronger move. Click a horizon cell for the chart. Showing latest {heatmapRows.length} of {filteredTrades.length} signals.</p>
+                    {heatmapRows.length > 0 ? (
                         <div className="heatmap-scroll">
                             <table className="heatmap-table heat-table">
                                 <thead>
                                     <tr>
                                         <th className="heatmap-symbol">Symbol</th>
-                                        <th>Latest</th>
-                                        <th>1W</th>
-                                        <th>1M</th>
-                                        <th>3M</th>
+                                        <th title="Date the signal fired">Signal Date</th>
+                                        <th title="Latest return since the signal date">Latest</th>
+                                        <th title="Average return 1 week after the signal">1W</th>
+                                        <th title="Average return 1 month after the signal">1M</th>
+                                        <th title="Average return 3 months after the signal">3M</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {sortedTrades.map((trade, idx) => (
+                                    {heatmapRows.map((trade, idx) => (
                                         <tr key={idx}>
                                             <td className="heatmap-symbol">{trade.symbol}</td>
+                                            <td className="heatmap-date">{trade.signal_date || '—'}</td>
                                             <td className={getReturnClass(trade.latest_price_return)}
                                                 title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}>
                                                 {formatPercent(trade.latest_price_return)}

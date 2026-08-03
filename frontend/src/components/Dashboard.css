@@ -823,6 +823,7 @@
     transition: all 0.2s;
 }
 .heatmap-table .heatmap-symbol { font-weight: 600; color: #e5e7eb; }
+.heatmap-table .heatmap-date { color: #9ca3af; font-size: 0.75rem; }
 .heatmap-table .heat-click { cursor: pointer; }
 .heatmap-table .heat-click:hover { transform: scale(1.06); font-weight: 800; }
 .heatmap-table tbody tr:hover td { background-color: rgba(255, 255, 255, 0.05); }

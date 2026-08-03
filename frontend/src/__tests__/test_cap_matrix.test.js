@@ -1,9 +1,40 @@
 import { describe, it, expect } from 'vitest';
 
+const parseCapNumber = (s) => {
+    let text = String(s).replace(/[₹,\s]/g, '');
+    const match = text.match(/^([\d.]+)\s*(cr|crore|lakh|lac)?/i);
+    if (!match) return null;
+    const value = parseFloat(match[1]);
+    if (isNaN(value)) return null;
+    const unit = (match[2] || '').toLowerCase();
+    if (unit === 'cr' || unit === 'crore') return value * 1e7;
+    if (unit === 'lakh' || unit === 'lac') return value * 1e5;
+    return value;
+};
+
+const normalizeCapLabel = (raw) => {
+    if (raw === null || raw === undefined) return 'Unknown';
+    let s = String(raw).trim();
+    if (!s) return 'Unknown';
+    const compact = s.toLowerCase().replace(/[^a-z0-9.]/g, '');
+    if (compact.includes('large')) return 'Largecap';
+    if (compact.includes('micro')) return 'Microcap';
+    if (compact.includes('mid')) return 'Midcap';
+    if (compact.includes('small')) return 'Smallcap';
+    const num = parseCapNumber(s);
+    if (num !== null) {
+        if (num >= 2e11) return 'Largecap';
+        if (num >= 2e10) return 'Midcap';
+        if (num >= 2.5e9) return 'Smallcap';
+        return 'Microcap';
+    }
+    return 'Unknown';
+};
+
 const buildCapMatrix = (trades) => {
     const buckets = {};
     trades.forEach(t => {
-        const name = t.market_cap || 'Unknown';
+        const name = normalizeCapLabel(t.market_cap);
         if (!buckets[name]) buckets[name] = [];
         buckets[name].push(t);
     });
@@ -124,5 +155,76 @@ describe('buildCapMatrix', () => {
             makeTrade({ symbol: 'C', return_30d: 5 }),
         ]);
         expect(result[0].consistency).toBe(999);
+    });
+
+    it('merges duplicate cap labels with different raw spellings into one bucket', () => {
+        const result = buildCapMatrix([
+            makeTrade({ symbol: 'A', market_cap: 'Midcap' }),
+            makeTrade({ symbol: 'B', market_cap: 'MID CAP' }),
+            makeTrade({ symbol: 'C', market_cap: 'mid-cap' }),
+        ]);
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe('Midcap');
+        expect(result[0].count).toBe(3);
+    });
+
+    it('classifies raw rupee values into cap buckets', () => {
+        const result = buildCapMatrix([
+            makeTrade({ symbol: 'A', market_cap: '2483000000000' }),
+            makeTrade({ symbol: 'B', market_cap: '2483000000000' }),
+            makeTrade({ symbol: 'C', market_cap: '2483000000000' }),
+        ]);
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe('Largecap');
+        expect(result[0].count).toBe(3);
+    });
+});
+
+describe('normalizeCapLabel', () => {
+    it('maps null, undefined and empty to Unknown', () => {
+        expect(normalizeCapLabel(null)).toBe('Unknown');
+        expect(normalizeCapLabel(undefined)).toBe('Unknown');
+        expect(normalizeCapLabel('')).toBe('Unknown');
+        expect(normalizeCapLabel('   ')).toBe('Unknown');
+    });
+
+    it('maps case variants to canonical labels', () => {
+        expect(normalizeCapLabel('Midcap')).toBe('Midcap');
+        expect(normalizeCapLabel('MIDCAP')).toBe('Midcap');
+        expect(normalizeCapLabel('largecap')).toBe('Largecap');
+        expect(normalizeCapLabel('Smallcap')).toBe('Smallcap');
+        expect(normalizeCapLabel('MICROCAP')).toBe('Microcap');
+    });
+
+    it('maps space and hyphen variants to canonical labels', () => {
+        expect(normalizeCapLabel('Mid Cap')).toBe('Midcap');
+        expect(normalizeCapLabel('MID CAP')).toBe('Midcap');
+        expect(normalizeCapLabel('mid-cap')).toBe('Midcap');
+        expect(normalizeCapLabel('Large Cap')).toBe('Largecap');
+        expect(normalizeCapLabel('Small Cap')).toBe('Smallcap');
+        expect(normalizeCapLabel('Micro Cap')).toBe('Microcap');
+        expect(normalizeCapLabel('  midcap  ')).toBe('Midcap');
+    });
+
+    it('classifies raw rupee values by threshold', () => {
+        expect(normalizeCapLabel('2483000000000')).toBe('Largecap');
+        expect(normalizeCapLabel('500000000000')).toBe('Largecap');
+        expect(normalizeCapLabel('50000000000')).toBe('Midcap');
+        expect(normalizeCapLabel('8000000000')).toBe('Smallcap');
+        expect(normalizeCapLabel('3000000000')).toBe('Smallcap');
+        expect(normalizeCapLabel('50000000')).toBe('Microcap');
+    });
+
+    it('classifies Cr and Lakh suffixed values', () => {
+        expect(normalizeCapLabel('50000 Cr')).toBe('Largecap');
+        expect(normalizeCapLabel('₹5,000 Cr')).toBe('Midcap');
+        expect(normalizeCapLabel('800 crores')).toBe('Smallcap');
+        expect(normalizeCapLabel('100 cr')).toBe('Microcap');
+        expect(normalizeCapLabel('500 lac')).toBe('Microcap');
+    });
+
+    it('returns Unknown for unrecognized text', () => {
+        expect(normalizeCapLabel('ABCDEF')).toBe('Unknown');
+        expect(normalizeCapLabel('n/a')).toBe('Unknown');
     });
 });
