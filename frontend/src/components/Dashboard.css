@@ -712,6 +712,141 @@
     margin-left: 6px;
 }
 
+/* ===============================================
+   Trade Lane — Column Identity (Entry → Max Low)
+   =============================================== */
+
+/* Newly-styled value text (previously unstyled in this table) */
+.trade-table .positive { color: #34d399; font-weight: 600; }
+.trade-table .negative { color: #f87171; font-weight: 600; }
+.trade-table .neutral { color: #9ca3af; }
+
+/* Colored header labels + solid underlines */
+.trade-table th.col-entry-date { color: #818cf8; box-shadow: inset 0 -2px 0 #818cf8; }
+.trade-table th.col-entry { color: #38bdf8; box-shadow: inset 0 -2px 0 #38bdf8; }
+.trade-table th.col-latest { color: #22d3ee; box-shadow: inset 0 -2px 0 #22d3ee; }
+.trade-table th.col-max-high { color: #10b981; box-shadow: inset 0 -2px 0 #10b981; }
+.trade-table th.col-max-low { color: #f43f5e; box-shadow: inset 0 -2px 0 #f43f5e; }
+
+/* Return headers: green→red split gradient underline (pseudo-element, box-shadow is solid-only) */
+.trade-table th.col-return-7d,
+.trade-table th.col-return-30d,
+.trade-table th.col-return-90d { position: relative; }
+.trade-table th.col-return-7d::after,
+.trade-table th.col-return-30d::after,
+.trade-table th.col-return-90d::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #10b981, #ef4444);
+}
+
+/* Header hover — pinned: brighter glass + underline glow. NO filter (backdrop-filter quirk). */
+.trade-table th.col-entry-date:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #818cf8, 0 0 12px rgba(129, 140, 248, 0.35); }
+.trade-table th.col-entry:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #38bdf8, 0 0 12px rgba(56, 189, 248, 0.35); }
+.trade-table th.col-latest:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #22d3ee, 0 0 12px rgba(34, 211, 238, 0.35); }
+.trade-table th.col-return-7d:hover,
+.trade-table th.col-return-30d:hover,
+.trade-table th.col-return-90d:hover { background: rgba(255, 255, 255, 0.08); }
+.trade-table th.col-max-high:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #10b981, 0 0 12px rgba(16, 185, 129, 0.35); }
+.trade-table th.col-max-low:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 -2px 0 #f43f5e, 0 0 12px rgba(244, 63, 94, 0.35); }
+
+/* Subtle cell tints via background-image (hover background-color layers beneath) */
+.trade-table td.col-entry { background-image: linear-gradient(rgba(56, 189, 248, 0.08), rgba(56, 189, 248, 0.08)); color: #7dd3fc; }
+.trade-table td.col-max-high { background-image: linear-gradient(rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.08)); }
+.trade-table td.col-max-low { background-image: linear-gradient(rgba(244, 63, 94, 0.08), rgba(244, 63, 94, 0.08)); }
+
+/* Row hover overlay (renders UNDER background-image tints) */
+.trade-table tbody tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
+
+/* ===============================================
+   Cap × Horizon Matrix
+   =============================================== */
+.cap-matrix-scroll { max-height: 400px; overflow-y: auto; }
+
+.cap-matrix { width: 100%; border-collapse: collapse; }
+.cap-matrix th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #9ca3af;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+}
+.cap-matrix td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: left;
+    white-space: nowrap;
+}
+.cap-matrix .cap-matrix-bucket { font-weight: 600; color: #e5e7eb; }
+.cap-matrix .cap-matrix-count { color: #6b7280; font-weight: 400; font-size: 0.75rem; }
+.cap-matrix .cap-matrix-na { color: #6b7280; }
+.cap-matrix tbody tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
+
+/* ===============================================
+   Return Heatmap + shared Heat Tier rules
+   =============================================== */
+.heatmap-scroll { max-height: 400px; overflow-y: auto; }
+
+.heatmap-table { width: 100%; border-collapse: collapse; }
+.heatmap-table th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #9ca3af;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+}
+.heatmap-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: left;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+.heatmap-table .heatmap-symbol { font-weight: 600; color: #e5e7eb; }
+.heatmap-table .heatmap-date { color: #9ca3af; font-size: 0.75rem; }
+.heatmap-table .heat-click { cursor: pointer; }
+.heatmap-table .heat-click:hover { transform: scale(1.06); font-weight: 800; }
+.heatmap-table tbody tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
+
+/* Shared 4-tier heat scale — scoped to .heat-table (heatmap + cap matrix) */
+.heat-table {
+    --heat-a1: 0.12;
+    --heat-a2: 0.25;
+    --heat-a3: 0.40;
+    --heat-a4: 0.50;
+    --heat-pos: 16, 185, 129;
+    --heat-neg: 239, 68, 68;
+}
+.heat-table td.heat-pos-1 { background-image: linear-gradient(rgba(var(--heat-pos), var(--heat-a1)), rgba(var(--heat-pos), var(--heat-a1))); color: #10b981; }
+.heat-table td.heat-pos-2 { background-image: linear-gradient(rgba(var(--heat-pos), var(--heat-a2)), rgba(var(--heat-pos), var(--heat-a2))); color: #34d399; }
+.heat-table td.heat-pos-3 { background-image: linear-gradient(rgba(var(--heat-pos), var(--heat-a3)), rgba(var(--heat-pos), var(--heat-a3))); color: #6ee7b7; }
+.heat-table td.heat-pos-4 { background-image: linear-gradient(rgba(var(--heat-pos), var(--heat-a4)), rgba(var(--heat-pos), var(--heat-a4))); color: #a7f3d0; }
+.heat-table td.heat-neg-1 { background-image: linear-gradient(rgba(var(--heat-neg), var(--heat-a1)), rgba(var(--heat-neg), var(--heat-a1))); color: #ef4444; }
+.heat-table td.heat-neg-2 { background-image: linear-gradient(rgba(var(--heat-neg), var(--heat-a2)), rgba(var(--heat-neg), var(--heat-a2))); color: #f87171; }
+.heat-table td.heat-neg-3 { background-image: linear-gradient(rgba(var(--heat-neg), var(--heat-a3)), rgba(var(--heat-neg), var(--heat-a3))); color: #fca5a5; }
+.heat-table td.heat-neg-4 { background-image: linear-gradient(rgba(var(--heat-neg), var(--heat-a4)), rgba(var(--heat-neg), var(--heat-a4))); color: #fecaca; }
+.heat-table td.neutral { color: #9ca3af; }
+
 .hint-text {
     font-size: 0.75rem;
     color: #6b7280;

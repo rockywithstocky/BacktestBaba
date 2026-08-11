@@ -95,7 +95,6 @@ const Dashboard = ({ report, onBack }) => {
 
     const enrichmentStats = useMemo(() => {
         const sectorMap = {};
-        const capMap = {};
         const periodKey = 'return_30d'; // 30d baseline for edge analysis
 
         successfulTrades.forEach(t => {
@@ -103,15 +102,10 @@ const Dashboard = ({ report, onBack }) => {
             if (ret === null || ret === undefined) return;
 
             const sector = t.sector || 'Unknown';
-            const cap = t.market_cap || 'Unknown';
 
             if (!sectorMap[sector]) sectorMap[sector] = { sum: 0, count: 0 };
             sectorMap[sector].sum += ret;
             sectorMap[sector].count += 1;
-
-            if (!capMap[cap]) capMap[cap] = { sum: 0, count: 0 };
-            capMap[cap].sum += ret;
-            capMap[cap].count += 1;
         });
 
         const formatAgg = (map) => Object.keys(map)
@@ -121,8 +115,7 @@ const Dashboard = ({ report, onBack }) => {
             .slice(0, 10);
 
         return {
-            sectors: formatAgg(sectorMap),
-            marketCaps: formatAgg(capMap)
+            sectors: formatAgg(sectorMap)
         };
     }, [successfulTrades]);
 
@@ -193,6 +186,92 @@ const Dashboard = ({ report, onBack }) => {
     const formatPercent = (val) => val !== null && val !== undefined ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%` : 'N/A';
     const formatCurrency = (val) => val !== null && val !== undefined && val !== '' ? `₹${Number(val).toFixed(2)}` : 'N/A';
     const getColorClass = (val) => val > 0 ? 'positive' : val < 0 ? 'negative' : 'neutral';
+    const HEAT_TIER_1 = 2;
+    const HEAT_TIER_2 = 5;
+    const HEAT_TIER_3 = 10;
+
+    const getReturnClass = (val) => {
+        if (val === null || val === undefined || isNaN(val) || val === 0) return 'neutral';
+        const sign = val > 0 ? 'pos' : 'neg';
+        const abs = Math.abs(val);
+        const tier = abs >= HEAT_TIER_3 ? 4 : abs >= HEAT_TIER_2 ? 3 : abs >= HEAT_TIER_1 ? 2 : 1;
+        return `heat-${sign}-${tier}`;
+    };
+    const parseCapNumber = (s) => {
+        let text = String(s).replace(/[₹,\s]/g, '');
+        const match = text.match(/^([\d.]+)\s*(cr|crore|lakh|lac)?/i);
+        if (!match) return null;
+        const value = parseFloat(match[1]);
+        if (isNaN(value)) return null;
+        const unit = (match[2] || '').toLowerCase();
+        if (unit === 'cr' || unit === 'crore') return value * 1e7;
+        if (unit === 'lakh' || unit === 'lac') return value * 1e5;
+        return value;
+    };
+    const normalizeCapLabel = (raw) => {
+        if (raw === null || raw === undefined) return 'Unknown';
+        let s = String(raw).trim();
+        if (!s) return 'Unknown';
+        const compact = s.toLowerCase().replace(/[^a-z0-9.]/g, '');
+        if (compact.includes('large')) return 'Largecap';
+        if (compact.includes('micro')) return 'Microcap';
+        if (compact.includes('mid')) return 'Midcap';
+        if (compact.includes('small')) return 'Smallcap';
+        const num = parseCapNumber(s);
+        if (num !== null) {
+            if (num >= 2e11) return 'Largecap';
+            if (num >= 2e10) return 'Midcap';
+            if (num >= 2.5e9) return 'Smallcap';
+            return 'Microcap';
+        }
+        return 'Unknown';
+    };
+    const buildCapMatrix = (trades) => {
+        const buckets = {};
+        trades.forEach(t => {
+            const name = normalizeCapLabel(t.market_cap);
+            if (!buckets[name]) buckets[name] = [];
+            buckets[name].push(t);
+        });
+        return Object.keys(buckets)
+            .map(name => {
+                const bucketTrades = buckets[name];
+                const calc = (key) => {
+                    const vals = bucketTrades.map(t => t[key]).filter(v => v !== null && v !== undefined && !isNaN(v));
+                    return vals.length === 0 ? null : vals.reduce((s, v) => s + v, 0) / vals.length;
+                };
+                const avg30 = calc('return_30d');
+                const r30 = bucketTrades.map(t => t.return_30d).filter(v => v !== null && v !== undefined && !isNaN(v));
+                const winRate = r30.length === 0 ? null : (r30.filter(v => v > 0).length / r30.length) * 100;
+                const wins = r30.filter(v => v > 0);
+                const losses = r30.filter(v => v < 0);
+                const avgWin = wins.length ? wins.reduce((s, v) => s + v, 0) / wins.length : null;
+                const avgLoss = losses.length ? losses.reduce((s, v) => s + v, 0) / losses.length : null;
+                const std = r30.length > 1 ? Math.sqrt(r30.reduce((s, v) => s + (v - avg30) ** 2, 0) / r30.length) : 0;
+                const consistency = std > 0 ? avg30 / std : (avg30 > 0 ? 999 : -999);
+                return {
+                    name, count: bucketTrades.length,
+                    return_7d: calc('return_7d'),
+                    return_30d: avg30,
+                    return_90d: calc('return_90d'),
+                    winRate, avgWin, avgLoss, consistency
+                };
+            })
+            .filter(b => b.count >= 3)
+            .sort((a, b) => (b.return_30d ?? -Infinity) - (a.return_30d ?? -Infinity));
+    };
+    const sortHeatmapRows = (trades, cap = 150) => {
+        return [...trades]
+            .sort((a, b) => {
+                const aDate = a.signal_date ? new Date(a.signal_date).getTime() : -Infinity;
+                const bDate = b.signal_date ? new Date(b.signal_date).getTime() : -Infinity;
+                if (bDate !== aDate) return bDate - aDate;
+                return a.symbol.localeCompare(b.symbol);
+            })
+            .slice(0, cap);
+    };
+    const capMatrix = useMemo(() => buildCapMatrix(successfulTrades), [successfulTrades]);
+    const heatmapRows = useMemo(() => sortHeatmapRows(filteredTrades), [filteredTrades]);
     const getTradingViewUrl = (symbol) => {
         if (!symbol) return '#';
         let tvSymbol = symbol;
@@ -419,27 +498,93 @@ const Dashboard = ({ report, onBack }) => {
                 </div>
 
                 <div className="chart-card">
-                    <h3 className="section-title">Strategy Edge by Market Cap (1 Month)</h3>
-                    <p className="text-xs text-gray-400 mb-4">Market Caps with min. 3 signals.</p>
-                    {enrichmentStats.marketCaps.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={enrichmentStats.marketCaps} layout="vertical" margin={{ left: 50 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
-                                <XAxis type="number" stroke="#9ca3af" tickFormatter={(val) => `${val}%`} tick={{ fontSize: 12 }} />
-                                <YAxis type="category" dataKey="name" stroke="#9ca3af" width={110} tick={{ fontSize: 11 }} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                                    formatter={(value, name, props) => [`${value.toFixed(2)}% (N=${props.payload.count})`, 'Avg Return']}
-                                />
-                                <Bar dataKey="avgReturn" radius={[0, 4, 4, 0]}>
-                                    {enrichmentStats.marketCaps.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.avgReturn > 0 ? '#10b981' : '#ef4444'} />
+                    <h3 className="section-title">Strategy Edge by Market Cap (1 Month) <span title="Each row = a company-size group (market cap). Cells show that group's average return 1 week / 1 month / 3 months after a signal. Green = gained, red = lost, darker = bigger move. Rows with fewer than 3 signals are hidden.">ℹ️</span></h3>
+                    <p className="text-xs text-gray-400 mb-4">How company size affects returns after a signal — avg % move per cap group, min. 3 signals.</p>
+                    {capMatrix.length > 0 ? (
+                        <div className="cap-matrix-scroll">
+                            <table className="cap-matrix heat-table">
+                                <thead>
+                                    <tr>
+                                        <th title="Company size group (market cap)">Bucket</th>
+                                        <th title="Average % change within 1 week after the signal date">1W</th>
+                                        <th title="Average % change within 1 month after the signal date. Hover a cell for win rate and consistency details.">1M</th>
+                                        <th title="Average % change within 3 months after the signal date">3M</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {capMatrix.map(b => (
+                                        <tr key={b.name}>
+                                            <td className="cap-matrix-bucket">{b.name} <span className="cap-matrix-count">(N={b.count})</span></td>
+                                            <td className={b.return_7d == null ? 'cap-matrix-na' : getReturnClass(b.return_7d)}
+                                                title={b.return_7d == null ? 'No data' : `How ${b.name} signals did in 1 week: avg ${formatPercent(b.return_7d)} (${b.count} signals)`}>
+                                                {b.return_7d == null ? '—' : formatPercent(b.return_7d)}
+                                            </td>
+                                            <td className={b.return_30d == null ? 'cap-matrix-na' : getReturnClass(b.return_30d)}
+                                                title={b.return_30d == null ? 'No data'
+                                                    : `How ${b.name} signals did in 1 month: avg ${formatPercent(b.return_30d)} (${b.count} signals). Win rate: ${b.winRate == null ? 'N/A' : b.winRate.toFixed(0) + '%'} · Avg win: ${b.avgWin == null ? 'N/A' : formatPercent(b.avgWin)} · Avg loss: ${b.avgLoss == null ? 'N/A' : formatPercent(b.avgLoss)} · Consistency: ${b.consistency === 999 ? 'MAX' : b.consistency === -999 ? 'MIN' : b.consistency.toFixed(2)}`}>
+                                                {b.return_30d == null ? '—' : formatPercent(b.return_30d)}
+                                            </td>
+                                            <td className={b.return_90d == null ? 'cap-matrix-na' : getReturnClass(b.return_90d)}
+                                                title={b.return_90d == null ? 'No data' : `How ${b.name} signals did in 3 months: avg ${formatPercent(b.return_90d)} (${b.count} signals)`}>
+                                                {b.return_90d == null ? '—' : formatPercent(b.return_90d)}
+                                            </td>
+                                        </tr>
                                     ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                                </tbody>
+                            </table>
+                        </div>
                     ) : (
                         <div className="flex h-48 items-center justify-center text-gray-500">Not enough market cap data available.</div>
+                    )}
+                </div>
+
+                <div className="chart-card">
+                    <h3 className="section-title">Return Heatmap <span title="One row per signal, newest first. Each cell = that signal's return after 1 week / 1 month / 3 months, plus the latest return since the signal date. Green = profit, red = loss, darker = bigger move. Click a horizon cell for the price chart.">ℹ️</span></h3>
+                    <p className="text-xs text-gray-400 mb-4">Darker = stronger move. Click a horizon cell for the chart. Showing latest {heatmapRows.length} of {filteredTrades.length} signals.</p>
+                    {heatmapRows.length > 0 ? (
+                        <div className="heatmap-scroll">
+                            <table className="heatmap-table heat-table">
+                                <thead>
+                                    <tr>
+                                        <th className="heatmap-symbol">Symbol</th>
+                                        <th title="Date the signal fired">Signal Date</th>
+                                        <th title="Latest return since the signal date">Latest</th>
+                                        <th title="Average return 1 week after the signal">1W</th>
+                                        <th title="Average return 1 month after the signal">1M</th>
+                                        <th title="Average return 3 months after the signal">3M</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {heatmapRows.map((trade, idx) => (
+                                        <tr key={idx}>
+                                            <td className="heatmap-symbol">{trade.symbol}</td>
+                                            <td className="heatmap-date">{trade.signal_date || '—'}</td>
+                                            <td className={getReturnClass(trade.latest_price_return)}
+                                                title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}>
+                                                {formatPercent(trade.latest_price_return)}
+                                            </td>
+                                            <td className={`heat-click ${getReturnClass(trade.return_7d)}`}
+                                                onClick={() => handleCellClick(trade, '7d')}
+                                                title={`${trade.symbol} · 1W: ${formatPercent(trade.return_7d)}`}>
+                                                {formatPercent(trade.return_7d)}
+                                            </td>
+                                            <td className={`heat-click ${getReturnClass(trade.return_30d)}`}
+                                                onClick={() => handleCellClick(trade, '30d')}
+                                                title={`${trade.symbol} · 1M: ${formatPercent(trade.return_30d)}`}>
+                                                {formatPercent(trade.return_30d)}
+                                            </td>
+                                            <td className={`heat-click ${getReturnClass(trade.return_90d)}`}
+                                                onClick={() => handleCellClick(trade, '90d')}
+                                                title={`${trade.symbol} · 3M: ${formatPercent(trade.return_90d)}`}>
+                                                {formatPercent(trade.return_90d)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="flex h-48 items-center justify-center text-gray-500">No trade data available.</div>
                     )}
                 </div>
             </div>
@@ -543,29 +688,29 @@ const Dashboard = ({ report, onBack }) => {
 
                                     </span>
                                 </th>
-                                <th onClick={() => handleSort('entry_date')}>
+                                <th onClick={() => handleSort('entry_date')} className="col-entry-date">
                                     Entry Date {sortConfig.key === 'entry_date' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('entry_price')}>
+                                <th onClick={() => handleSort('entry_price')} className="col-entry">
                                     Entry {sortConfig.key === 'entry_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('latest_price')}>
+                                <th onClick={() => handleSort('latest_price')} className="col-latest">
                                     Latest Price {sortConfig.key === 'latest_price' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
 
-                                <th onClick={() => handleSort('return_7d')}>
+                                <th onClick={() => handleSort('return_7d')} className="col-return-7d">
                                     1 Week Return {sortConfig.key === 'return_7d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('return_30d')}>
+                                <th onClick={() => handleSort('return_30d')} className="col-return-30d">
                                     1 Month Return {sortConfig.key === 'return_30d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('return_90d')}>
+                                <th onClick={() => handleSort('return_90d')} className="col-return-90d">
                                     3 Month Return {sortConfig.key === 'return_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('max_high_90d')}>
+                                <th onClick={() => handleSort('max_high_90d')} className="col-max-high">
                                     Max High {sortConfig.key === 'max_high_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
-                                <th onClick={() => handleSort('max_low_90d')}>
+                                <th onClick={() => handleSort('max_low_90d')} className="col-max-low">
                                     Max Low {sortConfig.key === 'max_low_90d' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                                 </th>
                             </tr>
@@ -590,8 +735,8 @@ const Dashboard = ({ report, onBack }) => {
                                     </td>
                                     <td>{trade.signal_date}</td>
                                     <td>{trade.signal_close_price ? formatCurrency(trade.signal_close_price) : '-'}</td>
-                                    <td>{getEntryDate(trade)}</td>
-                                    <td>
+                                    <td className="col-entry-date">{getEntryDate(trade)}</td>
+                                    <td className="col-entry">
                                         {trade.entry_price && trade.symbol ? (
                                             <a href={getScreenerUrl(trade.symbol)}
                                                target="_blank" rel="noopener noreferrer"
@@ -601,7 +746,7 @@ const Dashboard = ({ report, onBack }) => {
                                         ) : formatCurrency(trade.entry_price)}
                                     </td>
                                     <td
-                                        className={getColorClass(trade.latest_price_return)}
+                                        className={`col-latest ${getColorClass(trade.latest_price_return)}`}
                                         title={trade.latest_price_date ? `Return: ${formatPercent(trade.latest_price_return)} (since ${trade.latest_price_date})` : 'Return: N/A'}
                                     >
                                         {trade.latest_price && trade.symbol ? (
@@ -614,28 +759,28 @@ const Dashboard = ({ report, onBack }) => {
                                     </td>
 
                                     <td
-                                        className={`clickable-cell ${getColorClass(trade.return_7d)}`}
+                                        className={`clickable-cell col-return-7d ${getColorClass(trade.return_7d)}`}
                                         onClick={() => handleCellClick(trade, '7d')}
                                         title={getTooltipContent(trade, '7d')}
                                     >
                                         {formatPercent(trade.return_7d)}
                                     </td>
                                     <td
-                                        className={`clickable-cell ${getColorClass(trade.return_30d)}`}
+                                        className={`clickable-cell col-return-30d ${getColorClass(trade.return_30d)}`}
                                         onClick={() => handleCellClick(trade, '30d')}
                                         title={getTooltipContent(trade, '30d')}
                                     >
                                         {formatPercent(trade.return_30d)}
                                     </td>
                                     <td
-                                        className={`clickable-cell ${getColorClass(trade.return_90d)}`}
+                                        className={`clickable-cell col-return-90d ${getColorClass(trade.return_90d)}`}
                                         onClick={() => handleCellClick(trade, '90d')}
                                         title={getTooltipContent(trade, '90d')}
                                     >
                                         {formatPercent(trade.return_90d)}
                                     </td>
-                                    <td className="positive" title={`Max High Date: ${trade.max_high_date || 'N/A'}`}>{formatCurrency(trade.max_high_90d)}</td>
-                                    <td className="negative" title={`Max Low Date: ${trade.max_low_date || 'N/A'}`}>{formatCurrency(trade.max_low_90d)}</td>
+                                    <td className="col-max-high positive" title={`Max High Date: ${trade.max_high_date || 'N/A'}`}>{formatCurrency(trade.max_high_90d)}</td>
+                                    <td className="col-max-low negative" title={`Max Low Date: ${trade.max_low_date || 'N/A'}`}>{formatCurrency(trade.max_low_90d)}</td>
                                 </tr>
                             ))}
                         </tbody>

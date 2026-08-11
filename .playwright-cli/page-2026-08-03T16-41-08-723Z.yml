@@ -1,0 +1,102 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e6]:
+      - link "StockBacktesterPro" [ref=e7] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e13]:
+        - link "Log In" [ref=e14] [cursor=pointer]:
+          - /url: /login
+        - link [ref=e15] [cursor=pointer]:
+          - /url: /signup
+          - button "Sign Up" [ref=e16]
+  - generic [ref=e18]:
+    - generic [ref=e21]:
+      - generic [ref=e22]: Professional Trading Analytics
+      - heading "Master Your Trading Strategy" [level=1] [ref=e27]: Master YourTrading Strategy
+      - paragraph [ref=e28]: Transform your stock screening results into actionable insights. Backtest instantly, visualize performance, and optimize your portfolio with institutional-grade tools.
+      - generic [ref=e29]:
+        - link [ref=e30] [cursor=pointer]:
+          - /url: /login
+          - button "Get Started Free" [ref=e31]
+        - link [ref=e36] [cursor=pointer]:
+          - /url: /login
+          - button "View Live Demo" [ref=e37]
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]: 10K+
+          - generic [ref=e44]: Backtests Run
+        - generic [ref=e45]:
+          - generic [ref=e46]: 99.9%
+          - generic [ref=e47]: Accuracy
+        - generic [ref=e48]:
+          - generic [ref=e49]: <1s
+          - generic [ref=e50]: Avg. Speed
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - heading "Everything You Need to Win" [level=2] [ref=e53]
+        - paragraph [ref=e54]: Powerful features designed for serious traders
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - heading "Lightning Fast" [level=3] [ref=e63]
+          - paragraph [ref=e64]: Upload your CSV and get comprehensive backtest results in under a second. No waiting, no complexity.
+        - generic [ref=e65]:
+          - heading "Deep Analytics" [level=3] [ref=e71]
+          - paragraph [ref=e72]: Visualize win rates, drawdowns, and returns. Interactive charts reveal patterns you'd otherwise miss.
+        - generic [ref=e73]:
+          - heading "Risk Management" [level=3] [ref=e82]
+          - paragraph [ref=e83]: Calculate optimal position sizing and analyze risk-adjusted returns with institutional precision.
+    - generic [ref=e89]:
+      - heading "Interactive Dashboard" [level=3] [ref=e95]
+      - paragraph [ref=e96]: See your strategies come to life with real-time visualizations
+  - contentinfo [ref=e97]:
+    - generic [ref=e98]:
+      - generic [ref=e99]:
+        - generic [ref=e100]:
+          - link "StockBacktesterPro" [ref=e101] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=e107]: Empowering traders with professional-grade backtesting tools, real-time screening, and fundamental analysis. Validate your strategies before you trade.
+          - generic [ref=e108]:
+            - link "Twitter" [ref=e109] [cursor=pointer]:
+              - /url: "#"
+            - link "GitHub" [ref=e112] [cursor=pointer]:
+              - /url: "#"
+            - link "Email" [ref=e116] [cursor=pointer]:
+              - /url: mailto:contact@stockbacktesterpro.com
+        - generic [ref=e120]:
+          - heading "Product" [level=4] [ref=e121]
+          - list [ref=e122]:
+            - listitem [ref=e123]:
+              - link "Dashboard Hub" [ref=e124] [cursor=pointer]:
+                - /url: /dashboard
+            - listitem [ref=e125]:
+              - link "Backtester" [ref=e126] [cursor=pointer]:
+                - /url: /dashboard/backtester
+            - listitem [ref=e127]:
+              - link "Live Screener Soon" [ref=e128] [cursor=pointer]:
+                - /url: /
+                - text: Live Screener
+                - generic [ref=e129]: Soon
+            - listitem [ref=e130]:
+              - link "Pricing" [ref=e131] [cursor=pointer]:
+                - /url: /
+        - generic [ref=e132]:
+          - heading "Company" [level=4] [ref=e133]
+          - list [ref=e134]:
+            - listitem [ref=e135]:
+              - link "About Us" [ref=e136] [cursor=pointer]:
+                - /url: /
+            - listitem [ref=e137]:
+              - link "Blog" [ref=e138] [cursor=pointer]:
+                - /url: /
+            - listitem [ref=e139]:
+              - link "Terms of Service" [ref=e140] [cursor=pointer]:
+                - /url: /
+            - listitem [ref=e141]:
+              - link "Privacy Policy" [ref=e142] [cursor=pointer]:
+                - /url: /
+      - generic [ref=e143]:
+        - paragraph [ref=e144]: © 2026 StockBacktester Pro. All rights reserved.
+        - generic [ref=e145]:
+          - generic [ref=e146]: Made with
+          - generic [ref=e149]: for traders worldwide.
+  - button "AI Trade Check" [ref=e150]
