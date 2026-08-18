@@ -185,6 +185,26 @@ class PersistenceBackend(ABC):
         ...
 
     @abstractmethod
+    async def save_deployed_portfolio(self, portfolio: dict, positions: list[dict]) -> Optional[str]:
+        ...
+
+    @abstractmethod
+    async def list_deployed_portfolios(self, user_id: str) -> list[dict]:
+        ...
+
+    @abstractmethod
+    async def get_deployed_portfolio(self, portfolio_id: str, user_id: Optional[str] = None) -> Optional[dict]:
+        ...
+
+    @abstractmethod
+    async def update_deployed_portfolio(self, portfolio_id: str, status: str, metrics: dict, positions: list[dict]) -> bool:
+        ...
+
+    @abstractmethod
+    async def delete_deployed_portfolio(self, portfolio_id: str, user_id: str) -> bool:
+        ...
+
+    @abstractmethod
     async def close(self) -> None:
         ...
 
@@ -284,6 +304,21 @@ class NullBackend(PersistenceBackend):
         return None
 
     async def set_ingestion_user(self, ingestion_id: str, user_id: str) -> bool:
+        return False
+
+    async def save_deployed_portfolio(self, portfolio: dict, positions: list[dict]) -> Optional[str]:
+        return None
+
+    async def list_deployed_portfolios(self, user_id: str) -> list[dict]:
+        return []
+
+    async def get_deployed_portfolio(self, portfolio_id: str, user_id: Optional[str] = None) -> Optional[dict]:
+        return None
+
+    async def update_deployed_portfolio(self, portfolio_id: str, status: str, metrics: dict, positions: list[dict]) -> bool:
+        return False
+
+    async def delete_deployed_portfolio(self, portfolio_id: str, user_id: str) -> bool:
         return False
 
     async def close(self) -> None:
@@ -458,6 +493,21 @@ class D1WorkerBackend(PersistenceBackend):
         return None
 
     async def set_ingestion_user(self, ingestion_id: str, user_id: str) -> bool:
+        return False
+
+    async def save_deployed_portfolio(self, portfolio: dict, positions: list[dict]) -> Optional[str]:
+        return None
+
+    async def list_deployed_portfolios(self, user_id: str) -> list[dict]:
+        return []
+
+    async def get_deployed_portfolio(self, portfolio_id: str, user_id: Optional[str] = None) -> Optional[dict]:
+        return None
+
+    async def update_deployed_portfolio(self, portfolio_id: str, status: str, metrics: dict, positions: list[dict]) -> bool:
+        return False
+
+    async def delete_deployed_portfolio(self, portfolio_id: str, user_id: str) -> bool:
         return False
 
     async def close(self) -> None:
@@ -889,6 +939,134 @@ class PostgresBackend(PersistenceBackend):
         result = await self._execute(
             "UPDATE ingestion_log SET user_id = $1 WHERE id = $2",
             user_id, ingestion_id
+        )
+        return result is not None
+
+    async def save_deployed_portfolio(self, portfolio: dict, positions: list[dict]) -> Optional[str]:
+        pid = portfolio.get("id") or str(uuid.uuid4())
+        user_id = portfolio.get("user_id", "")
+        if not user_id:
+            return None
+            
+        p_res = await self._execute(
+            "INSERT INTO deployed_portfolios (id, user_id, report_id, name, strategy_name, horizon_style, "
+            "optimal_horizon_days, deployment_date, entry_mode, exit_rule, total_capital, allocated_capital, cash_reserve, expected_roi_pct, status) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) "
+            "ON CONFLICT (id) DO UPDATE SET name=$4, status=$15, updated_at=NOW()",
+            pid, user_id, portfolio.get("report_id"), portfolio.get("name", "Model Portfolio"),
+            portfolio.get("strategy_name", "Technical Strategy"), portfolio.get("horizon_style", "swing_7_21d"),
+            int(portfolio.get("optimal_horizon_days", 14)), portfolio.get("deployment_date", ""),
+            portfolio.get("entry_mode", "next_open"), portfolio.get("exit_rule", "partial_runner"),
+            float(portfolio.get("total_capital", 500000)), float(portfolio.get("allocated_capital", 0)),
+            float(portfolio.get("cash_reserve", 0)), float(portfolio.get("expected_roi_pct", 0)) if portfolio.get("expected_roi_pct") is not None else None,
+            portfolio.get("status", "ACTIVE")
+        )
+        
+        if not p_res:
+            return None
+            
+        for pos in positions:
+            pos_id = pos.get("id") or str(uuid.uuid4())
+            await self._execute(
+                "INSERT INTO deployed_positions (id, portfolio_id, symbol, sector, shares, entry_price, allocated_amount, weight_pct, "
+                "stop_loss_price, target1_price, target2_price, current_price, max_high_since_entry, max_low_since_entry, status) "
+                "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) "
+                "ON CONFLICT (id) DO NOTHING",
+                pos_id, pid, pos["symbol"], pos.get("sector"), int(pos.get("shares", 0)),
+                float(pos.get("entry_price", 0)), float(pos.get("allocated_amount", 0)), float(pos.get("weight_pct", 0)),
+                float(pos.get("stop_loss_price", 0)), float(pos.get("target1_price", 0)), float(pos.get("target2_price", 0)),
+                float(pos.get("current_price", pos.get("entry_price", 0))),
+                float(pos.get("max_high_since_entry", pos.get("entry_price", 0))),
+                float(pos.get("max_low_since_entry", pos.get("entry_price", 0))),
+                pos.get("status", "ACTIVE")
+            )
+            
+        return pid
+
+    async def list_deployed_portfolios(self, user_id: str) -> list[dict]:
+        row = await self._fetchrow(
+            "SELECT json_agg(json_build_object("
+            "'id', p.id, 'user_id', p.user_id, 'report_id', p.report_id, 'name', p.name, "
+            "'strategy_name', p.strategy_name, 'horizon_style', p.horizon_style, "
+            "'optimal_horizon_days', p.optimal_horizon_days, 'deployment_date', p.deployment_date, "
+            "'entry_mode', p.entry_mode, 'exit_rule', p.exit_rule, 'total_capital', p.total_capital, "
+            "'allocated_capital', p.allocated_capital, 'cash_reserve', p.cash_reserve, "
+            "'expected_roi_pct', p.expected_roi_pct, 'status', p.status, 'created_at', p.created_at, "
+            "'positions', COALESCE(pos.list, '[]'::json)"
+            ") ORDER BY p.created_at DESC) AS results "
+            "FROM deployed_portfolios p "
+            "LEFT JOIN LATERAL ("
+            "  SELECT json_agg(json_build_object("
+            "    'id', id, 'symbol', symbol, 'sector', sector, 'shares', shares, 'entry_price', entry_price, "
+            "    'allocated_amount', allocated_amount, 'weight_pct', weight_pct, 'stop_loss_price', stop_loss_price, "
+            "    'target1_price', target1_price, 'target2_price', target2_price, 'current_price', current_price, "
+            "    'max_high_since_entry', max_high_since_entry, 'max_low_since_entry', max_low_since_entry, "
+            "    'exit_date', exit_date, 'exit_price', exit_price, 'exit_reason', exit_reason, "
+            "    'realized_pnl', realized_pnl, 'realized_return_pct', realized_return_pct, 'status', status"
+            "  )) AS list FROM deployed_positions WHERE portfolio_id = p.id"
+            ") pos ON TRUE "
+            "WHERE p.user_id = $1",
+            user_id
+        )
+        return row["results"] if row and row.get("results") else []
+
+    async def get_deployed_portfolio(self, portfolio_id: str, user_id: Optional[str] = None) -> Optional[dict]:
+        query = (
+            "SELECT p.id, p.user_id, p.report_id, p.name, p.strategy_name, p.horizon_style, "
+            "p.optimal_horizon_days, p.deployment_date, p.entry_mode, p.exit_rule, p.total_capital, "
+            "p.allocated_capital, p.cash_reserve, p.expected_roi_pct, p.status, p.created_at, "
+            "COALESCE(pos.list, '[]'::json) AS positions "
+            "FROM deployed_portfolios p "
+            "LEFT JOIN LATERAL ("
+            "  SELECT json_agg(json_build_object("
+            "    'id', id, 'symbol', symbol, 'sector', sector, 'shares', shares, 'entry_price', entry_price, "
+            "    'allocated_amount', allocated_amount, 'weight_pct', weight_pct, 'stop_loss_price', stop_loss_price, "
+            "    'target1_price', target1_price, 'target2_price', target2_price, 'current_price', current_price, "
+            "    'max_high_since_entry', max_high_since_entry, 'max_low_since_entry', max_low_since_entry, "
+            "    'exit_date', exit_date, 'exit_price', exit_price, 'exit_reason', exit_reason, "
+            "    'realized_pnl', realized_pnl, 'realized_return_pct', realized_return_pct, 'status', status"
+            "  )) AS list FROM deployed_positions WHERE portfolio_id = p.id"
+            ") pos ON TRUE "
+            "WHERE p.id = $1"
+        )
+        params = [portfolio_id]
+        if user_id:
+            query += " AND p.user_id = $2"
+            params.append(user_id)
+            
+        row = await self._fetchrow(query, *params)
+        return dict(row) if row else None
+
+    async def update_deployed_portfolio(self, portfolio_id: str, status: str, metrics: dict, positions: list[dict]) -> bool:
+        await self._execute(
+            "UPDATE deployed_portfolios SET status = $1, updated_at = NOW() WHERE id = $2",
+            status, portfolio_id
+        )
+        for pos in positions:
+            if "id" in pos:
+                await self._execute(
+                    "UPDATE deployed_positions SET "
+                    "current_price = $1, max_high_since_entry = $2, max_low_since_entry = $3, "
+                    "exit_date = $4, exit_price = $5, exit_reason = $6, realized_pnl = $7, "
+                    "realized_return_pct = $8, status = $9, updated_at = NOW() "
+                    "WHERE id = $10",
+                    float(pos.get("current_price", 0)) if pos.get("current_price") is not None else None,
+                    float(pos.get("max_high_since_entry", 0)) if pos.get("max_high_since_entry") is not None else None,
+                    float(pos.get("max_low_since_entry", 0)) if pos.get("max_low_since_entry") is not None else None,
+                    pos.get("exit_date"),
+                    float(pos.get("exit_price", 0)) if pos.get("exit_price") is not None else None,
+                    pos.get("exit_reason"),
+                    float(pos.get("realized_pnl", 0)) if pos.get("realized_pnl") is not None else 0,
+                    float(pos.get("realized_return_pct", 0)) if pos.get("realized_return_pct") is not None else 0,
+                    pos.get("status", "ACTIVE"),
+                    pos["id"]
+                )
+        return True
+
+    async def delete_deployed_portfolio(self, portfolio_id: str, user_id: str) -> bool:
+        result = await self._execute(
+            "DELETE FROM deployed_portfolios WHERE id = $1 AND user_id = $2",
+            portfolio_id, user_id
         )
         return result is not None
 

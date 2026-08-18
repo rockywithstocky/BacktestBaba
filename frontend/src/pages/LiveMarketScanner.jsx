@@ -4,12 +4,14 @@ import {
     ArrowLeft, Search, Zap, Target, Shield, Star, TrendingUp, CheckCircle,
     BarChart3, Sparkles, ExternalLink, RefreshCw, Layers, ArrowUpRight, Flame,
     Clock, Gauge, Scale, LayoutGrid, Table, Download, PieChart, Briefcase,
-    ChevronLeft, ChevronRight, X, Info, Wallet, LineChart
+    ChevronLeft, ChevronRight, X, Info, Wallet, LineChart, Rocket
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analyzeTopNextDayPicks, detectOptimalHorizon } from '../utils/technicalPatternEngine';
 import { buildModelPortfolio, generateBrokerBasketCSV } from '../utils/modelPortfolioEngine';
 import { listReports, getReport } from '../services/db';
+import PreDeployChecklistModal from '../components/PreDeployChecklistModal';
+import { deployPortfolio } from '../services/trackerApi';
 
 const HORIZON_OPTIONS = [
     { id: 'auto', label: '🎯 Auto-Detect Optimal', desc: 'Strategy highest Sharpe ratio' },
@@ -41,7 +43,19 @@ const LiveMarketScanner = () => {
     // Portfolio Settings
     const [portfolioCapital, setPortfolioCapital] = useState(500000);
     const [maxPositions, setMaxPositions] = useState(6);
+    const [cashReserveBufferPct, setCashReserveBufferPct] = useState(10);
     const [selectedStockForDrawer, setSelectedStockForDrawer] = useState(null);
+    const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+
+    const handleConfirmDeploy = async (portfolioPayload, positionsPayload) => {
+        setIsDeployModalOpen(false);
+        try {
+            await deployPortfolio(portfolioPayload, positionsPayload);
+            navigate('/dashboard/tracker');
+        } catch (e) {
+            console.error('Failed to deploy portfolio', e);
+        }
+    };
 
     useEffect(() => {
         listReports()
@@ -107,9 +121,10 @@ const LiveMarketScanner = () => {
             totalCapital: portfolioCapital,
             maxPositions: maxPositions,
             maxSectorExposurePct: 35,
+            cashReserveBufferPct,
             horizonStyle
         });
-    }, [topPicks, portfolioCapital, maxPositions, horizonStyle]);
+    }, [topPicks, portfolioCapital, maxPositions, cashReserveBufferPct, horizonStyle]);
 
     // Paginated list for Screener
     const paginatedPicks = useMemo(() => {
@@ -166,7 +181,7 @@ const LiveMarketScanner = () => {
                                 <h1 className="text-3xl font-display font-bold text-white tracking-tight flex items-center gap-2">
                                     Market Scanner & Model Portfolio
                                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                        MarketSmith Grade
+                                        Institutional Quant Engine
                                     </span>
                                 </h1>
                                 <p className="text-gray-400 text-sm">
@@ -763,49 +778,87 @@ const LiveMarketScanner = () => {
                                         </select>
                                     </div>
 
-                                    <button
-                                        onClick={handleExportZerodhaBasket}
-                                        className="mt-4 sm:mt-0 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                                    >
-                                        <Download size={15} /> Export Zerodha Basket CSV
-                                    </button>
+                                    <div>
+                                        <label className="text-[11px] text-gray-400 block mb-1 font-semibold">Cash Buffer Reserve</label>
+                                        <select
+                                            value={cashReserveBufferPct}
+                                            onChange={(e) => setCashReserveBufferPct(Number(e.target.value))}
+                                            className="px-3 py-2 bg-black/50 border border-white/15 rounded-xl text-sm text-white font-bold focus:outline-none focus:border-emerald-500"
+                                        >
+                                            <option value={5}>5% Cash (95% Active)</option>
+                                            <option value={10}>10% Cash (Recommended)</option>
+                                            <option value={15}>15% Cash (Balanced)</option>
+                                            <option value={20}>20% Cash (Conservative)</option>
+                                            <option value={0}>0% Cash (100% Deployed)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                                        <button
+                                            onClick={() => setIsDeployModalOpen(true)}
+                                            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.35)]"
+                                        >
+                                            <Rocket size={15} /> Deploy & Track
+                                        </button>
+                                        <button
+                                            onClick={handleExportZerodhaBasket}
+                                            className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/15 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all"
+                                        >
+                                            <Download size={15} /> Zerodha CSV
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Portfolio KPI Summary Grid */}
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-6 text-center text-xs">
                                 <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <div className="text-gray-500 text-[10px]">Total Invested</div>
+                                    <div className="text-gray-500 text-[10px]">Capital Allocation</div>
                                     <div className="text-base font-bold text-white font-mono mt-0.5">
                                         ₹{modelPortfolio.metrics.totalInvested.toLocaleString('en-IN')}
                                     </div>
-                                </div>
-
-                                <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <div className="text-gray-500 text-[10px]">Cash Reserve</div>
-                                    <div className="text-base font-bold text-gray-300 font-mono mt-0.5">
-                                        ₹{modelPortfolio.metrics.cashReserve.toLocaleString('en-IN')} ({modelPortfolio.metrics.cashReservePct}%)
+                                    <div className="text-[10px] text-emerald-400 font-medium">
+                                        ₹{modelPortfolio.metrics.cashReserve.toLocaleString('en-IN')} ({modelPortfolio.metrics.cashReservePct}%) Cash Buffer
                                     </div>
                                 </div>
 
                                 <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <div className="text-gray-500 text-[10px]">Expected Portfolio Return</div>
+                                    <div className="text-gray-500 text-[10px]">Expected Strategy Return</div>
                                     <div className="text-base font-bold text-emerald-400 font-mono mt-0.5">
                                         +{modelPortfolio.metrics.expectedPortfolioReturnPct}%
+                                    </div>
+                                    <div className="text-[10px] text-emerald-300/90 font-mono">
+                                        +₹{(modelPortfolio.metrics.totalExpectedProfit || 0).toLocaleString('en-IN')} Est. Gain
                                     </div>
                                 </div>
 
                                 <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5">
                                     <div className="text-gray-500 text-[10px]">Max Risk Budget (SL)</div>
                                     <div className="text-base font-bold text-red-400 font-mono mt-0.5">
-                                        ₹{modelPortfolio.metrics.maxRiskValue.toLocaleString('en-IN')} ({modelPortfolio.metrics.maxRiskPct}%)
+                                        ₹{modelPortfolio.metrics.maxRiskValue.toLocaleString('en-IN')}
+                                    </div>
+                                    <div className="text-[10px] text-red-300/80 font-mono">
+                                        {modelPortfolio.metrics.maxRiskPct}% Capital at Risk
                                     </div>
                                 </div>
 
                                 <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <div className="text-gray-500 text-[10px]">Active Positions</div>
+                                    <div className="text-gray-500 text-[10px]">Reward-to-Risk Edge</div>
+                                    <div className="text-base font-bold text-teal-300 font-mono mt-0.5">
+                                        1 : {modelPortfolio.metrics.rewardRiskRatio || 2.2}
+                                    </div>
+                                    <div className="text-[10px] text-teal-300/80 font-medium">
+                                        Asymmetric Edge
+                                    </div>
+                                </div>
+
+                                <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+                                    <div className="text-gray-500 text-[10px]">Strategy Positions</div>
                                     <div className="text-base font-bold text-blue-400 font-mono mt-0.5">
                                         {modelPortfolio.metrics.positionCount} Stocks
+                                    </div>
+                                    <div className="text-[10px] text-blue-300/80 font-medium">
+                                        ~{modelPortfolio.metrics.avgWinRate || 70}% Strategy Win Rate
                                     </div>
                                 </div>
                             </div>
@@ -1025,6 +1078,16 @@ const LiveMarketScanner = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Pre-Deployment Checklist Modal */}
+            <PreDeployChecklistModal
+                isOpen={isDeployModalOpen}
+                onClose={() => setIsDeployModalOpen(false)}
+                onConfirmDeploy={handleConfirmDeploy}
+                modelPortfolio={modelPortfolio}
+                horizonStyle={horizonStyle}
+                optimalHorizonDays={optimalHorizonInfo.bestHorizonDays || 14}
+            />
         </div>
     );
 };

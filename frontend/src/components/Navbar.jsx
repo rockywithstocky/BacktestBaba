@@ -68,10 +68,28 @@ const Navbar = () => {
                                 >
                                     Hub
                                 </Link>
+                                <Link
+                                    to="/dashboard/backtester"
+                                    className={`text-sm font-semibold transition-colors ${location.pathname === '/dashboard/backtester' ? 'text-white' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    Backtester
+                                </Link>
+                                <Link
+                                    to="/dashboard/screener"
+                                    className={`text-sm font-semibold transition-colors ${location.pathname === '/dashboard/screener' ? 'text-emerald-400' : 'text-gray-400 hover:text-emerald-400'}`}
+                                >
+                                    Screener
+                                </Link>
+                                <Link
+                                    to="/dashboard/tracker"
+                                    className={`text-sm font-semibold transition-colors ${location.pathname === '/dashboard/tracker' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}
+                                >
+                                    Tracker
+                                </Link>
                                 {isAdmin && (
                                     <Link
                                         to="/dashboard/admin"
-                                        className={`flex items-center gap-1.5 text-sm font-semibold transition-colors ${location.pathname === '/dashboard/admin' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}
+                                        className={`flex items-center gap-1.5 text-sm font-semibold transition-colors ${location.pathname === '/dashboard/admin' ? 'text-purple-400' : 'text-gray-400 hover:text-purple-400'}`}
                                     >
                                         <Shield size={14} />
                                         Admin

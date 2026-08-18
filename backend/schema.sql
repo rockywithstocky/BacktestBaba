@@ -185,3 +185,63 @@ DO $$ BEGIN
     CHECK (entry_mode IN ('next_close', 'next_open'));
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ============================================================
+-- Live Forward Portfolio Tracker & Lifecycle Execution Engine
+-- Added 2026-08-18
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS deployed_portfolios (
+  id                    TEXT PRIMARY KEY,
+  user_id               TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  report_id             TEXT,
+  name                  TEXT NOT NULL,
+  strategy_name         TEXT,
+  horizon_style         TEXT NOT NULL DEFAULT 'swing_7_21d',
+  optimal_horizon_days  INTEGER NOT NULL DEFAULT 14,
+  deployment_date       TEXT NOT NULL,
+  entry_mode            TEXT NOT NULL DEFAULT 'next_open',
+  exit_rule             TEXT NOT NULL DEFAULT 'partial_runner',
+  total_capital         REAL NOT NULL DEFAULT 500000,
+  allocated_capital     REAL NOT NULL DEFAULT 0,
+  cash_reserve          REAL NOT NULL DEFAULT 0,
+  expected_roi_pct      REAL,
+  status                TEXT NOT NULL DEFAULT 'ACTIVE'
+                        CHECK (status IN ('ACTIVE', 'COMPLETED', 'CANCELLED')),
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_deployed_portfolios_user_id ON deployed_portfolios(user_id);
+CREATE INDEX IF NOT EXISTS idx_deployed_portfolios_status ON deployed_portfolios(status);
+
+CREATE TABLE IF NOT EXISTS deployed_positions (
+  id                    TEXT PRIMARY KEY,
+  portfolio_id          TEXT NOT NULL REFERENCES deployed_portfolios(id) ON DELETE CASCADE,
+  symbol                TEXT NOT NULL,
+  sector                TEXT,
+  shares                INTEGER NOT NULL,
+  entry_price           REAL NOT NULL,
+  allocated_amount      REAL NOT NULL,
+  weight_pct            REAL NOT NULL,
+  stop_loss_price       REAL NOT NULL,
+  target1_price         REAL NOT NULL,
+  target2_price         REAL NOT NULL,
+  current_price         REAL,
+  max_high_since_entry  REAL,
+  max_low_since_entry   REAL,
+  exit_date             TEXT,
+  exit_price            REAL,
+  exit_reason           TEXT
+                        CHECK (exit_reason IN ('TARGET_1_HIT', 'TARGET_2_HIT', 'STOP_LOSS_HIT', 'HORIZON_EXPIRED', 'MANUAL_EXIT')),
+  realized_pnl          REAL DEFAULT 0,
+  realized_return_pct   REAL DEFAULT 0,
+  status                TEXT NOT NULL DEFAULT 'ACTIVE'
+                        CHECK (status IN ('ACTIVE', 'EXITED')),
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_deployed_positions_portfolio_id ON deployed_positions(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_deployed_positions_symbol ON deployed_positions(symbol);
+

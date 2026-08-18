@@ -9,6 +9,7 @@ import DashboardHub from './pages/DashboardHub';
 import BacktesterPage from './pages/BacktesterPage';
 import FundamentalAnalysis from './pages/FundamentalAnalysis';
 import LiveMarketScanner from './pages/LiveMarketScanner';
+import PortfolioTrackerPage from './pages/PortfolioTrackerPage';
 import AdminPage from './pages/AdminPage';
 import AITradeCheck from './analyzer/AITradeCheck';
 
@@ -73,6 +74,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <LiveMarketScanner />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/tracker"
+            element={
+              <ProtectedRoute>
+                <PortfolioTrackerPage />
               </ProtectedRoute>
             }
           />

@@ -12,16 +12,16 @@
     "hash": "659e725168e7a46d0b3b59d84cd6c799"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\main.py": {
-    "mtime": 1787059287.8960402,
-    "hash": "f98fbe8e767450c3d43b3102bca69a45"
+    "mtime": 1787073644.354232,
+    "hash": "4a6f25989d36478083e3f51444b6e0c5"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\persistence.py": {
-    "mtime": 1785259190.5610964,
-    "hash": "0b045e4acb8b5efa28e6fa20c2b7017e"
+    "mtime": 1787068769.4392653,
+    "hash": "cfa597744b1fd52480cda540867c409a"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\schema.sql": {
-    "mtime": 1784307261.848482,
-    "hash": "66f141f59e15af625292cd996dfc6c8c"
+    "mtime": 1787068692.414547,
+    "hash": "f13281ba793f027f9729cfc1355494ac"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\storage.py": {
     "mtime": 1784304640.369779,
@@ -38,6 +38,10 @@
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\core\\data_provider.py": {
     "mtime": 1784745896.066247,
     "hash": "922bc489085ee31e7a29a133b8f15d97"
+  },
+  "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\core\\portfolio_tracker.py": {
+    "mtime": 1787073085.691417,
+    "hash": "4ad0264a6a6380e2a43194af9b43f36b"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\core\\stock_service.py": {
     "mtime": 1787059249.8595493,
@@ -83,6 +87,10 @@
     "mtime": 1785259197.2447257,
     "hash": "36cbcf3df4689bab17d5063350cf9b2a"
   },
+  "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\tests\\test_portfolio_tracker.py": {
+    "mtime": 1787068788.9411304,
+    "hash": "b38dc67e912431a62ba3e16ba124ab67"
+  },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\backend\\utils\\date_utils.py": {
     "mtime": 1782889756.807147,
     "hash": "054db9a8828f257ab91a214a059de6a3"
@@ -112,8 +120,8 @@
     "hash": "3a6d40ac767b7f15a1469c918fd10cdf"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\App.jsx": {
-    "mtime": 1787062425.3621318,
-    "hash": "abf90b0c8bf9607ce1c0e7d19fb03fce"
+    "mtime": 1787069204.7487595,
+    "hash": "1045ad9b774af04cde7c368ede105b0c"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\main.jsx": {
     "mtime": 1784744548.4429271,
@@ -180,8 +188,12 @@
     "hash": "87ca6c54ce81e1c5af0a295762b9c4be"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\components\\Navbar.jsx": {
-    "mtime": 1786459771.151835,
-    "hash": "d1ab177f8b78b6fd0a65ba744864e092"
+    "mtime": 1787069218.1136475,
+    "hash": "bb8407831eff228cadfddb351d4cef1a"
+  },
+  "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\components\\PreDeployChecklistModal.jsx": {
+    "mtime": 1787073616.2166827,
+    "hash": "839343d4f4d2edb67ea1b52bee503a96"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\components\\StockChartModal.jsx": {
     "mtime": 1783850447.7356954,
@@ -200,8 +212,8 @@
     "hash": "2983cb59964249ab7f4573ebf1b1c5ea"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\pages\\DashboardHub.jsx": {
-    "mtime": 1787062437.6293256,
-    "hash": "1d4dd5b63bf695e33d7c69016e2d0327"
+    "mtime": 1787069187.4993577,
+    "hash": "24480b633d3dd97460baa3af357fa972"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\pages\\FundamentalAnalysis.jsx": {
     "mtime": 1787059596.325592,
@@ -212,12 +224,16 @@
     "hash": "1a29047fe6e44daa22d69aae38a3dfdb"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\pages\\LiveMarketScanner.jsx": {
-    "mtime": 1787066440.5520585,
-    "hash": "507c69a608b44092b7ab5724de1d4517"
+    "mtime": 1787073459.1720765,
+    "hash": "2def4a1a9eda9422d9a216f7a741b963"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\pages\\LoginPage.jsx": {
     "mtime": 1786459803.8968282,
     "hash": "de9757aa34aa8717b01e3e83cb63de80"
+  },
+  "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\pages\\PortfolioTrackerPage.jsx": {
+    "mtime": 1787073654.2458923,
+    "hash": "07bf89acf58673e1d7ff7dd0efdd2d10"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\pages\\SignupPage.jsx": {
     "mtime": 1786459812.1265957,
@@ -243,6 +259,10 @@
     "mtime": 1784467863.3858528,
     "hash": "4c7e09491f1ea1e0cd603d715acea5a7"
   },
+  "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\services\\trackerApi.js": {
+    "mtime": 1787073623.1855032,
+    "hash": "e552161aba68d70ce343ebdef4c762bb"
+  },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\test\\Dashboard.test.jsx": {
     "mtime": 1784292288.2654724,
     "hash": "4aa8a273d9546cf42a51ab894a759fc9"
@@ -252,16 +272,16 @@
     "hash": "00e47f7b9836e8f731101981fa2bb2de"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\utils\\modelPortfolioEngine.js": {
-    "mtime": 1787065943.1442268,
-    "hash": "c48e991fd926f0187ec2605daa7bb5e8"
+    "mtime": 1787073800.3255503,
+    "hash": "a3a55a1ad41c8ae8f4928144b8429f77"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\utils\\strategySimulator.js": {
     "mtime": 1787059508.500471,
     "hash": "8c127d166f422dcfa2c0031ed33bfd21"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\utils\\technicalPatternEngine.js": {
-    "mtime": 1787065959.5921514,
-    "hash": "d92e94a74535ad4cf6779f88b41dc313"
+    "mtime": 1787070872.065053,
+    "hash": "5a4c65242e11a545f2e2cb40339da0a1"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\__tests__\\test_ai_proxy_security.test.js": {
     "mtime": 1784809692.9923928,
@@ -296,8 +316,12 @@
     "hash": "6d3d8f1a7ce3d853943f7572c4c723a9"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\__tests__\\test_model_portfolio_engine.test.js": {
-    "mtime": 1787065966.2085803,
-    "hash": "058cbfdb18231d28a45d158cdbdffad7"
+    "mtime": 1787073812.7841263,
+    "hash": "52a2c16c2b194433cea9ee10f45dc322"
+  },
+  "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\__tests__\\test_portfolio_tracker.test.js": {
+    "mtime": 1787069224.2519863,
+    "hash": "18d62054dde0960137cd10ddf31481a5"
   },
   "D:\\AI\\Stock Market\\ChartInk\\BacktestBaba\\frontend\\src\\__tests__\\test_risk_engine.test.js": {
     "mtime": 1784795778.1745822,

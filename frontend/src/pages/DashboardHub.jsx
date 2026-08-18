@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { TrendingUp, PieChart, Search, ArrowRight, Lock, Sparkles } from 'lucide-react';
+import { TrendingUp, PieChart, Search, ArrowRight, Lock, Sparkles, Rocket } from 'lucide-react';
 
 const DashboardHub = () => {
     const tools = [
@@ -18,18 +18,6 @@ const DashboardHub = () => {
             bgGlow: 'bg-blue-500/5'
         },
         {
-            id: 'fundamental',
-            title: 'Fundamental Analysis',
-            description: 'Deep dive into live company financials, valuation ratios, and growth metrics. Analyze PE, Market Cap, EPS, and ROE.',
-            icon: <PieChart size={40} />,
-            link: '/dashboard/fundamental/RELIANCE',
-            active: true,
-            gradient: 'from-purple-500 via-fuchsia-500 to-pink-500',
-            iconBg: 'from-purple-600/20 to-pink-600/20',
-            borderGlow: 'group-hover:shadow-[0_0_40px_rgba(139,92,246,0.3)]',
-            bgGlow: 'bg-purple-500/5'
-        },
-        {
             id: 'screener',
             title: 'Live Market Screener',
             description: 'Algorithmic technical pattern ranking. Evaluates fresh screener signals to pick high-probability next-day trades.',
@@ -40,6 +28,30 @@ const DashboardHub = () => {
             iconBg: 'from-emerald-600/20 to-teal-600/20',
             borderGlow: 'group-hover:shadow-[0_0_40px_rgba(16,185,129,0.3)]',
             bgGlow: 'bg-emerald-500/5'
+        },
+        {
+            id: 'tracker',
+            title: 'Live Forward Portfolio Tracker',
+            description: 'Track deployed model portfolios with live mark-to-market prices, automated target/SL watchdogs, and forward equity curves.',
+            icon: <Rocket size={40} />,
+            link: '/dashboard/tracker',
+            active: true,
+            gradient: 'from-amber-500 via-orange-500 to-rose-500',
+            iconBg: 'from-amber-600/20 to-orange-600/20',
+            borderGlow: 'group-hover:shadow-[0_0_40px_rgba(245,158,11,0.3)]',
+            bgGlow: 'bg-amber-500/5'
+        },
+        {
+            id: 'fundamental',
+            title: 'Fundamental Analysis',
+            description: 'Deep dive into live company financials, valuation ratios, and growth metrics. Analyze PE, Market Cap, EPS, and ROE.',
+            icon: <PieChart size={40} />,
+            link: '/dashboard/fundamental/RELIANCE',
+            active: true,
+            gradient: 'from-purple-500 via-fuchsia-500 to-pink-500',
+            iconBg: 'from-purple-600/20 to-pink-600/20',
+            borderGlow: 'group-hover:shadow-[0_0_40px_rgba(139,92,246,0.3)]',
+            bgGlow: 'bg-purple-500/5'
         }
     ];
 

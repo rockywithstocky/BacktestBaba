@@ -1023,3 +1023,304 @@ async def admin_revoke_sessions(body: dict, admin=Depends(get_admin_user)):
         raise HTTPException(status_code=502, detail="Admin service unavailable")
     return result
 
+
+# ── Live Forward Portfolio Tracker Endpoints ───────────────────────────────
+
+from backend.core.portfolio_tracker import evaluate_deployed_portfolio, resolve_fill_price
+
+@app.post("/api/portfolios/deploy")
+async def deploy_portfolio(body: dict, authorization: str = Header(None)):
+    user_id = "local_trader"
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ")
+        user = await _validate_token(token)
+        if user:
+            user_id = user["id"]
+            
+    portfolio_data = body.get("portfolio", {})
+    positions_data = body.get("positions", [])
+    
+    if not positions_data:
+        raise HTTPException(status_code=400, detail="Portfolio must contain at least one position")
+        
+    portfolio_data["user_id"] = user_id
+    deploy_date = portfolio_data.get("deployment_date", datetime.now().strftime("%Y-%m-%d"))
+    entry_mode = portfolio_data.get("entry_mode", "next_open")
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    is_queued = deploy_date > today_str or portfolio_data.get("status") == "PENDING"
+    if is_queued:
+        portfolio_data["status"] = "PENDING"
+        for pos in positions_data:
+            pos["status"] = "PENDING_FILL"
+    
+    # Resolve exact entry fill prices for deployment date
+    for pos in positions_data:
+        if not pos.get("entry_price") or float(pos.get("entry_price", 0)) <= 0:
+            fill_p = await resolve_fill_price(pos["symbol"], deploy_date, entry_mode)
+            if fill_p > 0:
+                pos["entry_price"] = fill_p
+                pos["allocated_amount"] = round(fill_p * int(pos.get("shares", 1)), 2)
+                
+    # Save to persistence if enabled
+    pid = None
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            pid = await persistence_backend.save_deployed_portfolio(portfolio_data, positions_data)
+        except Exception as e:
+            logger.warning("Failed to save portfolio to DB: %s", e)
+            
+    if not pid:
+        pid = portfolio_data.get("id") or str(uuid.uuid4())
+        portfolio_data["id"] = pid
+        
+    # Evaluate initial state
+    evaluated = await evaluate_deployed_portfolio(portfolio_data, positions_data)
+    return evaluated
+
+
+@app.get("/api/portfolios/deployed")
+async def list_deployed_portfolios(authorization: str = Header(None)):
+    user_id = "local_trader"
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ")
+        user = await _validate_token(token)
+        if user:
+            user_id = user["id"]
+            
+    raw_list = []
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            raw_list = await persistence_backend.list_deployed_portfolios(user_id)
+        except Exception as e:
+            logger.warning("Failed to list portfolios from DB: %s", e)
+            
+    evaluated_list = []
+    for item in raw_list:
+        try:
+            eval_item = await evaluate_deployed_portfolio(item, item.get("positions", []))
+            evaluated_list.append(eval_item)
+        except Exception as e:
+            logger.warning("Error evaluating portfolio %s: %s", item.get("id"), e)
+            evaluated_list.append(item)
+            
+    return {"portfolios": evaluated_list}
+
+
+@app.get("/api/portfolios/deployed/{portfolio_id}")
+async def get_deployed_portfolio_detail(portfolio_id: str, authorization: str = Header(None)):
+    user_id = "local_trader"
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ")
+        user = await _validate_token(token)
+        if user:
+            user_id = user["id"]
+            
+    portfolio = None
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            portfolio = await persistence_backend.get_deployed_portfolio(portfolio_id)
+        except Exception as e:
+            logger.warning("Failed to get portfolio %s: %s", portfolio_id, e)
+            
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+        
+    evaluated = await evaluate_deployed_portfolio(portfolio, portfolio.get("positions", []))
+    return evaluated
+
+
+@app.post("/api/portfolios/deployed/{portfolio_id}/refresh")
+async def refresh_deployed_portfolio(portfolio_id: str, authorization: str = Header(None)):
+    user_id = "local_trader"
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ")
+        user = await _validate_token(token)
+        if user:
+            user_id = user["id"]
+            
+    portfolio = None
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            portfolio = await persistence_backend.get_deployed_portfolio(portfolio_id)
+        except Exception as e:
+            logger.warning("Failed to get portfolio %s: %s", portfolio_id, e)
+            
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+        
+    evaluated = await evaluate_deployed_portfolio(portfolio, portfolio.get("positions", []))
+    
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            await persistence_backend.update_deployed_portfolio(
+                portfolio_id=portfolio_id,
+                status=evaluated.get("status", "ACTIVE"),
+                metrics=evaluated.get("metrics", {}),
+                positions=evaluated.get("positions", [])
+            )
+        except Exception as e:
+            logger.warning("Failed to update portfolio in DB: %s", e)
+            
+    return evaluated
+
+
+@app.delete("/api/portfolios/deployed/{portfolio_id}")
+async def delete_deployed_portfolio(portfolio_id: str, authorization: str = Header(None)):
+    user_id = "local_trader"
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ")
+        user = await _validate_token(token)
+        if user:
+            user_id = user["id"]
+            
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            await persistence_backend.delete_deployed_portfolio(portfolio_id, user_id)
+        except Exception as e:
+            logger.warning("Failed to delete portfolio %s: %s", portfolio_id, e)
+            
+    return {"deleted": True, "id": portfolio_id}
+
+
+@app.post("/api/portfolios/deployed/{portfolio_id}/pause")
+async def pause_deployed_portfolio(portfolio_id: str, authorization: str = Header(None)):
+    portfolio = None
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            portfolio = await persistence_backend.get_deployed_portfolio(portfolio_id)
+        except Exception as e:
+            logger.warning("Failed to get portfolio %s: %s", portfolio_id, e)
+            
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+        
+    portfolio["status"] = "PAUSED"
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            await persistence_backend.update_deployed_portfolio(
+                portfolio_id=portfolio_id,
+                status="PAUSED",
+                metrics=portfolio.get("metrics", {}),
+                positions=portfolio.get("positions", [])
+            )
+        except Exception as e:
+            logger.warning("Failed to pause portfolio in DB: %s", e)
+            
+    return {"id": portfolio_id, "status": "PAUSED"}
+
+
+@app.post("/api/portfolios/deployed/{portfolio_id}/resume")
+async def resume_deployed_portfolio(portfolio_id: str, authorization: str = Header(None)):
+    portfolio = None
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            portfolio = await persistence_backend.get_deployed_portfolio(portfolio_id)
+        except Exception as e:
+            logger.warning("Failed to get portfolio %s: %s", portfolio_id, e)
+            
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+        
+    portfolio["status"] = "ACTIVE"
+    evaluated = await evaluate_deployed_portfolio(portfolio, portfolio.get("positions", []))
+    
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            await persistence_backend.update_deployed_portfolio(
+                portfolio_id=portfolio_id,
+                status=evaluated.get("status", "ACTIVE"),
+                metrics=evaluated.get("metrics", {}),
+                positions=evaluated.get("positions", [])
+            )
+        except Exception as e:
+            logger.warning("Failed to resume portfolio in DB: %s", e)
+            
+    return evaluated
+
+
+@app.post("/api/portfolios/deployed/{portfolio_id}/square-off")
+async def square_off_deployed_portfolio(portfolio_id: str, authorization: str = Header(None)):
+    portfolio = None
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            portfolio = await persistence_backend.get_deployed_portfolio(portfolio_id)
+        except Exception as e:
+            logger.warning("Failed to get portfolio %s: %s", portfolio_id, e)
+            
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+        
+    # Evaluate first to get latest CMP
+    evaluated = await evaluate_deployed_portfolio(portfolio, portfolio.get("positions", []))
+    positions = evaluated.get("positions", [])
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # Close all active positions
+    for p in positions:
+        if p.get("status") != "EXITED":
+            entry_price = float(p.get("entry_price", 0))
+            cmp_price = float(p.get("current_price", entry_price))
+            shares = int(p.get("shares", 0))
+            
+            p["status"] = "EXITED"
+            p["exit_date"] = today_str
+            p["exit_price"] = cmp_price
+            p["exit_reason"] = "MANUAL_SQUARE_OFF"
+            p["realized_pnl"] = round((cmp_price - entry_price) * shares, 2)
+            p["realized_return_pct"] = round(((cmp_price - entry_price) / entry_price) * 100, 2) if entry_price > 0 else 0
+            
+    final_evaluated = await evaluate_deployed_portfolio(evaluated, positions)
+    final_evaluated["status"] = "COMPLETED"
+    
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            await persistence_backend.update_deployed_portfolio(
+                portfolio_id=portfolio_id,
+                status="COMPLETED",
+                metrics=final_evaluated.get("metrics", {}),
+                positions=positions
+            )
+        except Exception as e:
+            logger.warning("Failed to square off portfolio in DB: %s", e)
+            
+    return final_evaluated
+
+
+@app.post("/api/portfolios/deployed/{portfolio_id}/force-fill")
+async def force_fill_deployed_portfolio(portfolio_id: str, authorization: str = Header(None)):
+    portfolio = None
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            portfolio = await persistence_backend.get_deployed_portfolio(portfolio_id)
+        except Exception as e:
+            logger.warning("Failed to get portfolio %s: %s", portfolio_id, e)
+            
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+        
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    portfolio["deployment_date"] = today_str
+    portfolio["status"] = "ACTIVE"
+    
+    positions = portfolio.get("positions", [])
+    for p in positions:
+        p["status"] = "ACTIVE"
+        
+    evaluated = await evaluate_deployed_portfolio(portfolio, positions)
+    
+    if PERSISTENCE_ENABLED and persistence_backend:
+        try:
+            await persistence_backend.update_deployed_portfolio(
+                portfolio_id=portfolio_id,
+                status=evaluated.get("status", "ACTIVE"),
+                metrics=evaluated.get("metrics", {}),
+                positions=evaluated.get("positions", [])
+            )
+        except Exception as e:
+            logger.warning("Failed to force fill portfolio in DB: %s", e)
+            
+    return evaluated
+
+
+
