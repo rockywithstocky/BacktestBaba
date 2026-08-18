@@ -6,6 +6,7 @@ import math
 import re
 import time
 import uuid
+from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 from pydantic import BaseModel
@@ -22,6 +23,7 @@ from typing import List, Dict, Optional
 from backend.logging_config import setup_logging
 from backend.core.backtester import Backtester
 from backend.core.data_provider import DataProvider
+from backend.core.stock_service import StockService
 from backend.models.schemas import BacktestReport
 from backend.config import Limits, Paths, is_render, PERSISTENCE_ENABLED, WORKER_URL, DATABASE_URL, PERSISTENCE_TIMEOUT
 from backend.storage import FileHashCache, JobStorage, compute_file_hash, generate_run_id
@@ -228,6 +230,77 @@ async def get_symbol_prices(symbol: str, start: str = None, end: str = None):
             return {"symbol": s, "prices": prices}
 
     return {"symbol": symbol, "prices": []}
+
+
+@app.get("/api/stock/{symbol}/fundamental")
+async def get_stock_fundamental_route(symbol: str):
+    """Return comprehensive live fundamentals for a stock (P/E, Market Cap, 52W range, EPS, etc.)."""
+    try:
+        data = await asyncio.wait_for(
+            asyncio.to_thread(StockService.get_stock_fundamentals, symbol),
+            timeout=20
+        )
+        return data
+    except Exception as e:
+        logger.warning("get_stock_fundamental_route failed for %s: %s", symbol, e)
+        return {
+            "symbol": symbol,
+            "name": symbol,
+            "price": 0.0,
+            "change": 0.0,
+            "changePercent": 0.0,
+            "sector": "Unknown",
+            "marketCap": "N/A"
+        }
+
+
+@app.get("/api/benchmark/history")
+async def get_benchmark_history_route(start: str = "2020-01-01", end: str = None, benchmark: str = "^NSEI"):
+    """Return historical performance series for benchmark comparison (e.g. Nifty 50)."""
+    if not end:
+        end = datetime.now().strftime("%Y-%m-%d")
+    try:
+        data = await asyncio.wait_for(
+            asyncio.to_thread(StockService.get_benchmark_series, start, end, benchmark),
+            timeout=25
+        )
+        return {"benchmark": benchmark, "series": data}
+    except Exception as e:
+        logger.warning("get_benchmark_history_route failed: %s", e)
+        return {"benchmark": benchmark, "series": []}
+
+
+@app.get("/api/entry-modes")
+def get_entry_modes_route():
+    """Return available entry modes and detailed descriptions for realistic execution modeling."""
+    return {
+        "modes": [
+            {
+                "id": "next_close",
+                "name": "Next Day Close (Default)",
+                "description": "Enters at the next trading day's closing price. Safe baseline for EOD signal execution.",
+                "badge": "Standard"
+            },
+            {
+                "id": "next_open",
+                "name": "Next Day Open",
+                "description": "Enters at the market open following the signal day. Realistic for pre-market orders.",
+                "badge": "Popular"
+            },
+            {
+                "id": "same_close",
+                "name": "Same Day Close (Intraday/EOD)",
+                "description": "Enters on the signal date itself near market close (3:15 PM - 3:30 PM).",
+                "badge": "BTST / Swing"
+            },
+            {
+                "id": "next_avg",
+                "name": "Next Day Midpoint (Avg)",
+                "description": "Enters at the average of Next Day Open and Close prices. Models staggered fills.",
+                "badge": "Balanced"
+            }
+        ]
+    }
 
 
 def _clean_nan(obj):

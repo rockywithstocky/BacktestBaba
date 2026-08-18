@@ -8,6 +8,7 @@ import Footer from './components/Footer';
 import DashboardHub from './pages/DashboardHub';
 import BacktesterPage from './pages/BacktesterPage';
 import FundamentalAnalysis from './pages/FundamentalAnalysis';
+import LiveMarketScanner from './pages/LiveMarketScanner';
 import AdminPage from './pages/AdminPage';
 import AITradeCheck from './analyzer/AITradeCheck';
 
@@ -33,7 +34,7 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
-    <div className="app-container min-h-screen bg-gray-900 text-white font-sans flex flex-col">
+    <div className="app-container min-h-screen text-white flex flex-col">
       <Navbar />
       <div className="flex-grow">
         <Routes>
@@ -64,6 +65,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <FundamentalAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/screener"
+            element={
+              <ProtectedRoute>
+                <LiveMarketScanner />
               </ProtectedRoute>
             }
           />

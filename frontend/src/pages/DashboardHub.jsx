@@ -20,10 +20,10 @@ const DashboardHub = () => {
         {
             id: 'fundamental',
             title: 'Fundamental Analysis',
-            description: 'Deep dive into company financials, ratios, and growth metrics. Analyze PE, Market Cap, and more.',
+            description: 'Deep dive into live company financials, valuation ratios, and growth metrics. Analyze PE, Market Cap, EPS, and ROE.',
             icon: <PieChart size={40} />,
-            link: '#',
-            active: false, // Will activate when page is ready
+            link: '/dashboard/fundamental/RELIANCE',
+            active: true,
             gradient: 'from-purple-500 via-fuchsia-500 to-pink-500',
             iconBg: 'from-purple-600/20 to-pink-600/20',
             borderGlow: 'group-hover:shadow-[0_0_40px_rgba(139,92,246,0.3)]',
@@ -32,10 +32,10 @@ const DashboardHub = () => {
         {
             id: 'screener',
             title: 'Live Market Screener',
-            description: 'Real-time scanning for technical patterns and breakouts. (Coming Soon)',
+            description: 'Algorithmic technical pattern ranking. Evaluates fresh screener signals to pick high-probability next-day trades.',
             icon: <Search size={40} />,
-            link: '#',
-            active: false,
+            link: '/dashboard/screener',
+            active: true,
             gradient: 'from-emerald-500 via-teal-500 to-green-500',
             iconBg: 'from-emerald-600/20 to-teal-600/20',
             borderGlow: 'group-hover:shadow-[0_0_40px_rgba(16,185,129,0.3)]',
@@ -44,7 +44,7 @@ const DashboardHub = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-900 pt-28 px-6 pb-12 relative overflow-hidden">
+        <div className="min-h-screen pt-28 px-6 pb-12 relative overflow-hidden">
             {/* Animated Background */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-20 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] animate-pulse" />

@@ -82,3 +82,8 @@ worker/node_modules/
 
 # SDD scratch workspace
 .superpowers/
+
+# WAT Framework
+.tmp/
+credentials.json
+token.json

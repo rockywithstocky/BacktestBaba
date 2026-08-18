@@ -83,7 +83,7 @@ const AdminPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 size={40} className="animate-spin text-blue-400" />
           <p className="text-gray-400 text-lg">Loading admin panel...</p>
@@ -93,7 +93,7 @@ const AdminPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Header */}
         <motion.div
@@ -143,7 +143,7 @@ const AdminPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-gray-800/50 backdrop-blur-xl border border-white/10 rounded-2xl p-6"
+            className="glass-card p-6"
           >
             <div className="flex items-center gap-3 mb-4">
               <HardDrive size={22} className="text-blue-400" />
@@ -180,7 +180,7 @@ const AdminPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-gray-800/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden"
+          className="glass-card overflow-hidden"
         >
           <div className="p-6 border-b border-white/5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

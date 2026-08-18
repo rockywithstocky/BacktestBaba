@@ -40,10 +40,10 @@ docker compose exec backend pytest backend/tests/ -v --asyncio-mode=auto
 docker compose exec backend pytest backend/tests/test_backtester.py -v
 
 # Bulk fetch regression check
-python backend/tests/verify_regression.py
+python tools/verify_regression.py
 
 # Horizons output verification (fetches real data)
-python backend/verify_horizons.py
+python tools/verify_horizons.py
 
 # Frontend build check
 npm run build

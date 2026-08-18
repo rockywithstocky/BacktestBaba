@@ -169,7 +169,7 @@
 }
 
 .stat-card {
-    background: rgba(30, 41, 59, 0.6);
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -253,7 +253,7 @@
 }
 
 .chart-card {
-    background: rgba(30, 41, 59, 0.6);
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -487,7 +487,7 @@
 
 /* Statistics Table - Premium Style */
 .stats-table-card {
-    background: rgba(30, 41, 59, 0.6);
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;
@@ -559,7 +559,7 @@
 
 /* Trade Log - Modern Design */
 .trade-log-card {
-    background: rgba(30, 41, 59, 0.6);
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;
@@ -1345,7 +1345,7 @@
 
 .position-sizing-card {
     margin-top: 1.5rem;
-    background: rgba(30, 41, 59, 0.6);
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;

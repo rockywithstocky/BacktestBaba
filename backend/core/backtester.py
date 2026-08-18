@@ -385,23 +385,39 @@ class Backtester:
                                       if signal_trading_day is not None
                                       else None)
 
-                # Entry Date (always NEXT trading day after signal_date)
-                entry_date = get_future_trading_day(signal_date, df)
-                if not entry_date:
-                     results.append(SignalResult(
-                        symbol=resolved_symbol,
-                        signal_date=signal_date.strftime("%Y-%m-%d"),
-                        entry_price=0.0,
-                        entry_mode=entry_mode,
-                        status="No Entry Data"
-                    ))
-                     continue
-
-                # Entry Price (mode-dependent)
-                if entry_mode == "next_open":
-                    entry_price = df.loc[entry_date]["Open"]
-                else:
+                # Entry Date & Price (mode-dependent)
+                if entry_mode == "same_close":
+                    entry_date = signal_trading_day
+                    if not entry_date:
+                        results.append(SignalResult(
+                            symbol=resolved_symbol,
+                            signal_date=signal_date.strftime("%Y-%m-%d"),
+                            entry_price=0.0,
+                            entry_mode=entry_mode,
+                            status="No Entry Data"
+                        ))
+                        continue
                     entry_price = df.loc[entry_date]["Close"]
+                else:
+                    entry_date = get_future_trading_day(signal_date, df)
+                    if not entry_date:
+                        results.append(SignalResult(
+                            symbol=resolved_symbol,
+                            signal_date=signal_date.strftime("%Y-%m-%d"),
+                            entry_price=0.0,
+                            entry_mode=entry_mode,
+                            status="No Entry Data"
+                        ))
+                        continue
+
+                    if entry_mode == "next_open":
+                        entry_price = df.loc[entry_date]["Open"]
+                    elif entry_mode == "next_avg":
+                        open_p = float(df.loc[entry_date]["Open"])
+                        close_p = float(df.loc[entry_date]["Close"])
+                        entry_price = (open_p + close_p) / 2.0
+                    else:
+                        entry_price = df.loc[entry_date]["Close"]
 
                 normalized_signal_date = signal_date.strftime("%Y-%m-%d")
                 res = SignalResult(

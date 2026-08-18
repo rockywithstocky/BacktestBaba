@@ -1,11 +1,59 @@
-import React, { useState } from 'react';
-import { Upload, FileText, ArrowRightToLine, Sun } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, FileText, ArrowRightToLine, Sun, ChevronDown, Check, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './UploadCard.css';
+
+const ENTRY_MODES = [
+    {
+        id: 'next_close',
+        label: 'Next Day Close',
+        badge: 'Standard',
+        badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+        icon: <ArrowRightToLine size={16} className="text-blue-400" />,
+        desc: 'Enters at next trading day close. Safe baseline for EOD strategies.'
+    },
+    {
+        id: 'next_open',
+        label: 'Next Day Open',
+        badge: 'Popular',
+        badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+        icon: <Sun size={16} className="text-amber-400" />,
+        desc: 'Enters at market open following signal date. Realistic for pre-market orders.'
+    },
+    {
+        id: 'same_close',
+        label: 'Same Day Close',
+        badge: 'BTST / Swing',
+        badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+        icon: <FileText size={16} className="text-purple-400" />,
+        desc: 'Enters on the signal date itself near market close (3:15 PM – 3:30 PM).'
+    },
+    {
+        id: 'next_avg',
+        label: 'Next Day Midpoint',
+        badge: 'Balanced',
+        badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+        icon: <TrendingUp size={16} className="text-emerald-400" />,
+        desc: 'Enters at the average of Next Day Open and Close to model staggered fills.'
+    }
+];
 
 const UploadCard = ({ onUpload, isLoading, progress, entryMode, onEntryModeChange }) => {
     const [dragActive, setDragActive] = useState(false);
     const [file, setFile] = useState(null);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -40,6 +88,8 @@ const UploadCard = ({ onUpload, isLoading, progress, entryMode, onEntryModeChang
 
     const isIndeterminate = progress?.indeterminate === true;
     const progressPercent = !isIndeterminate && progress ? Math.round((progress.current / progress.total) * 100) : 0;
+
+    const selectedMode = ENTRY_MODES.find(m => m.id === entryMode) || ENTRY_MODES[0];
 
     return (
         <motion.div
@@ -85,42 +135,100 @@ const UploadCard = ({ onUpload, isLoading, progress, entryMode, onEntryModeChang
 
             {file && !isLoading && (
                 <motion.div
-                    className="entry-mode-section"
+                    className="entry-mode-section relative z-30"
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: 0.1 }}
                 >
-                    <div className="entry-mode-header">
-                        <span className="entry-mode-label">Entry Mode</span>
-                        <span className="entry-mode-hint">How should entry price be determined?</span>
+                    <div className="entry-mode-header mb-2 flex justify-between items-center">
+                        <span className="entry-mode-label text-sm font-bold text-white">Execution Entry Mode</span>
+                        <span className="entry-mode-hint text-xs text-gray-400">Select entry price model</span>
                     </div>
-                    <div className="entry-mode-toggle">
+
+                    {/* Custom Modern Dropdown */}
+                    <div className="relative" ref={dropdownRef}>
                         <button
-                            className={`mode-btn ${entryMode === 'next_open' ? 'active' : ''}`}
-                            onClick={() => onEntryModeChange('next_open')}
-                            disabled={isLoading}
                             type="button"
-                        >
-                            <Sun size={16} className="mode-icon" />
-                            <span>Next Open</span>
-                            {entryMode === 'next_open' && <span className="mode-check">✓</span>}
-                        </button>
-                        <button
-                            className={`mode-btn ${entryMode === 'next_close' ? 'active' : ''}`}
-                            onClick={() => onEntryModeChange('next_close')}
+                            onClick={() => setDropdownOpen(!dropdownOpen)}
                             disabled={isLoading}
-                            type="button"
+                            className="w-full flex items-center justify-between px-4 py-3 bg-gray-900/90 hover:bg-gray-850 border border-white/15 rounded-xl transition-all text-left shadow-lg group focus:outline-none focus:border-blue-500"
                         >
-                            <ArrowRightToLine size={16} className="mode-icon" />
-                            <span>Next Close</span>
-                            {entryMode === 'next_close' && <span className="mode-check">✓</span>}
+                            <div className="flex items-center gap-3">
+                                <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
+                                    {selectedMode.icon}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-semibold text-white">{selectedMode.label}</span>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${selectedMode.badgeColor}`}>
+                                            {selectedMode.badge}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-0.5 truncate max-w-sm">
+                                        {selectedMode.desc}
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronDown
+                                size={18}
+                                className={`text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180 text-blue-400' : ''}`}
+                            />
                         </button>
+
+                        <AnimatePresence>
+                            {dropdownOpen && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute left-0 right-0 top-full mt-2 bg-gray-950/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl p-1.5 z-50 divide-y divide-white/5"
+                                >
+                                    {ENTRY_MODES.map(mode => {
+                                        const isSelected = mode.id === entryMode;
+                                        return (
+                                            <button
+                                                key={mode.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    onEntryModeChange(mode.id);
+                                                    setDropdownOpen(false);
+                                                }}
+                                                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all text-left group ${
+                                                    isSelected ? 'bg-blue-600/15 border border-blue-500/30' : 'hover:bg-white/[0.04]'
+                                                }`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`p-2 rounded-lg border mt-0.5 ${isSelected ? 'bg-blue-500/20 border-blue-500/30' : 'bg-white/5 border-white/10'}`}>
+                                                        {mode.icon}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-sm font-semibold ${isSelected ? 'text-blue-300' : 'text-white group-hover:text-blue-200'}`}>
+                                                                {mode.label}
+                                                            </span>
+                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${mode.badgeColor}`}>
+                                                                {mode.badge}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            {mode.desc}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {isSelected && (
+                                                    <div className="p-1 rounded-full bg-blue-500/20 text-blue-400 ml-2 shrink-0">
+                                                        <Check size={14} />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
-                    <p className="entry-mode-desc">
-                        {entryMode === 'next_open'
-                            ? 'Enter at the opening price of the next trading day after signal date.'
-                            : 'Enter at the closing price of the next trading day after signal date.'}
-                    </p>
                 </motion.div>
             )}
 

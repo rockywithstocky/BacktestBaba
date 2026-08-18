@@ -5,7 +5,7 @@ import pandas as pd
 from deepdiff import DeepDiff
 from unittest.mock import patch
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from backend.core.backtester import Backtester
 from backend.core.data_provider import DataProvider
 
