@@ -13,6 +13,8 @@ import PortfolioTrackerPage from './pages/PortfolioTrackerPage';
 import AdminPage from './pages/AdminPage';
 import AITradeCheck from './analyzer/AITradeCheck';
 
+import { ThemeProvider } from './context/ThemeContext';
+
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -35,9 +37,10 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
-    <div className="app-container min-h-screen text-white flex flex-col">
-      <Navbar />
-      <div className="flex-grow">
+    <ThemeProvider>
+      <div className="app-container min-h-screen text-white flex flex-col">
+        <Navbar />
+        <div className="flex-grow">
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
@@ -101,6 +104,7 @@ function App() {
       <Footer />
       <AITradeCheck />
     </div>
+    </ThemeProvider>
   );
 }
 

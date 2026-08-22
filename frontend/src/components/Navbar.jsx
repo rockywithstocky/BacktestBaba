@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { TrendingUp, Menu, X, LogOut, User, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ThemeToggle from './ThemeToggle';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -95,6 +96,7 @@ const Navbar = () => {
                                         Admin
                                     </Link>
                                 )}
+                                <ThemeToggle />
                                 <div className="h-5 w-px bg-white/10"></div>
                                 <div className="flex items-center gap-4">
                                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
@@ -107,7 +109,7 @@ const Navbar = () => {
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={handleLogout}
-                                        className="p-2.5 hover:bg-red-500/10 rounded-xl text-gray-400 hover:text-red-400 transition-all border border-transparent hover:border-red-500/20"
+                                        className="p-2.5 hover:bg-red-500/10 rounded-xl text-gray-400 hover:text-red-400 transition-all border border-transparent hover:border-red-500/20 cursor-pointer"
                                         title="Logout"
                                     >
                                         <LogOut size={20} />

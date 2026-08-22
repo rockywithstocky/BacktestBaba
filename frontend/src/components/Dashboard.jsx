@@ -28,6 +28,9 @@ const Dashboard = ({ report, onBack }) => {
     const [itemsPerPage, setItemsPerPage] = useState(25);
     const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'equity' | 'monthly' | 'edge' | 'trades'
     const [tradeFilter, setTradeFilter] = useState('all'); // 'all' | 'winners' | 'losers' | 'target_hit' | 'sl_hit' | 'fresh'
+    const [selectedYear, setSelectedYear] = useState('all');
+    const [selectedQuarter, setSelectedQuarter] = useState('all');
+    const [inspectedTrade, setInspectedTrade] = useState(null);
 
     // Realistic Simulation Config State
     const [simConfig, setSimConfig] = useState({
@@ -211,8 +214,52 @@ const Dashboard = ({ report, onBack }) => {
         });
     }, [successfulTrades, simulatedTrades, freshSymbolSet]);
 
+    const yearStats = useMemo(() => {
+        if (!Array.isArray(enrichedTrades)) return [];
+        const yearsMap = {};
+        enrichedTrades.forEach(t => {
+            if (!t.signal_date) return;
+            const dt = new Date(t.signal_date);
+            const yr = dt.getFullYear();
+            if (isNaN(yr)) return;
+            if (!yearsMap[yr]) {
+                yearsMap[yr] = { year: yr, count: 0, wins: 0, sumReturn: 0 };
+            }
+            yearsMap[yr].count += 1;
+            const pnl = t.netReturnPct ?? (t.return_30d ?? 0);
+            if (pnl > 0) yearsMap[yr].wins += 1;
+            yearsMap[yr].sumReturn += pnl;
+        });
+
+        const sorted = Object.values(yearsMap).sort((a, b) => b.year - a.year);
+        return sorted.map(y => ({
+            ...y,
+            winRate: y.count > 0 ? (y.wins / y.count) * 100 : 0,
+            avgReturn: y.count > 0 ? y.sumReturn / y.count : 0
+        }));
+    }, [enrichedTrades]);
+
     const filteredTrades = useMemo(() => {
         let list = enrichedTrades;
+
+        // Apply year filter
+        if (selectedYear !== 'all') {
+            const yr = Number(selectedYear);
+            list = list.filter(t => t.signal_date && new Date(t.signal_date).getFullYear() === yr);
+        }
+
+        // Apply quarter filter
+        if (selectedQuarter !== 'all') {
+            list = list.filter(t => {
+                if (!t.signal_date) return false;
+                const m = new Date(t.signal_date).getMonth(); // 0-11
+                if (selectedQuarter === 'Q1') return m >= 0 && m <= 2;
+                if (selectedQuarter === 'Q2') return m >= 3 && m <= 5;
+                if (selectedQuarter === 'Q3') return m >= 6 && m <= 8;
+                if (selectedQuarter === 'Q4') return m >= 9 && m <= 11;
+                return true;
+            });
+        }
 
         // Apply trade status filter
         if (tradeFilter === 'winners') {
@@ -234,7 +281,7 @@ const Dashboard = ({ report, onBack }) => {
         }
 
         return list;
-    }, [enrichedTrades, tradeFilter, searchTerm]);
+    }, [enrichedTrades, tradeFilter, selectedYear, selectedQuarter, searchTerm]);
 
     const sortedTrades = useMemo(() => {
         const sorted = [...filteredTrades];
@@ -1038,6 +1085,59 @@ const Dashboard = ({ report, onBack }) => {
                                 <option value={100}>100 per page</option>
                             </select>
                         </div>
+
+                        {/* Year & Quarter Time Slicer Ribbon Bar */}
+                        {yearStats.length > 0 && (
+                            <div className="w-full flex items-center justify-between gap-3 pt-3 mt-3 border-t border-white/10 flex-wrap">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                        <Calendar size={13} className="text-blue-400" /> Year Slicer:
+                                    </span>
+                                    <button
+                                        onClick={() => { setSelectedYear('all'); setCurrentPage(1); }}
+                                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                            selectedYear === 'all'
+                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                                        }`}
+                                    >
+                                        All Years ({enrichedTrades.length})
+                                    </button>
+                                    {yearStats.map(y => (
+                                        <button
+                                            key={y.year}
+                                            onClick={() => { setSelectedYear(String(y.year)); setCurrentPage(1); }}
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                selectedYear === String(y.year)
+                                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                                                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <span>{y.year}</span>
+                                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-emerald-300 font-bold border border-emerald-500/20">
+                                                {y.winRate.toFixed(0)}% Win ({y.count})
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Quarter Filter Dropdown */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Quarter:</span>
+                                    <select
+                                        value={selectedQuarter}
+                                        onChange={(e) => { setSelectedQuarter(e.target.value); setCurrentPage(1); }}
+                                        className="px-3 py-1 bg-gray-900 border border-white/10 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                                    >
+                                        <option value="all">All Quarters (Q1-Q4)</option>
+                                        <option value="Q1">Q1 (Jan - Mar)</option>
+                                        <option value="Q2">Q2 (Apr - Jun)</option>
+                                        <option value="Q3">Q3 (Jul - Sep)</option>
+                                        <option value="Q4">Q4 (Oct - Dec)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="table-scroll-container">
@@ -1096,6 +1196,13 @@ const Dashboard = ({ report, onBack }) => {
                                                         LIVE
                                                     </span>
                                                 )}
+                                                <button
+                                                    title="Inspect trade details in Side Workstation"
+                                                    onClick={(e) => { e.stopPropagation(); setInspectedTrade(trade); }}
+                                                    className="px-1.5 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 text-[10px] font-bold transition-all cursor-pointer"
+                                                >
+                                                    Inspect
+                                                </button>
                                                 <button
                                                     title="Analyze this trade"
                                                     onClick={(e) => { e.stopPropagation(); handleOpenPanel(trade.symbol, trade.entry_price); }}
@@ -1236,6 +1343,178 @@ const Dashboard = ({ report, onBack }) => {
                     freshStocks={freshStocks}
                 />
             )}
+
+            {/* Slide-Out Side Panel Trade Inspector Workstation */}
+            <AnimatePresence>
+                {inspectedTrade && (
+                    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs select-none">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0"
+                            onClick={() => setInspectedTrade(null)}
+                        />
+                        <motion.div
+                            initial={{ x: '100%', opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: '100%', opacity: 0 }}
+                            transition={{ duration: 0.25, ease: 'easeOut' }}
+                            className="relative w-full sm:w-[440px] h-full bg-[#0D1322] border-l border-white/10 p-6 overflow-y-auto z-10 shadow-2xl flex flex-col justify-between"
+                        >
+                            <div className="space-y-5">
+                                {/* Header */}
+                                <div className="flex items-start justify-between pb-4 border-b border-white/10">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="text-2xl font-bold text-white font-display tracking-tight">
+                                                {inspectedTrade.symbol}
+                                            </h3>
+                                            {inspectedTrade.isFresh && (
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                    LIVE
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            Signal Date: <span className="text-white font-mono">{inspectedTrade.signal_date}</span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setInspectedTrade(null)}
+                                        className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                {/* Simulated Exit & PnL Card */}
+                                <div className="p-4 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-between">
+                                    <div>
+                                        <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">
+                                            Simulated Exit PnL
+                                        </div>
+                                        <div className={`text-xl font-bold font-mono ${getColorClass(inspectedTrade.netPnl ?? inspectedTrade.return_30d)}`}>
+                                            {formatPercent(inspectedTrade.netReturnPct ?? inspectedTrade.return_30d)}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">
+                                            Exit Reason
+                                        </div>
+                                        <div className="text-xs font-bold text-gray-200">
+                                            {inspectedTrade.simulatedExitReason || 'Horizon Expiry'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Price Metrics Grid */}
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                                        <div className="text-gray-400 font-semibold mb-0.5">Signal Close</div>
+                                        <div className="text-sm font-bold text-white font-mono">
+                                            {formatCurrency(inspectedTrade.signal_close_price || inspectedTrade.entry_price)}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                                        <div className="text-gray-400 font-semibold mb-0.5">Entry Price</div>
+                                        <div className="text-sm font-bold text-white font-mono">
+                                            {formatCurrency(inspectedTrade.entry_price)}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                                        <div className="text-gray-400 font-semibold mb-0.5">Latest Price</div>
+                                        <div className="text-sm font-bold text-white font-mono">
+                                            {formatCurrency(inspectedTrade.latest_price || 'N/A')}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                                        <div className="text-gray-400 font-semibold mb-0.5">Market Sector</div>
+                                        <div className="text-xs font-bold text-blue-300 truncate">
+                                            {inspectedTrade.sector || 'Equities'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Forward Horizon Returns */}
+                                <div className="space-y-2">
+                                    <div className="text-xs font-bold text-gray-300 flex items-center justify-between">
+                                        <span>Forward Horizon Returns</span>
+                                        <span className="text-[10px] text-gray-500 font-normal">Holding Trajectory</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_7d)}`}>
+                                            <div className="text-[10px] text-gray-400">7 Days</div>
+                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_7d)}</div>
+                                        </div>
+                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_14d)}`}>
+                                            <div className="text-[10px] text-gray-400">14 Days</div>
+                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_14d)}</div>
+                                        </div>
+                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_30d)}`}>
+                                            <div className="text-[10px] text-gray-400">30 Days</div>
+                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_30d)}</div>
+                                        </div>
+                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_45d)}`}>
+                                            <div className="text-[10px] text-gray-400">45 Days</div>
+                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_45d)}</div>
+                                        </div>
+                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_60d)}`}>
+                                            <div className="text-[10px] text-gray-400">60 Days</div>
+                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_60d)}</div>
+                                        </div>
+                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_90d)}`}>
+                                            <div className="text-[10px] text-gray-400">90 Days</div>
+                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_90d)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Extremes Card */}
+                                <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 text-xs">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400">90-Day Max High:</span>
+                                        <span className="font-mono font-bold text-emerald-400">
+                                            {formatCurrency(inspectedTrade.max_high_90d)} ({inspectedTrade.max_high_date || 'N/A'})
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400">90-Day Max Low:</span>
+                                        <span className="font-mono font-bold text-red-400">
+                                            {formatCurrency(inspectedTrade.max_low_90d)} ({inspectedTrade.max_low_date || 'N/A'})
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Bottom External Actions */}
+                            <div className="pt-4 border-t border-white/10 space-y-2">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <a
+                                        href={getTradingViewUrl(inspectedTrade.symbol)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-300 hover:text-white font-semibold transition-colors flex items-center justify-center gap-1.5"
+                                    >
+                                        <span>TradingView</span>
+                                        <ExternalLink size={13} />
+                                    </a>
+                                    <a
+                                        href={getScreenerUrl(inspectedTrade.symbol)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-300 hover:text-white font-semibold transition-colors flex items-center justify-center gap-1.5"
+                                    >
+                                        <span>Screener.in</span>
+                                        <ExternalLink size={13} />
+                                    </a>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 };
