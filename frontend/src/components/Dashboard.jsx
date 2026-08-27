@@ -16,6 +16,7 @@ import StockChartModal from './StockChartModal';
 import AnalyzerPanel from '../analyzer/AnalyzerPanel';
 import MonthlyHeatmap from './MonthlyHeatmap';
 import EquityCurveChart from './EquityCurveChart';
+import AIGlanceModal from './copilot/AIGlanceModal';
 import { getFreshStocks } from '../analyzer/analyzerUtils';
 import { simulateStrategy } from '../utils/strategySimulator';
 
@@ -30,7 +31,8 @@ const Dashboard = ({ report, onBack }) => {
     const [tradeFilter, setTradeFilter] = useState('all'); // 'all' | 'winners' | 'losers' | 'target_hit' | 'sl_hit' | 'fresh'
     const [selectedYear, setSelectedYear] = useState('all');
     const [selectedQuarter, setSelectedQuarter] = useState('all');
-    const [inspectedTrade, setInspectedTrade] = useState(null);
+    const [isGlanceOpen, setIsGlanceOpen] = useState(false);
+    const [glanceTradeIndex, setGlanceTradeIndex] = useState(0);
 
     // Realistic Simulation Config State
     const [simConfig, setSimConfig] = useState({
@@ -1190,18 +1192,28 @@ const Dashboard = ({ report, onBack }) => {
                                     }`}>
                                         <td className="symbol-cell">
                                             <span className="flex items-center gap-1.5">
-                                                <span>{trade.symbol}</span>
+                                                <span className="font-bold text-white tracking-wide">{trade.symbol}</span>
                                                 {trade.isFresh && (
-                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                                        LIVE
+                                                    <span
+                                                        className="relative flex h-2 w-2 items-center justify-center cursor-help shrink-0"
+                                                        title="Live Fresh Signal (Triggered in last 3 trading days)"
+                                                    >
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                                                     </span>
                                                 )}
                                                 <button
-                                                    title="Inspect trade details in Side Workstation"
-                                                    onClick={(e) => { e.stopPropagation(); setInspectedTrade(trade); }}
-                                                    className="px-1.5 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 text-[10px] font-bold transition-all cursor-pointer"
+                                                    title="Instant AI Glance & Backtest Analysis"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const actualIndex = enrichedTrades.findIndex(t => t === trade);
+                                                        setGlanceTradeIndex(actualIndex >= 0 ? actualIndex : idx);
+                                                        setIsGlanceOpen(true);
+                                                    }}
+                                                    className="px-2 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 text-[10px] font-extrabold flex items-center gap-1 transition-all cursor-pointer shadow-[0_0_8px_rgba(16,185,129,0.15)] ml-auto"
                                                 >
-                                                    Inspect
+                                                    <Zap size={11} className="text-emerald-400" />
+                                                    <span>Glance</span>
                                                 </button>
                                                 <button
                                                     title="Analyze this trade"
@@ -1344,177 +1356,14 @@ const Dashboard = ({ report, onBack }) => {
                 />
             )}
 
-            {/* Slide-Out Side Panel Trade Inspector Workstation */}
-            <AnimatePresence>
-                {inspectedTrade && (
-                    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs select-none">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0"
-                            onClick={() => setInspectedTrade(null)}
-                        />
-                        <motion.div
-                            initial={{ x: '100%', opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: '100%', opacity: 0 }}
-                            transition={{ duration: 0.25, ease: 'easeOut' }}
-                            className="relative w-full sm:w-[440px] h-full bg-[#0D1322] border-l border-white/10 p-6 overflow-y-auto z-10 shadow-2xl flex flex-col justify-between"
-                        >
-                            <div className="space-y-5">
-                                {/* Header */}
-                                <div className="flex items-start justify-between pb-4 border-b border-white/10">
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-2xl font-bold text-white font-display tracking-tight">
-                                                {inspectedTrade.symbol}
-                                            </h3>
-                                            {inspectedTrade.isFresh && (
-                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                                    LIVE
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            Signal Date: <span className="text-white font-mono">{inspectedTrade.signal_date}</span>
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => setInspectedTrade(null)}
-                                        className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                                    >
-                                        <X size={20} />
-                                    </button>
-                                </div>
-
-                                {/* Simulated Exit & PnL Card */}
-                                <div className="p-4 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-between">
-                                    <div>
-                                        <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">
-                                            Simulated Exit PnL
-                                        </div>
-                                        <div className={`text-xl font-bold font-mono ${getColorClass(inspectedTrade.netPnl ?? inspectedTrade.return_30d)}`}>
-                                            {formatPercent(inspectedTrade.netReturnPct ?? inspectedTrade.return_30d)}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">
-                                            Exit Reason
-                                        </div>
-                                        <div className="text-xs font-bold text-gray-200">
-                                            {inspectedTrade.simulatedExitReason || 'Horizon Expiry'}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Price Metrics Grid */}
-                                <div className="grid grid-cols-2 gap-3 text-xs">
-                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
-                                        <div className="text-gray-400 font-semibold mb-0.5">Signal Close</div>
-                                        <div className="text-sm font-bold text-white font-mono">
-                                            {formatCurrency(inspectedTrade.signal_close_price || inspectedTrade.entry_price)}
-                                        </div>
-                                    </div>
-                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
-                                        <div className="text-gray-400 font-semibold mb-0.5">Entry Price</div>
-                                        <div className="text-sm font-bold text-white font-mono">
-                                            {formatCurrency(inspectedTrade.entry_price)}
-                                        </div>
-                                    </div>
-                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
-                                        <div className="text-gray-400 font-semibold mb-0.5">Latest Price</div>
-                                        <div className="text-sm font-bold text-white font-mono">
-                                            {formatCurrency(inspectedTrade.latest_price || 'N/A')}
-                                        </div>
-                                    </div>
-                                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
-                                        <div className="text-gray-400 font-semibold mb-0.5">Market Sector</div>
-                                        <div className="text-xs font-bold text-blue-300 truncate">
-                                            {inspectedTrade.sector || 'Equities'}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Forward Horizon Returns */}
-                                <div className="space-y-2">
-                                    <div className="text-xs font-bold text-gray-300 flex items-center justify-between">
-                                        <span>Forward Horizon Returns</span>
-                                        <span className="text-[10px] text-gray-500 font-normal">Holding Trajectory</span>
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_7d)}`}>
-                                            <div className="text-[10px] text-gray-400">7 Days</div>
-                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_7d)}</div>
-                                        </div>
-                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_14d)}`}>
-                                            <div className="text-[10px] text-gray-400">14 Days</div>
-                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_14d)}</div>
-                                        </div>
-                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_30d)}`}>
-                                            <div className="text-[10px] text-gray-400">30 Days</div>
-                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_30d)}</div>
-                                        </div>
-                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_45d)}`}>
-                                            <div className="text-[10px] text-gray-400">45 Days</div>
-                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_45d)}</div>
-                                        </div>
-                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_60d)}`}>
-                                            <div className="text-[10px] text-gray-400">60 Days</div>
-                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_60d)}</div>
-                                        </div>
-                                        <div className={`p-2.5 rounded-xl border ${getReturnClass(inspectedTrade.return_90d)}`}>
-                                            <div className="text-[10px] text-gray-400">90 Days</div>
-                                            <div className="font-bold font-mono mt-0.5">{formatPercent(inspectedTrade.return_90d)}</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Extremes Card */}
-                                <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 text-xs">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">90-Day Max High:</span>
-                                        <span className="font-mono font-bold text-emerald-400">
-                                            {formatCurrency(inspectedTrade.max_high_90d)} ({inspectedTrade.max_high_date || 'N/A'})
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">90-Day Max Low:</span>
-                                        <span className="font-mono font-bold text-red-400">
-                                            {formatCurrency(inspectedTrade.max_low_90d)} ({inspectedTrade.max_low_date || 'N/A'})
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Bottom External Actions */}
-                            <div className="pt-4 border-t border-white/10 space-y-2">
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                    <a
-                                        href={getTradingViewUrl(inspectedTrade.symbol)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-300 hover:text-white font-semibold transition-colors flex items-center justify-center gap-1.5"
-                                    >
-                                        <span>TradingView</span>
-                                        <ExternalLink size={13} />
-                                    </a>
-                                    <a
-                                        href={getScreenerUrl(inspectedTrade.symbol)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-300 hover:text-white font-semibold transition-colors flex items-center justify-center gap-1.5"
-                                    >
-                                        <span>Screener.in</span>
-                                        <ExternalLink size={13} />
-                                    </a>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            {/* Unified AI Trade Glance & Backtest Inspection Drawer */}
+            <AIGlanceModal
+                isOpen={isGlanceOpen}
+                onClose={() => setIsGlanceOpen(false)}
+                trades={enrichedTrades}
+                currentIndex={glanceTradeIndex}
+                onNavigate={(newIdx) => setGlanceTradeIndex(newIdx)}
+            />
         </motion.div>
     );
 };

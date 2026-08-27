@@ -18,12 +18,13 @@ from fastapi.responses import JSONResponse
 import httpx
 import pandas as pd
 import io
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 from backend.logging_config import setup_logging
 from backend.core.backtester import Backtester
 from backend.core.data_provider import DataProvider
 from backend.core.stock_service import StockService
+from backend.core.ai_chart_service import AIChartService, parse_tradingview_url
 from backend.models.schemas import BacktestReport
 from backend.config import Limits, Paths, is_render, PERSISTENCE_ENABLED, WORKER_URL, DATABASE_URL, PERSISTENCE_TIMEOUT
 from backend.storage import FileHashCache, JobStorage, compute_file_hash, generate_run_id
@@ -252,6 +253,69 @@ async def get_stock_fundamental_route(symbol: str):
             "sector": "Unknown",
             "marketCap": "N/A"
         }
+
+
+class GlanceRequest(BaseModel):
+    symbol: Optional[str] = None
+    exchange: Optional[str] = None
+    entry_price: Optional[float] = None
+    signal_date: Optional[str] = None
+    mode: Optional[str] = "short_term"
+    tradingview_url: Optional[str] = None
+
+
+class AnalyzeChartRequest(BaseModel):
+    query: Optional[str] = ""
+    mode: Optional[str] = "short_term"
+    image: Optional[str] = None
+    user_profile: Optional[Dict[str, Any]] = None
+
+
+@app.post("/api/ai/glance")
+async def get_trade_glance_route(req: GlanceRequest):
+    """Fast on-demand trade glance for Table Rows and TradingView deep-links."""
+    try:
+        symbol = req.symbol
+        exchange = req.exchange
+
+        if req.tradingview_url:
+            parsed = parse_tradingview_url(req.tradingview_url)
+            symbol = parsed["symbol"]
+            exchange = parsed["exchange"]
+
+        if not symbol:
+            raise HTTPException(status_code=400, detail="Symbol or TradingView URL is required")
+
+        data = await AIChartService.get_trade_glance(
+            symbol=symbol,
+            exchange=exchange,
+            entry_price=req.entry_price,
+            signal_date=req.signal_date,
+            mode=req.mode or "short_term"
+        )
+        return data
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("get_trade_glance_route failed for %s: %s", req.symbol, e)
+        raise HTTPException(status_code=500, detail=f"Failed to generate glance: {str(e)}")
+
+
+@app.post("/api/ai/analyze-chart")
+async def analyze_chart_route(req: AnalyzeChartRequest):
+    """Multi-modal chart analyzer for custom TradingView URLs, search queries, and PNG screenshots."""
+    try:
+        data = await AIChartService.analyze_chart(
+            query=req.query or "",
+            mode=req.mode or "short_term",
+            image_data=req.image,
+            user_profile=req.user_profile
+        )
+        return data
+    except Exception as e:
+        logger.warning("analyze_chart_route failed for query %s: %s", req.query, e)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze chart: {str(e)}")
+
 
 
 @app.get("/api/benchmark/history")

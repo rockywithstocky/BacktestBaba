@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import UploadCard from '../components/UploadCard';
+import TradingViewCopilotCard from '../components/copilot/TradingViewCopilotCard';
 import Dashboard from '../components/Dashboard';
 import { runBacktestWS } from '../services/api';
 import { getReport, listReports, deleteReport, saveReport } from '../services/db';
@@ -70,6 +71,7 @@ const BacktesterPage = () => {
     const [progress, setProgress] = useState(null);
     const [error, setError] = useState(null);
     const [entryMode, setEntryMode] = useState('next_close');
+    const [activeUploadTab, setActiveUploadTab] = useState('csv'); // 'csv' | 'copilot'
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState(null);
 
@@ -221,27 +223,57 @@ const BacktesterPage = () => {
                             </p>
                         </div>
 
-                        {/* Upload Card Container */}
-                        <div className="glass-card p-6 sm:p-10 shadow-2xl border border-white/10 rounded-3xl relative overflow-hidden">
-                            <UploadCard
-                                onUpload={handleUpload}
-                                isLoading={isLoading}
-                                progress={progress}
-                                entryMode={entryMode}
-                                onEntryModeChange={setEntryMode}
-                            />
-
-                            {error && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-sm"
-                                >
-                                    <AlertTriangle size={20} className="shrink-0" />
-                                    <span>{error}</span>
-                                </motion.div>
-                            )}
+                        {/* Dual Tile Mode Switcher */}
+                        <div className="flex items-center justify-center gap-3">
+                            <button
+                                onClick={() => setActiveUploadTab('csv')}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all shadow-lg cursor-pointer ${
+                                    activeUploadTab === 'csv'
+                                        ? 'bg-blue-600 text-white shadow-blue-500/25 border border-blue-400/40'
+                                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/10 hover:bg-white/10'
+                                }`}
+                            >
+                                <Layers size={16} />
+                                <span>📁 Screener Backtest (CSV / Excel)</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveUploadTab('copilot')}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all shadow-lg cursor-pointer ${
+                                    activeUploadTab === 'copilot'
+                                        ? 'bg-emerald-500 text-black shadow-emerald-500/25 font-extrabold border border-emerald-400'
+                                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/10 hover:bg-white/10'
+                                }`}
+                            >
+                                <Sparkles size={16} className={activeUploadTab === 'copilot' ? 'text-black' : 'text-emerald-400'} />
+                                <span>⚡ AI Chart Copilot (TradingView &amp; PNG)</span>
+                            </button>
                         </div>
+
+                        {/* Upload Card / Copilot Container */}
+                        {activeUploadTab === 'csv' ? (
+                            <div className="glass-card p-6 sm:p-10 shadow-2xl border border-white/10 rounded-3xl relative overflow-hidden">
+                                <UploadCard
+                                    onUpload={handleUpload}
+                                    isLoading={isLoading}
+                                    progress={progress}
+                                    entryMode={entryMode}
+                                    onEntryModeChange={setEntryMode}
+                                />
+
+                                {error && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-sm"
+                                    >
+                                        <AlertTriangle size={20} className="shrink-0" />
+                                        <span>{error}</span>
+                                    </motion.div>
+                                )}
+                            </div>
+                        ) : (
+                            <TradingViewCopilotCard />
+                        )}
 
                         {/* Previous Reports Section */}
                         {savedReports.length > 0 && (
