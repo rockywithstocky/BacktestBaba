@@ -512,20 +512,28 @@ export default function AIGlanceModal({
                     {data.technicals?.patterns?.length > 0 && (
                       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
                         <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-                          Detected Chart Patterns
+                          Detected Chart Patterns &amp; Setup Criteria
                         </span>
                         <div className="space-y-2">
-                          {data.technicals.patterns.map((pat, idx) => (
-                            <div key={idx} className="flex items-start gap-2 text-xs bg-black/40 p-2.5 rounded-xl border border-white/5">
-                              <span className={`font-bold mt-0.5 shrink-0 ${pat.type === 'bullish' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {pat.type === 'bullish' ? '▲' : '▼'}
-                              </span>
-                              <div>
-                                <span className="font-bold text-white">{pat.name}: </span>
-                                <span className="text-neutral-400">{pat.desc}</span>
+                          {data.technicals.patterns.map((pat, idx) => {
+                            const isMinervini = pat.name.includes('Minervini');
+                            const isVcp = pat.name.includes('VCP');
+                            return (
+                              <div key={idx} className={`flex items-start gap-2.5 text-xs p-2.5 rounded-xl border ${
+                                isMinervini ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/5 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]' :
+                                isVcp ? 'bg-gradient-to-r from-blue-500/10 to-cyan-500/5 border-blue-500/30' :
+                                'bg-black/40 border-white/5'
+                              }`}>
+                                <span className="font-bold mt-0.5 shrink-0 text-sm">
+                                  {isMinervini ? '👑' : isVcp ? '📐' : (pat.type === 'bullish' ? '▲' : '▼')}
+                                </span>
+                                <div>
+                                  <span className={`font-bold ${isMinervini ? 'text-amber-300' : isVcp ? 'text-blue-300' : 'text-white'}`}>{pat.name}: </span>
+                                  <span className="text-neutral-300">{pat.desc}</span>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}

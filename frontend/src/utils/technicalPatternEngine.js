@@ -350,3 +350,145 @@ export function analyzeTopNextDayPicks(trades = [], userConfig = {}) {
 
     return candidateRankings.sort((a, b) => b.technicalScore - a.technicalScore);
 }
+
+/**
+ * Fast, lightweight High Conviction Fresh Picks extractor (Strictly Backtest Data)
+ * Categorizes signals into 4 freshness tiers (0-3d, <=7d, <=14d, <=30d)
+ * Uses Bayesian Laplace smoothing for symbol track records to eliminate single-trade bias.
+ */
+export function analyzeHighConvictionFreshPicks(trades = [], options = {}) {
+    if (!Array.isArray(trades) || trades.length === 0) return [];
+
+    const { maxDays = 30, horizon = 'all', entryMode = 'next_close' } = options;
+    const now = new Date();
+
+    // 1. Single-pass symbol-level historical stats aggregation (O(N))
+    const symbolStats = {};
+    let totalWinsAll = 0;
+    let totalCountAll = 0;
+
+    trades.forEach(t => {
+        if (t.status !== 'Success' || !t.symbol) return;
+        const sym = t.symbol;
+        if (!symbolStats[sym]) {
+            symbolStats[sym] = { wins: 0, total: 0, sumReturn: 0 };
+        }
+        symbolStats[sym].total += 1;
+        totalCountAll += 1;
+        const ret = t.netReturnPct ?? t.return_30d ?? t.return_14d ?? t.return_7d ?? t.latest_price_return ?? 0;
+        if (ret > 0) {
+            symbolStats[sym].wins += 1;
+            totalWinsAll += 1;
+        }
+        symbolStats[sym].sumReturn += ret;
+    });
+
+    const baselineWinRate = totalCountAll > 0 ? (totalWinsAll / totalCountAll) * 100 : 50.0;
+
+    // 2. Filter for fresh signals (<= 30 days) and compute conviction
+    const validTrades = trades.filter(t => t.status === 'Success' && t.symbol && t.signal_date);
+
+    const scored = validTrades.map(trade => {
+        const sigDate = new Date(trade.signal_date);
+        const daysAgo = Math.max(0, Math.floor((now - sigDate) / (1000 * 60 * 60 * 24)));
+
+        // Skip older than maxDays
+        if (daysAgo > maxDays) return null;
+
+        // Freshness Tier
+        let freshnessTier = 'positional_30d';
+        let freshnessLabel = `${daysAgo}d ago`;
+        let freshnessBadge = '🏆 1-Month Trend';
+
+        if (daysAgo <= 3) {
+            freshnessTier = 'btst_3d';
+            freshnessLabel = daysAgo === 0 ? '⚡ TODAY' : `⚡ ${daysAgo}d ago`;
+            freshnessBadge = '⚡ Live / BTST';
+        } else if (daysAgo <= 7) {
+            freshnessTier = 'swing_7d';
+            freshnessBadge = '📈 1-Week Swing';
+        } else if (daysAgo <= 14) {
+            freshnessTier = 'momentum_14d';
+            freshnessBadge = '💎 2-Week Wave';
+        }
+
+        // Apply horizon filter if specified
+        if (horizon !== 'all' && freshnessTier !== horizon) {
+            return null;
+        }
+
+        // Symbol Historical Backtest Track Record with Bayesian Laplace Smoothing
+        const stats = symbolStats[trade.symbol] || { wins: 0, total: 0, sumReturn: 0 };
+        const rawWinRate = stats.total > 0 ? (stats.wins / stats.total) * 100 : baselineWinRate;
+        // Bayesian smoothing: (wins + 1) / (total + 2) * 100
+        const bayesianWinScore = stats.total > 0 ? ((stats.wins + 1) / (stats.total + 2)) * 100 : baselineWinRate;
+        const avgSymbolReturn = stats.total > 0 ? stats.sumReturn / stats.total : 0;
+
+        // Price Momentum & Reference
+        const entryPrice = trade.entry_price > 0 ? trade.entry_price : (trade.signal_close_price || 100);
+        const latestPrice = trade.latest_price > 0 ? trade.latest_price : entryPrice;
+        const liveReturn = trade.latest_price_return ?? (entryPrice > 0 ? ((latestPrice - entryPrice) / entryPrice) * 100 : 0);
+
+        // Execution Status
+        let executionStatus = '⚡ EXECUTED';
+        if (daysAgo <= 1 && (entryMode === 'next_open' || trade.entry_mode === 'next_open') && trade.entry_price <= 0) {
+            executionStatus = '⏳ PENDING NEXT OPEN';
+        } else if (daysAgo <= 1 && (entryMode === 'next_close' || trade.entry_mode === 'next_close') && trade.entry_price <= 0) {
+            executionStatus = '⏳ PENDING NEXT CLOSE';
+        }
+
+        // Conviction Score (0-100)
+        let score = 40.0; // Base
+
+        // 1. Symbol Historical Win Rate (up to 30 pts)
+        score += Math.min(30, (bayesianWinScore / 100) * 30);
+
+        // 2. Live Price Momentum (up to 20 pts)
+        if (liveReturn > 0) score += Math.min(20, 10 + (liveReturn * 1.5));
+        else if (liveReturn > -2.0) score += 5; // minimal pullback
+
+        // 3. Strategy Net Outcome / Horizon confirmation (up to 20 pts)
+        const simReturn = trade.netReturnPct ?? trade.return_14d ?? trade.return_7d ?? 0;
+        if (simReturn > 0) score += Math.min(20, 10 + (simReturn * 1.0));
+
+        const finalScore = Math.min(100, Math.max(10, Math.round(score)));
+
+        // Stars Rating (3, 4, 5)
+        let stars = 3;
+        if (finalScore >= 80) stars = 5;
+        else if (finalScore >= 65) stars = 4;
+
+        // Evidence Summary Bullets
+        const reasons = [
+            `Historical Backtest: ${Math.round(rawWinRate)}% Win Rate (${stats.wins}/${stats.total} past CSV signals)`,
+            `Live Status: ${liveReturn >= 0 ? '+' : ''}${liveReturn.toFixed(1)}% since entry (${executionStatus})`,
+        ];
+        if (trade.simulatedExitReason) {
+            reasons.push(`Strategy Path: ${trade.simulatedExitReason} (${(simReturn >= 0 ? '+' : '') + simReturn.toFixed(1)}%)`);
+        }
+
+        return {
+            ...trade,
+            daysAgo,
+            freshnessTier,
+            freshnessLabel,
+            freshnessBadge,
+            executionStatus,
+            convictionScore: finalScore,
+            stars,
+            bayesianWinScore: Math.round(bayesianWinScore),
+            rawWinRate: Math.round(rawWinRate),
+            symbolTotalTrades: stats.total,
+            symbolWins: stats.wins,
+            avgSymbolReturn: Math.round(avgSymbolReturn * 10) / 10,
+            liveReturn: Math.round(liveReturn * 10) / 10,
+            latestPrice,
+            entryPrice,
+            reasons,
+        };
+    }).filter(Boolean);
+
+    // Sort by Conviction Score descending, then by freshness (most recent first)
+    return scored.sort((a, b) => b.convictionScore - a.convictionScore || a.daysAgo - b.daysAgo);
+}
+

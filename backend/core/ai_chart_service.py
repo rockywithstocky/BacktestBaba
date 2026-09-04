@@ -182,19 +182,23 @@ def _resolve_identified_asset(symbol: str, exchange: Optional[str], raw_text: st
 def detect_technical_patterns(df: pd.DataFrame) -> List[Dict[str, str]]:
     """
     Identifies high-probability chart patterns, moving average crossovers,
-    and breakout structures from recent OHLCV data.
+    Mark Minervini SEPA® Stage 2 Trend Template, and VCP Volatility Contraction structures.
     """
     patterns = []
-    if df.empty or len(df) < 30:
+    if df.empty or len(df) < 15:
         return patterns
 
     close = df['Close'].astype(float)
     high = df['High'].astype(float)
     low = df['Low'].astype(float)
+    volume = df['Volume'].astype(float) if 'Volume' in df.columns else pd.Series(dtype=float)
     
     current_price = float(close.iloc[-1])
-    sma20 = float(close.rolling(20).mean().iloc[-1])
-    sma50 = float(close.rolling(50).mean().iloc[-1])
+    sma20 = float(close.rolling(20).mean().iloc[-1]) if len(close) >= 20 else current_price
+    sma50 = float(close.rolling(50).mean().iloc[-1]) if len(close) >= 50 else sma20
+    sma150 = float(close.rolling(150).mean().iloc[-1]) if len(close) >= 150 else sma50
+    sma200 = float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else sma150
+    
     prev_sma20 = float(close.rolling(20).mean().iloc[-2]) if len(close) > 20 else sma20
     prev_sma50 = float(close.rolling(50).mean().iloc[-2]) if len(close) > 50 else sma50
 
@@ -209,15 +213,66 @@ def detect_technical_patterns(df: pd.DataFrame) -> List[Dict[str, str]]:
     recent_20_low = float(low.iloc[-21:-1].min()) if len(low) > 21 else float(low.min())
 
     if current_price > recent_20_high:
-        patterns.append({"name": "20-Day High Breakout", "type": "bullish", "desc": f"Price broke above 20-day high with expanding momentum"})
+        patterns.append({"name": "20-Day High Breakout", "type": "bullish", "desc": "Price broke above 20-day high with expanding momentum"})
     elif current_price < recent_20_low:
-        patterns.append({"name": "20-Day Breakdown", "type": "bearish", "desc": f"Price fell below 20-day low"})
+        patterns.append({"name": "20-Day Breakdown", "type": "bearish", "desc": "Price fell below 20-day low"})
 
     # 3. Pullback into Moving Average Support
     if abs(current_price - sma20) / current_price < 0.015 and current_price >= sma20:
         patterns.append({"name": "20-SMA Dynamic Support Test", "type": "bullish", "desc": "Testing 20-SMA support on pullback"})
 
-    # 4. Consecutive Higher Highs / Lows (Uptrend Structure)
+    # 4. Mark Minervini SEPA® Stage 2 Trend Template Audit
+    minervini_points = 0
+    if current_price > sma150 and current_price > sma200: minervini_points += 1
+    if sma150 >= sma200: minervini_points += 1
+    if len(close) >= 220 and sma200 > float(close.rolling(200).mean().iloc[-21]): minervini_points += 1
+    elif len(close) < 220 and current_price > sma200: minervini_points += 1
+    if sma50 > sma150 and sma50 > sma200: minervini_points += 1
+    if current_price >= sma50: minervini_points += 1
+    
+    w52_len = min(252, len(df))
+    w52_high = float(high.iloc[-w52_len:].max()) if len(high) >= 10 else current_price
+    w52_low = float(low.iloc[-w52_len:].min()) if len(low) >= 10 else current_price
+    if w52_low > 0 and (current_price - w52_low) / w52_low >= 0.25: minervini_points += 1
+    if w52_high > 0 and (w52_high - current_price) / w52_high <= 0.20: minervini_points += 1
+    if sma20 >= sma50: minervini_points += 1
+
+    if minervini_points >= 6:
+        patterns.append({
+            "name": "Minervini Stage 2 Leader",
+            "type": "bullish",
+            "desc": f"Meets {minervini_points}/8 Minervini SEPA® Stage 2 Trend Template criteria (Price > 50/150/200 SMAs)"
+        })
+
+    # 5. VCP (Volatility Contraction Pattern) & Volume Dry-Up (VDU)
+    if len(df) >= 30:
+        recent_30_high = float(high.iloc[-30:-15].max())
+        recent_30_low = float(low.iloc[-30:-15].min())
+        t1_depth = ((recent_30_high - recent_30_low) / recent_30_high) * 100 if recent_30_high else 0
+
+        recent_15_high = float(high.iloc[-15:-4].max())
+        recent_15_low = float(low.iloc[-15:-4].min())
+        t2_depth = ((recent_15_high - recent_15_low) / recent_15_high) * 100 if recent_15_high else 0
+
+        recent_4_high = float(high.iloc[-4:].max())
+        recent_4_low = float(low.iloc[-4:].min())
+        t3_depth = ((recent_4_high - recent_4_low) / recent_4_high) * 100 if recent_4_high else 0
+
+        if t1_depth > t2_depth and (t2_depth > t3_depth or t3_depth <= 6.0) and t1_depth >= 7.0:
+            vdu_desc = ""
+            if not volume.empty and len(volume) >= 30:
+                avg_vol = float(volume.rolling(30).mean().iloc[-1])
+                recent_vol = float(volume.iloc[-4:].mean())
+                if avg_vol > 0 and recent_vol < avg_vol:
+                    vdu_pct = round(((avg_vol - recent_vol) / avg_vol) * 100)
+                    vdu_desc = f" with {vdu_pct}% Volume Dry-Up (VDU)"
+            patterns.append({
+                "name": "VCP Contraction Breakout",
+                "type": "bullish",
+                "desc": f"Volatility Contraction ({t1_depth:.1f}% → {t2_depth:.1f}% → {t3_depth:.1f}%){vdu_desc} at pivot"
+            })
+
+    # 6. Consecutive Higher Highs / Lows (Uptrend Structure)
     if len(close) >= 5:
         h5 = high.iloc[-5:].values
         l5 = low.iloc[-5:].values

@@ -1,16 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft, Search, Zap, Target, Shield, Star, TrendingUp, CheckCircle,
     BarChart3, Sparkles, ExternalLink, RefreshCw, Layers, ArrowUpRight, Flame,
     Clock, Gauge, Scale, LayoutGrid, Table, Download, PieChart, Briefcase,
-    ChevronLeft, ChevronRight, X, Info, Wallet, LineChart, Rocket
+    ChevronLeft, ChevronRight, X, Info, Wallet, LineChart, Rocket, Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { analyzeTopNextDayPicks, detectOptimalHorizon } from '../utils/technicalPatternEngine';
+import { analyzeTopNextDayPicks, detectOptimalHorizon, analyzeHighConvictionFreshPicks } from '../utils/technicalPatternEngine';
 import { buildModelPortfolio, generateBrokerBasketCSV } from '../utils/modelPortfolioEngine';
 import { listReports, getReport } from '../services/db';
 import PreDeployChecklistModal from '../components/PreDeployChecklistModal';
+import AIGlanceModal from '../components/copilot/AIGlanceModal';
 import { deployPortfolio } from '../services/trackerApi';
 
 const HORIZON_OPTIONS = [
@@ -20,8 +21,20 @@ const HORIZON_OPTIONS = [
     { id: 'positional_30_90d', label: '💎 Positional Trend', desc: '30 – 90 Days compounding' }
 ];
 
+const FRESHNESS_TABS = [
+    { id: 'all', label: '🎯 All High Conviction (≤30d)', badge: '≤30d', desc: 'All high-probability fresh signals' },
+    { id: 'btst_3d', label: '⚡ Today / BTST (0–3d)', badge: '0-3d', desc: 'Next-day open & live execution ready' },
+    { id: 'swing_7d', label: '📈 1-Week Swing (≤7d)', badge: '≤7d', desc: 'Active 7-day breakout momentum' },
+    { id: 'momentum_14d', label: '💎 2-Week Momentum (≤14d)', badge: '≤14d', desc: 'Confirmed 2-week wave runners' },
+    { id: 'positional_30d', label: '🏆 1-Month Trend (≤30d)', badge: '≤30d', desc: 'Multi-week compounding setups' }
+];
+
 const LiveMarketScanner = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialMainTab = searchParams.get('tab') || 'high_conviction';
+    const initialFreshness = searchParams.get('freshness') || 'all';
+
     const [selectedReportId, setSelectedReportId] = useState(null);
     const [reports, setReports] = useState([]);
     const [activeReport, setActiveReport] = useState(() => {
@@ -30,11 +43,16 @@ const LiveMarketScanner = () => {
     });
 
     // Active View & Horizon
-    const [activeMainTab, setActiveMainTab] = useState('screener'); // 'screener' | 'portfolio'
+    const [activeMainTab, setActiveMainTab] = useState(initialMainTab); // 'high_conviction' | 'screener' | 'portfolio'
+    const [freshnessHorizon, setFreshnessHorizon] = useState(initialFreshness);
     const [horizonStyle, setHorizonStyle] = useState('auto');
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
     const [filterCategory, setFilterCategory] = useState('all'); // 'all' | '5star' | 'asymmetric' | 'high_expectancy'
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Glance Modal State
+    const [isGlanceOpen, setIsGlanceOpen] = useState(false);
+    const [glanceTradeIndex, setGlanceTradeIndex] = useState(0);
 
     // Pagination for Screener
     const [currentPage, setCurrentPage] = useState(1);
@@ -93,6 +111,32 @@ const LiveMarketScanner = () => {
         }
         return analyzeTopNextDayPicks(activeReport.trades, { horizonStyle });
     }, [activeReport, horizonStyle]);
+
+    // High Conviction Fresh Signals (<30d) with Multi-Horizon Sub-Buckets
+    const highConvictionTrades = useMemo(() => {
+        if (!activeReport || !Array.isArray(activeReport.trades)) return [];
+        return analyzeHighConvictionFreshPicks(activeReport.trades, {
+            maxDays: 30,
+            horizon: freshnessHorizon,
+            entryMode: activeReport.entry_mode || 'next_close'
+        });
+    }, [activeReport, freshnessHorizon]);
+
+    const filteredHighConvictionTrades = useMemo(() => {
+        if (!searchQuery.trim()) return highConvictionTrades;
+        const q = searchQuery.toLowerCase();
+        return highConvictionTrades.filter(t =>
+            (t.symbol || '').toLowerCase().includes(q) ||
+            (t.sector || '').toLowerCase().includes(q)
+        );
+    }, [highConvictionTrades, searchQuery]);
+
+    const handleOpenGlanceForTrade = (trade) => {
+        if (!activeReport?.trades) return;
+        const idx = activeReport.trades.findIndex(t => t.symbol === trade.symbol && t.signal_date === trade.signal_date);
+        setGlanceTradeIndex(idx >= 0 ? idx : 0);
+        setIsGlanceOpen(true);
+    };
 
     // Filter candidates
     const filteredPicks = useMemo(() => {
@@ -174,18 +218,18 @@ const LiveMarketScanner = () => {
                             <ArrowLeft size={18} className="mr-1.5" /> Back to Hub
                         </Link>
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400">
+                            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400">
                                 <Flame size={26} />
                             </div>
                             <div>
                                 <h1 className="text-3xl font-display font-bold text-white tracking-tight flex items-center gap-2">
                                     Market Scanner & Model Portfolio
-                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                                         Institutional Quant Engine
                                     </span>
                                 </h1>
                                 <p className="text-gray-400 text-sm">
-                                    Multi-horizon technical ranking & automated portfolio position sizing
+                                    Multi-horizon high-conviction screening & automated portfolio position sizing
                                 </p>
                             </div>
                         </div>
@@ -210,37 +254,19 @@ const LiveMarketScanner = () => {
                     )}
                 </div>
 
-                {/* Horizon Strategy Bar */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
-                    {HORIZON_OPTIONS.map(opt => {
-                        const isSelected = horizonStyle === opt.id;
-                        return (
-                            <button
-                                key={opt.id}
-                                onClick={() => {
-                                    setHorizonStyle(opt.id);
-                                    setCurrentPage(1);
-                                }}
-                                className={`p-3 rounded-2xl border text-left transition-all ${
-                                    isSelected
-                                        ? 'bg-blue-600/20 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.25)]'
-                                        : 'bg-gray-900/60 border-white/10 hover:border-white/20 hover:bg-gray-900/80'
-                                }`}
-                            >
-                                <div className={`text-xs font-bold ${isSelected ? 'text-blue-300' : 'text-white'}`}>
-                                    {opt.label}
-                                </div>
-                                <div className="text-[11px] text-gray-400 mt-0.5 truncate">
-                                    {opt.id === 'auto' ? `Auto: ${optimalHorizonInfo.bestHorizon}` : opt.desc}
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
-
                 {/* Main Navigation Tabs */}
                 <div className="flex items-center justify-between border-b border-white/10 mb-6 pb-2">
                     <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setActiveMainTab('high_conviction')}
+                            className={`flex items-center gap-2 pb-2 text-sm font-bold border-b-2 transition-colors ${
+                                activeMainTab === 'high_conviction'
+                                    ? 'border-amber-500 text-amber-400'
+                                    : 'border-transparent text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            <Award size={16} /> 🎯 High Conviction (&lt;30d) ({highConvictionTrades.length})
+                        </button>
                         <button
                             onClick={() => setActiveMainTab('screener')}
                             className={`flex items-center gap-2 pb-2 text-sm font-bold border-b-2 transition-colors ${
@@ -265,7 +291,6 @@ const LiveMarketScanner = () => {
 
                     {activeMainTab === 'screener' && (
                         <div className="flex items-center gap-2">
-                            {/* Fast View Switcher in Tab Bar */}
                             <div className="p-1 rounded-xl bg-gray-900 border border-white/10 flex items-center gap-1">
                                 <button
                                     onClick={() => {
@@ -295,6 +320,178 @@ const LiveMarketScanner = () => {
                         </div>
                     )}
                 </div>
+
+                {/* -------------------- TAB 0: HIGH CONVICTION FRESH SIGNALS (<30D) -------------------- */}
+                {activeMainTab === 'high_conviction' && (
+                    <div className="space-y-6">
+                        {/* Freshness Horizon Sub-Tabs */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {FRESHNESS_TABS.map(tab => {
+                                const isSelected = freshnessHorizon === tab.id;
+                                const count = highConvictionTrades.filter(t => tab.id === 'all' || t.freshnessTier === tab.id).length;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setFreshnessHorizon(tab.id)}
+                                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                                            isSelected
+                                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-gray-950 shadow-[0_0_20px_rgba(245,158,11,0.35)]'
+                                                : 'bg-gray-900/80 border border-white/10 text-gray-400 hover:text-white hover:border-white/20'
+                                        }`}
+                                    >
+                                        <span>{tab.label}</span>
+                                        <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
+                                            isSelected ? 'bg-black/30 text-gray-950 font-extrabold' : 'bg-white/5 text-gray-400'
+                                        }`}>
+                                            {count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Search & Info Banner */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/20">
+                            <div className="flex items-center gap-2.5">
+                                <Sparkles size={18} className="text-amber-400 shrink-0" />
+                                <div className="text-xs text-gray-300">
+                                    <span className="font-bold text-white">Empirical High-Conviction Filter:</span> Ranked by Bayesian Laplace backtest win rate, mark-to-market momentum, and horizon consistency.
+                                </div>
+                            </div>
+                            <div className="relative w-full sm:w-64">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                                <input
+                                    type="text"
+                                    placeholder="Search symbol or sector..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-gray-900 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Grid of High Conviction Cards */}
+                        {filteredHighConvictionTrades.length === 0 ? (
+                            <div className="text-center py-16 p-8 rounded-3xl bg-gray-900/40 border border-white/10">
+                                <Award size={36} className="mx-auto text-gray-600 mb-3" />
+                                <h3 className="text-lg font-bold text-white mb-1">No Fresh Signals In This Horizon Window</h3>
+                                <p className="text-xs text-gray-400 max-w-md mx-auto">
+                                    Try switching to another freshness tab (e.g. 🎯 All High Conviction ≤30d) or upload a fresh dataset.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {filteredHighConvictionTrades.map((trade, idx) => (
+                                    <div
+                                        key={`${trade.symbol}-${trade.signal_date}-${idx}`}
+                                        className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-gray-900/90 via-gray-900/60 to-gray-950/80 p-5 backdrop-blur-xl hover:border-amber-500/40 hover:shadow-[0_0_25px_rgba(245,158,11,0.15)] transition-all flex flex-col justify-between"
+                                    >
+                                        <div>
+                                            {/* Header: Rank + Freshness + Score */}
+                                            <div className="flex items-center justify-between gap-2 mb-3">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase bg-amber-500 text-gray-950">
+                                                        #{idx + 1}
+                                                    </span>
+                                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/5 border border-white/10 text-amber-300">
+                                                        {trade.freshnessLabel}
+                                                    </span>
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                                                        trade.executionStatus.includes('PENDING')
+                                                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                    }`}>
+                                                        {trade.executionStatus}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-1 text-amber-400 text-xs font-bold font-mono">
+                                                    <Zap size={13} /> {trade.convictionScore}/100
+                                                </div>
+                                            </div>
+
+                                            {/* Symbol & Price Overview */}
+                                            <div className="flex justify-between items-baseline mb-3">
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-white tracking-tight">{trade.symbol}</h3>
+                                                    <span className="text-[11px] text-gray-400">{trade.sector || 'General Market'}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-base font-bold font-mono text-white">
+                                                        ₹{trade.latestPrice.toLocaleString('en-IN')}
+                                                    </div>
+                                                    <div className={`text-xs font-bold font-mono ${trade.liveReturn >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                        {trade.liveReturn >= 0 ? '+' : ''}{trade.liveReturn.toFixed(1)}% live
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Strategy Metrics Grid */}
+                                            <div className="grid grid-cols-3 gap-2 p-2.5 rounded-2xl bg-black/40 border border-white/5 mb-3 text-center">
+                                                <div>
+                                                    <div className="text-[10px] text-gray-500">Entry Price</div>
+                                                    <div className="text-xs font-bold font-mono text-gray-200 mt-0.5">
+                                                        ₹{trade.entryPrice.toLocaleString('en-IN')}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] text-gray-500">CSV Win Rate</div>
+                                                    <div className="text-xs font-bold font-mono text-emerald-400 mt-0.5">
+                                                        {trade.rawWinRate}% ({trade.symbolWins}/{trade.symbolTotalTrades})
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] text-gray-500">Signal Date</div>
+                                                    <div className="text-xs font-bold font-mono text-gray-300 mt-0.5">
+                                                        {trade.signal_date}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Evidence Bullets */}
+                                            <div className="space-y-1.5 mb-4">
+                                                {trade.reasons.map((r, i) => (
+                                                    <div key={i} className="flex items-start gap-1.5 text-[11px] text-gray-300">
+                                                        <CheckCircle size={12} className="text-emerald-400 mt-0.5 shrink-0" />
+                                                        <span>{r}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Action Bar */}
+                                        <div className="pt-3 border-t border-white/10 flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleOpenGlanceForTrade(trade)}
+                                                className="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-gray-950 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                                            >
+                                                <Zap size={13} className="fill-current" /> ⚡ Glance
+                                            </button>
+                                            <a
+                                                href={getTradingViewUrl(trade.symbol)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-colors"
+                                                title="Open in TradingView"
+                                            >
+                                                <ExternalLink size={14} />
+                                            </a>
+                                            <a
+                                                href={getScreenerUrl(trade.symbol)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-colors"
+                                                title="Open in Screener.in"
+                                            >
+                                                <BarChart3 size={14} />
+                                            </a>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* -------------------- TAB 1: SCREENER & TOP SETUPS -------------------- */}
                 {activeMainTab === 'screener' && (
@@ -1088,6 +1285,16 @@ const LiveMarketScanner = () => {
                 horizonStyle={horizonStyle}
                 optimalHorizonDays={optimalHorizonInfo.bestHorizonDays || 14}
             />
+
+            {/* AI Glance Modal Workstation */}
+            {isGlanceOpen && activeReport?.trades && (
+                <AIGlanceModal
+                    isOpen={isGlanceOpen}
+                    onClose={() => setIsGlanceOpen(false)}
+                    trades={activeReport.trades}
+                    initialIndex={glanceTradeIndex}
+                />
+            )}
         </div>
     );
 };

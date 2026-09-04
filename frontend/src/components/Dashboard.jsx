@@ -19,6 +19,7 @@ import EquityCurveChart from './EquityCurveChart';
 import AIGlanceModal from './copilot/AIGlanceModal';
 import { getFreshStocks } from '../analyzer/analyzerUtils';
 import { simulateStrategy } from '../utils/strategySimulator';
+import { analyzeHighConvictionFreshPicks } from '../utils/technicalPatternEngine';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
 
@@ -193,6 +194,16 @@ const Dashboard = ({ report, onBack }) => {
         return new Set(freshStocks.map(s => s.symbol));
     }, [freshStocks]);
 
+    const highConvictionFreshTrades = useMemo(() => {
+        return analyzeHighConvictionFreshPicks(successfulTrades, { maxDays: 30, horizon: 'all' });
+    }, [successfulTrades]);
+
+    const highConvictionKeySet = useMemo(() => {
+        const s = new Set();
+        highConvictionFreshTrades.forEach(t => s.add(`${t.symbol}_${t.signal_date}`));
+        return s;
+    }, [highConvictionFreshTrades]);
+
     // Map simulated trade metadata onto trade list
     const enrichedTrades = useMemo(() => {
         const simMap = new Map();
@@ -211,10 +222,11 @@ const Dashboard = ({ report, onBack }) => {
                 netReturnPct: sim.netReturnPct,
                 netPnl: sim.netPnl,
                 tradeCharges: sim.tradeCharges,
-                isFresh: freshSymbolSet.has(t.symbol)
+                isFresh: freshSymbolSet.has(t.symbol),
+                isHighConviction: highConvictionKeySet.has(key)
             };
         });
-    }, [successfulTrades, simulatedTrades, freshSymbolSet]);
+    }, [successfulTrades, simulatedTrades, freshSymbolSet, highConvictionKeySet]);
 
     const yearStats = useMemo(() => {
         if (!Array.isArray(enrichedTrades)) return [];
@@ -268,6 +280,8 @@ const Dashboard = ({ report, onBack }) => {
             list = list.filter(t => (t.netPnl ?? (t.return_30d ?? 0)) > 0);
         } else if (tradeFilter === 'losers') {
             list = list.filter(t => (t.netPnl ?? (t.return_30d ?? 0)) < 0);
+        } else if (tradeFilter === 'high_conviction') {
+            list = list.filter(t => t.isHighConviction);
         } else if (tradeFilter === 'target_hit') {
             list = list.filter(t => t.simulatedExitReason === 'Target Hit');
         } else if (tradeFilter === 'sl_hit') {
@@ -545,6 +559,13 @@ const Dashboard = ({ report, onBack }) => {
                             placeholder="Capital"
                         />
                     </div>
+                    <Link
+                        to="/dashboard/screener?tab=high_conviction&freshness=all"
+                        title="Open High Conviction Fresh Stocks & Model Portfolio"
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 rounded-xl transition-all text-sm font-bold text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                    >
+                        <Zap size={15} className="fill-current text-amber-400" /> High Conviction (&lt;30d) ({highConvictionFreshTrades.length}) ↗
+                    </Link>
                     <button
                         className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-sm font-semibold text-gray-200"
                         onClick={() => {
@@ -1049,6 +1070,7 @@ const Dashboard = ({ report, onBack }) => {
                             <div className="flex items-center gap-1.5 flex-wrap">
                                 {[
                                     { id: 'all', label: `All (${enrichedTrades.length})` },
+                                    { id: 'high_conviction', label: `🎯 High Conviction (<30d) (${highConvictionFreshTrades.length})` },
                                     { id: 'winners', label: `Winners (${quantMetrics.winnersCount})` },
                                     { id: 'losers', label: `Losers (${quantMetrics.losersCount})` },
                                     { id: 'target_hit', label: `Target Hit (${quantMetrics.targetHits})` },

@@ -476,10 +476,10 @@ async def _handle_backtest(
         try:
             from backend.core.data_provider import DataProvider
             cached_latest_ts = cached.get("latest_price_ts")
-            if progress_callback:
-                await progress_callback(0, 1, "Refreshing latest prices...")
             if cached_latest_ts is None or time.time() - cached_latest_ts > 300:
                 logger.info("L1 cache stale — refreshing latest prices")
+                if progress_callback:
+                    await progress_callback(0, 1, "Refreshing latest prices...")
                 all_symbols = list(set(t.get("symbol") for t in cached.get("trades", []) if t.get("status") == "Success"))
                 if all_symbols:
                     fresh_prices = await asyncio.to_thread(DataProvider.get_latest_prices_batch, all_symbols)
@@ -492,15 +492,6 @@ async def _handle_backtest(
                                 t["latest_price_date"] = date_str
                                 if t.get("entry_price") and t["entry_price"] > 0:
                                     t["latest_price_return"] = round(((price - t["entry_price"]) / t["entry_price"]) * 100, 2)
-                                    logger.debug(
-                                        "[DIAG L1] latest_price_return for %s: price=%s, entry_price=%s, return=%s",
-                                        t.get("symbol"), price, t["entry_price"], t["latest_price_return"]
-                                    )
-                                else:
-                                    logger.debug(
-                                        "[DIAG L1] latest_price_return SKIPPED for %s: entry_price=%s (type=%s, truthy=%s)",
-                                        t.get("symbol"), t.get("entry_price"), type(t.get("entry_price")).__name__, bool(t.get("entry_price"))
-                                    )
                                 latest_dates.append(date_str)
                     if latest_dates:
                         cached["latest_price_date"] = max(latest_dates)

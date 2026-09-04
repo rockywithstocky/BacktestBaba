@@ -86,8 +86,8 @@ const UploadCard = ({ onUpload, isLoading, progress, entryMode, onEntryModeChang
         }
     };
 
-    const isIndeterminate = progress?.indeterminate === true;
-    const progressPercent = !isIndeterminate && progress ? Math.round((progress.current / progress.total) * 100) : 0;
+    const isIndeterminate = progress?.indeterminate === true || (progress?.total === 1 && progress?.current === 0) || (progress?.total <= 0);
+    const progressPercent = !isIndeterminate && progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
 
     const selectedMode = ENTRY_MODES.find(m => m.id === entryMode) || ENTRY_MODES[0];
 
